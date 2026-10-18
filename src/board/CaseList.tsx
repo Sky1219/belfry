@@ -10,7 +10,7 @@ import { useImportCase } from "./useImportCase";
 const fmtDate = (ms: number) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "case";
 
-export function CaseList(props: { navigate: (r: Route) => void }) {
+export function CaseList(props: { navigate: (r: Route) => void; onSettings?: () => void }) {
   const store = useStore();
   const dialogs = useDialogs();
   const cases = useStoreQuery((s) => s.listCases(), "*", [] as Case[]);
@@ -61,6 +61,11 @@ export function CaseList(props: { navigate: (r: Route) => void }) {
       <header className="case-list-header">
         <h1 className="wordmark">BELFRY</h1>
         <span className="dim">Case files</span>
+        {props.onSettings && (
+          <HudButton small style={{ marginLeft: "auto" }} onClick={props.onSettings} data-testid="open-settings">
+            ⚙ Settings
+          </HudButton>
+        )}
       </header>
 
       <Panel title="Open a new case">
