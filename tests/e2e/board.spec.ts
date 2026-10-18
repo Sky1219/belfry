@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { collectErrors } from "./helpers";
+import { collectErrors, skipDemo } from "./helpers";
 
 async function addNote(page: Page, title: string) {
   await page.getByTestId("add-note").click();
@@ -13,16 +13,19 @@ const transformOf = (page: Page, title: string) =>
 
 test("case board: notes, links, dragging, search, export/import", async ({ page }) => {
   const errors = collectErrors(page);
+  await skipDemo(page);
   await page.goto("./");
 
-  // create a case and open it
+  // creating a case opens its board
   await page.getByTestId("new-case-title").fill("Test Case");
   await page.getByTestId("create-case").click();
-  await page.getByTestId("case-row").filter({ hasText: "Test Case" }).getByTestId("open-case").click();
   await expect(page.getByTestId("board")).toBeVisible();
+  await expect(page.getByTestId("board-empty")).toBeVisible();
 
   await addNote(page, "Muddy boot print");
   await addNote(page, "Torn receipt");
+  await expect(page.getByTestId("board-empty")).toHaveCount(0);
+  await expect(page.getByTestId("exhibit-tag").first()).toHaveText("EXH·001");
 
   // connect the first note to the second
   const a = page.locator(".react-flow__node", { hasText: "Muddy boot print" });
@@ -33,25 +36,26 @@ test("case board: notes, links, dragging, search, export/import", async ({ page 
   // drag the second note somewhere new
   const before = await transformOf(page, "Torn receipt");
   const box = (await b.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + 12);
+  await page.mouse.move(box.x + box.width / 2, box.y + 40);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2 + 180, box.y + 140, { steps: 8 });
+  await page.mouse.move(box.x + box.width / 2 + 180, box.y + 170, { steps: 8 });
   await page.mouse.up();
   const after = await transformOf(page, "Torn receipt");
   expect(after).not.toBe(before);
 
   // everything persists across a reload
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(500);
   await page.reload();
   await expect(page.locator(".react-flow__node", { hasText: "Muddy boot print" })).toBeVisible();
   await expect(page.locator(".react-flow__node", { hasText: "Torn receipt" })).toBeVisible();
   await expect(page.locator(".react-flow__edge")).toHaveCount(1);
   expect(await transformOf(page, "Torn receipt")).toBe(after);
 
-  // sidebar search
+  // sidebar search, with the filtered count
   await page.getByTestId("evidence-search").fill("receipt");
   await expect(page.getByTestId("sidebar-item")).toHaveCount(1);
   await expect(page.getByTestId("sidebar-item")).toHaveText(/Torn receipt/);
+  await expect(page.getByTestId("evidence-count")).toHaveText(/1 of 2/);
   await page.getByTestId("evidence-search").fill("");
 
   // export, delete, import
@@ -71,5 +75,81 @@ test("case board: notes, links, dragging, search, export/import", async ({ page 
   await expect(page.locator(".react-flow__node")).toHaveCount(2);
   await expect(page.locator(".react-flow__edge")).toHaveCount(1);
 
+  expect(errors()).toEqual([]);
+});
+
+test("removing evidence and links is undoable; keyboard moves are saved", async ({ page }) => {
+  const errors = collectErrors(page);
+  await skipDemo(page);
+  await page.goto("./");
+  await page.getByTestId("new-case-title").fill("Undo Case");
+  await page.getByTestId("create-case").click();
+  await addNote(page, "Ledger page");
+  await addNote(page, "Ink blot");
+
+  // link from the card menu (no dragging), then remove it from the link dialog and undo
+  await page.locator(".react-flow__node", { hasText: "Ledger page" }).getByTestId("card-menu").click();
+  await page.getByTestId("menu-link").click();
+  await page.getByTestId("link-target").selectOption({ label: "EXH·002 Ink blot" });
+  await page.getByTestId("save-link").click();
+  await expect(page.locator(".react-flow__edge")).toHaveCount(1);
+  await page.locator(".react-flow__edge").dblclick({ force: true });
+  await page.getByTestId("remove-link").click();
+  await expect(page.locator(".react-flow__edge")).toHaveCount(0);
+  await page.getByTestId("toast-action").click();
+  await expect(page.locator(".react-flow__edge")).toHaveCount(1);
+
+  // the card menu answers Escape and returns focus to its button
+  const menuBtn = page.locator(".react-flow__node", { hasText: "Ink blot" }).getByTestId("card-menu");
+  await menuBtn.click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(menuBtn).toBeFocused();
+
+  // remove a card (the dialog lands on Cancel), then undo
+  await menuBtn.click();
+  await page.getByTestId("menu-delete").click();
+  await expect(page.getByTestId("confirm-no")).toBeFocused();
+  await page.getByTestId("confirm-yes").click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(1);
+  await expect(page.locator(".react-flow__edge")).toHaveCount(0);
+  await page.getByTestId("toast-action").click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(2);
+  await expect(page.locator(".react-flow__edge")).toHaveCount(1);
+
+  // move a card with the keyboard; it stays moved after a reload
+  const node = page.locator(".react-flow__node", { hasText: "Ledger page" });
+  await node.focus();
+  await page.keyboard.press("Enter");
+  for (let i = 0; i < 4; i++) await page.keyboard.press("ArrowDown");
+  const moved = await transformOf(page, "Ledger page");
+  await page.waitForTimeout(600);
+  await page.reload();
+  await expect(node).toBeVisible();
+  expect(await transformOf(page, "Ledger page")).toBe(moved);
+
+  // Escape closes Settings
+  await page.getByTestId("open-settings").click();
+  await expect(page.getByTestId("settings")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("settings")).toHaveCount(0);
+
+  expect(errors()).toEqual([]);
+});
+
+test("first visit opens the staged demo case", async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto("./");
+  await expect(page.getByTestId("board")).toBeVisible();
+  await expect(page.locator(".case-name")).toHaveText("The Silent Bell");
+  await expect(page.locator(".react-flow__node")).toHaveCount(5);
+  await expect(page.locator(".react-flow__edge")).toHaveCount(3);
+
+  // a returning visit goes to the case list, where the demo can be reopened
+  await page.goto("./");
+  await expect(page.getByTestId("case-row")).toHaveCount(1);
+  await page.getByTestId("open-demo").click();
+  await expect(page.locator(".case-name")).toHaveText("The Silent Bell");
   expect(errors()).toEqual([]);
 });

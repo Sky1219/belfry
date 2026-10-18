@@ -1,60 +1,151 @@
 import {
   Background,
   BackgroundVariant,
-  Controls,
   MarkerType,
+  Panel as FlowPanel,
   ReactFlow,
   ReactFlowProvider,
   applyNodeChanges,
   useReactFlow,
+  useViewport,
   type Edge,
+  type EdgeChange,
   type NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Route } from "../app/router";
-import { useStore, useStoreQuery } from "../app/storeContext";
-import type { Case, Evidence, Link } from "../store/schema";
-import { HudButton } from "../ui/components";
+import { downloadBytes, useStore, useStoreQuery } from "../app/storeContext";
+import { exportCase } from "../store/exportImport";
+import type { Case, Evidence, Link, Position } from "../store/schema";
+import type { DeleteReceipt } from "../store/store";
+import { DecoCorners, HudButton, prefersReducedMotion } from "../ui/components";
 import { useDialogs } from "../ui/dialogs";
-import { EvidenceCard, type CardMenuItem, type CardNode } from "./EvidenceCard";
+import { Icon, type IconName } from "../ui/icons";
+import { modalOpen } from "../ui/Modal";
+import { useToast } from "../ui/toasts";
+import { addEvidenceFiles, EVIDENCE_FILE_ACCEPT } from "./addFiles";
+import { EvidenceCard, exhibitTag, type CardMenuItem, type CardNode } from "./EvidenceCard";
 import { mergeNodes } from "./nodes";
 import { nextPosition } from "./placement";
 import { Sidebar } from "./Sidebar";
 
 const nodeTypes = { evidence: EvidenceCard };
 
+/** A tool the board can launch on the live camera (or the demo feed). */
+export interface BoardTool {
+  id: string;
+  name: string;
+  blurb?: string;
+  open(): void;
+}
+
 export interface BoardExtensions {
   /** Extra card-menu items for a piece of evidence (e.g. "Send to → tool"). */
   cardMenu?: (e: Evidence) => CardMenuItem[];
-  /** Extra toolbar content (e.g. "Open tool"). */
-  toolbar?: ReactNode;
+  /** Tools to offer in the toolbar and on the empty board. */
+  tools?: BoardTool[];
 }
 
-export function Board(props: { caseId: string; navigate: (r: Route) => void; ext?: BoardExtensions }) {
+const ARIA_LABELS = {
+  "node.a11yDescription.default":
+    "Press Enter or Space to select this exhibit, then use the arrow keys to move it. Its actions menu links or removes it.",
+  "node.a11yDescription.keyboardDisabled": "Its actions menu links or removes it.",
+  "node.a11yDescription.ariaLiveMessage": ({ direction }: { direction: string; x: number; y: number }) => `Moved exhibit ${direction}.`,
+  "edge.a11yDescription.default": "Press Enter or Space to select this link, then Delete to remove it.",
+  "handle.ariaLabel": "Drag to link to another exhibit",
+};
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "case";
+const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+const fmtDay = (ms: number) => new Date(ms).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
+function fmtActivity(ms: number): string {
+  const d = new Date(ms);
+  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toDateString() === new Date().toDateString() ? `TODAY ${time}` : `${fmtDay(ms).slice(0, 6)} ${time}`;
+}
+
+export function Board(props: {
+  caseId: string;
+  navigate: (r: Route) => void;
+  ext?: BoardExtensions;
+  onSettings?: () => void;
+  /** False while a tool covers the board. */
+  active?: boolean;
+}) {
   return (
     <ReactFlowProvider>
-      <BoardInner {...props} />
+      <BoardInner {...props} active={props.active ?? true} />
     </ReactFlowProvider>
   );
 }
 
-function BoardInner({ caseId, navigate, ext }: { caseId: string; navigate: (r: Route) => void; ext?: BoardExtensions }) {
+function BoardInner({
+  caseId,
+  navigate,
+  ext,
+  onSettings,
+  active,
+}: {
+  caseId: string;
+  navigate: (r: Route) => void;
+  ext?: BoardExtensions;
+  onSettings?: () => void;
+  active: boolean;
+}) {
   const store = useStore();
   const dialogs = useDialogs();
+  const toast = useToast();
   const rf = useReactFlow();
   const theCase = useStoreQuery((s) => s.getCase(caseId), caseId, undefined as Case | undefined);
   const evidence = useStoreQuery((s) => s.listEvidence(caseId), caseId, [] as Evidence[]);
   const links = useStoreQuery((s) => s.listLinks(caseId), caseId, [] as Link[]);
+  const exhibits = useStoreQuery((s) => s.exhibitNumbers(caseId), caseId, new Map<string, number>());
+  const caseNo = useStoreQuery((s) => s.caseNumber(caseId), caseId, 0);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [dropping, setDropping] = useState(false);
+  const motion = (ms: number) => (prefersReducedMotion() ? 0 : ms);
+
+  const byId = useMemo(() => new Map(evidence.map((e) => [e.id, e])), [evidence]);
+  const label = useCallback((id: string) => `${exhibitTag(exhibits.get(id))} ${byId.get(id)?.title ?? ""}`.trim(), [exhibits, byId]);
+
+  // ---------- undoable deletes ----------
+
+  const undoable = useCallback(
+    (message: string, receipt: DeleteReceipt) =>
+      toast({ message, action: { label: "Undo", run: () => store.restoreEvidence(receipt) } }),
+    [toast, store],
+  );
+
+  const removeEvidence = useCallback(
+    async (e: Evidence) => {
+      const ok = await dialogs.confirm(
+        "Remove exhibit",
+        `Take “${e.title}” off the board? Its links go with it. You can undo this for a few seconds.`,
+        { danger: true, confirmLabel: "Remove exhibit" },
+      );
+      if (ok) undoable(`Removed ${label(e.id)}`, await store.deleteEvidence(e.id));
+    },
+    [dialogs, store, undoable, label],
+  );
+
+  const removeLink = useCallback(
+    async (l: Link) => undoable(`Removed the link ${label(l.fromId)} → ${label(l.toId)}`, await store.deleteLink(l.id)),
+    [store, undoable, label],
+  );
+
+  // ---------- editing ----------
 
   const editEvidence = useCallback(
     async (e: Evidence) => {
       const fields = [
         { name: "title", label: "Title", value: e.title, testId: "edit-title" },
         ...(e.type === "note" || e.type === "finding" ? [{ name: "body", label: "Text", value: e.body ?? "", multiline: true }] : []),
-        { name: "tags", label: "Tags (comma separated)", value: e.tags.join(", ") },
+        { name: "tags", label: "Tags, comma separated", value: e.tags.join(", ") },
       ];
-      const r = await dialogs.form("Edit evidence", fields, { submitTestId: "save-edit" });
+      const r = await dialogs.form(`Edit ${exhibitTag(exhibits.get(e.id))}`, fields, { submitTestId: "save-edit", submitLabel: "Save exhibit" });
       if (!r) return;
       await store.updateEvidence(e.id, {
         title: r.title.trim() || e.title,
@@ -62,65 +153,186 @@ function BoardInner({ caseId, navigate, ext }: { caseId: string; navigate: (r: R
         tags: r.tags.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean),
       });
     },
-    [dialogs, store],
+    [dialogs, store, exhibits],
+  );
+
+  const linkFrom = useCallback(
+    async (e: Evidence) => {
+      const others = evidence.filter((x) => x.id !== e.id);
+      if (!others.length) {
+        await dialogs.alert("Nothing to link", "Pin another exhibit first, then link the two.");
+        return;
+      }
+      const r = await dialogs.form(
+        `Link ${exhibitTag(exhibits.get(e.id))} to…`,
+        [
+          { name: "to", label: "Exhibit", options: others.map((o) => ({ value: o.id, label: label(o.id) })), testId: "link-target" },
+          { name: "label", label: "Label (optional)", placeholder: "e.g. same handwriting" },
+        ],
+        { submitLabel: "Link exhibits", submitTestId: "save-link" },
+      );
+      if (r?.to) await store.addLink({ caseId, fromId: e.id, toId: r.to, kind: "user", label: r.label.trim() || undefined });
+    },
+    [evidence, dialogs, exhibits, label, store, caseId],
+  );
+
+  const editLink = useCallback(
+    async (l: Link) => {
+      const r = await dialogs.form(
+        "Link",
+        [{ name: "label", label: `Label · ${label(l.fromId)} → ${label(l.toId)}`, value: l.label ?? "", testId: "link-label" }],
+        { submitLabel: "Save label", extraAction: { id: "remove", label: "Remove link", danger: true, testId: "remove-link" } },
+      );
+      if (!r) return;
+      if (r.__action === "remove") return removeLink(l);
+      await store.deleteLink(l.id);
+      await store.addLink({ caseId, fromId: l.fromId, toId: l.toId, kind: l.kind, label: r.label.trim() || undefined });
+    },
+    [dialogs, label, removeLink, store, caseId],
   );
 
   const menuFor = useCallback(
     (e: Evidence): CardMenuItem[] => [
       ...(ext?.cardMenu?.(e) ?? []),
+      { label: "Link to…", testId: "menu-link", onSelect: () => linkFrom(e) },
       { label: "Edit", testId: "menu-edit", onSelect: () => editEvidence(e) },
-      {
-        label: "Delete",
-        danger: true,
-        testId: "menu-delete",
-        onSelect: async () => {
-          if (await dialogs.confirm("Delete evidence", `Delete “${e.title}”?`, { danger: true })) await store.deleteEvidence(e.id);
-        },
-      },
+      { label: "Remove", danger: true, testId: "menu-delete", onSelect: () => removeEvidence(e) },
     ],
-    [ext, editEvidence, dialogs, store],
+    [ext, linkFrom, editEvidence, removeEvidence],
   );
 
-  // Nodes are derived from the store, but kept in local state so dragging is smooth.
+  // ---------- nodes ----------
+
+  // Evidence that arrives while the board is in view plays the pin-drop once.
+  const [arrivalsSince, setArrivalsSince] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    const t = window.setTimeout(() => setArrivalsSince(Date.now()), 1600);
+    return () => clearTimeout(t);
+  }, [active, evidence]);
+
+  // Keyboard moves arrive as many small steps; save them once the card settles.
+  const pending = useRef(new Map<string, Position>());
+  const flushTimer = useRef(0);
+  const flush = useCallback(() => {
+    clearTimeout(flushTimer.current);
+    const moves = [...pending.current];
+    pending.current.clear();
+    for (const [id, p] of moves) store.updateEvidence(id, { position: { x: Math.round(p.x), y: Math.round(p.y) } }).catch(() => {});
+  }, [store]);
+  useEffect(() => flush, [flush]);
+
   const [nodes, setNodes] = useState<CardNode[]>([]);
   useEffect(() => {
-    setNodes((prev) => mergeNodes(prev, evidence, menuFor));
-  }, [evidence, menuFor]);
+    setNodes((prev) =>
+      mergeNodes(prev, evidence, menuFor, {
+        exhibits,
+        links,
+        arrivingAfter: active ? arrivalsSince : Infinity,
+        pendingPositions: pending.current,
+      }),
+    );
+  }, [evidence, menuFor, exhibits, links, active, arrivalsSince]);
 
-  const edges: Edge[] = useMemo(
-    () =>
-      links.map((l) => ({
-        id: l.id,
-        source: l.fromId,
-        target: l.toId,
-        label: l.label,
-        className: `link-${l.kind}`,
-        markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
-        deletable: true,
-      })),
-    [links],
+  const onNodesChange = useCallback(
+    (changes: NodeChange<CardNode>[]) => {
+      // Removal goes through the card menu (confirmed, undoable); ignore keyboard node deletes.
+      const kept = changes.filter((c) => c.type !== "remove");
+      for (const c of kept) {
+        if (c.type === "position" && c.position && !c.dragging) pending.current.set(c.id, c.position);
+      }
+      if (pending.current.size) {
+        clearTimeout(flushTimer.current);
+        flushTimer.current = window.setTimeout(flush, 300);
+      }
+      setNodes((ns) => applyNodeChanges(kept, ns));
+    },
+    [flush],
   );
 
-  const onNodesChange = useCallback((changes: NodeChange<CardNode>[]) => {
-    // Deletions go through the card menu so they are confirmed; ignore keyboard node deletes.
-    setNodes((ns) => applyNodeChanges(changes.filter((c) => c.type !== "remove"), ns));
+  // Fit the wall to the evidence once it first loads (it arrives after React Flow mounts).
+  const fitted = useRef(false);
+  useEffect(() => {
+    if (fitted.current || nodes.length === 0) return;
+    fitted.current = true;
+    // On a phone, fitting a whole case makes cards unreadable; start legible and let the index do the finding.
+    const narrow = window.matchMedia("(max-width: 720px)").matches;
+    requestAnimationFrame(() => rf.fitView({ maxZoom: 1, minZoom: narrow ? 0.6 : 0.15, padding: 0.15, duration: motion(0) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes.length, rf]);
+
+  // ---------- edges ----------
+
+  const [selectedEdges, setSelectedEdges] = useState<Set<string>>(new Set());
+  const edges: Edge[] = useMemo(
+    () =>
+      links.map((l) => {
+        const derived = l.kind === "derived-from";
+        return {
+          id: l.id,
+          source: l.fromId,
+          target: l.toId,
+          type: "straight",
+          label: l.label,
+          className: `link-${l.kind}`,
+          selected: selectedEdges.has(l.id),
+          markerEnd: derived ? { type: MarkerType.ArrowClosed, width: 12, height: 12, color: "#ffa040" } : undefined,
+          ariaLabel: `${derived ? "Derived from" : "Link"}: ${label(l.fromId)} to ${label(l.toId)}${l.label ? `, “${l.label}”` : ""}`,
+          deletable: true,
+        };
+      }),
+    [links, selectedEdges, label],
+  );
+
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setSelectedEdges((prev) => {
+      const next = new Set(prev);
+      for (const c of changes) {
+        if (c.type === "select") c.selected ? next.add(c.id) : next.delete(c.id);
+        if (c.type === "remove") next.delete(c.id);
+      }
+      return next;
+    });
   }, []);
 
-  const addNote = async () => {
+  // ---------- adding ----------
+
+  /** Free slot near the middle of the visible wall, read fresh from the store. */
+  const freeSlotNearCenter = useCallback(async () => {
+    const canvas = document.querySelector(".board-canvas")?.getBoundingClientRect();
+    const cx = canvas ? canvas.left + canvas.width / 2 - 110 : window.innerWidth / 2;
+    const cy = canvas ? canvas.top + canvas.height / 2 - 70 : window.innerHeight / 2;
+    const center = rf.screenToFlowPosition({ x: cx, y: cy });
+    const taken = (await store.listEvidence(caseId)).map((e) => e.position);
+    return nextPosition(taken, { x: Math.round(center.x / 20) * 20, y: Math.round(center.y / 20) * 20 });
+  }, [rf, store, caseId]);
+
+  /** Pans so a card at `p` is on screen if it landed outside the visible canvas. */
+  const revealIfHidden = useCallback(
+    (p: { x: number; y: number }) => {
+      const canvas = document.querySelector(".board-canvas")?.getBoundingClientRect();
+      if (!canvas) return;
+      const tl = rf.flowToScreenPosition(p);
+      const br = rf.flowToScreenPosition({ x: p.x + 220, y: p.y + 120 });
+      if (tl.x < canvas.left || tl.y < canvas.top || br.x > canvas.right || br.y > canvas.bottom) {
+        rf.setCenter(p.x + 110, p.y + 60, { zoom: rf.getZoom(), duration: motion(300) });
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rf],
+  );
+
+  const addNote = useCallback(async () => {
     const r = await dialogs.form(
-      "New note",
+      "Pin a note",
       [
-        { name: "title", label: "Title", testId: "note-title" },
+        { name: "title", label: "Title", testId: "note-title", placeholder: "What did you find?" },
         { name: "body", label: "Text", multiline: true, testId: "note-body" },
       ],
       { submitLabel: "Pin note", submitTestId: "save-note" },
     );
     if (!r) return;
-    const center = rf.screenToFlowPosition({ x: window.innerWidth / 2 - 150, y: window.innerHeight / 2 });
-    const position = nextPosition(
-      evidence.map((e) => e.position),
-      { x: Math.round(center.x / 20) * 20, y: Math.round(center.y / 20) * 20 },
-    );
+    const position = await freeSlotNearCenter();
     await store.addEvidence({
       caseId,
       type: "note",
@@ -130,96 +342,294 @@ function BoardInner({ caseId, navigate, ext }: { caseId: string; navigate: (r: R
       position,
     });
     revealIfHidden(position);
-  };
+  }, [dialogs, freeSlotNearCenter, store, caseId, revealIfHidden]);
 
-  /** Pans so a card at `p` is on screen if it landed outside the visible canvas. */
-  const revealIfHidden = (p: { x: number; y: number }) => {
-    const canvas = document.querySelector(".board-canvas")?.getBoundingClientRect();
-    if (!canvas) return;
-    const tl = rf.flowToScreenPosition(p);
-    const br = rf.flowToScreenPosition({ x: p.x + 220, y: p.y + 120 });
-    if (tl.x < canvas.left || tl.y < canvas.top || br.x > canvas.right || br.y > canvas.bottom) {
-      rf.setCenter(p.x + 110, p.y + 60, { zoom: rf.getZoom(), duration: 300 });
-    }
-  };
+  const addFiles = useCallback(
+    async (files: File[], near?: Position) => {
+      if (!files.length) return;
+      const at = near ?? (await freeSlotNearCenter());
+      const { added, skipped } = await addEvidenceFiles(store, caseId, files, at);
+      if (added[0]) revealIfHidden(added[0].position);
+      if (skipped.length) {
+        toast({ tone: "warn", message: `Left out ${skipped.map((s) => `${s.name} (${s.reason})`).join(", ")}` });
+      } else if (added.length > 1) {
+        toast({ message: `Pinned ${added.length} exhibits` });
+      }
+    },
+    [freeSlotNearCenter, store, caseId, toast, revealIfHidden],
+  );
+
+  const exportThis = useCallback(async () => {
+    if (!theCase) return;
+    downloadBytes(await exportCase(store, caseId), `${slug(theCase.title)}.belfry`);
+  }, [store, caseId, theCase]);
+
+  // ---------- shortcuts: N note, E add files, / search ----------
+
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.metaKey || e.ctrlKey || e.altKey || modalOpen()) return;
+      if (t && (t.closest("input, textarea, select, [contenteditable=true]") || t.closest("[role=menu]"))) return;
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        addNote();
+      } else if (e.key === "e" || e.key === "E") {
+        e.preventDefault();
+        fileRef.current?.click();
+      } else if (e.key === "/") {
+        e.preventDefault();
+        setDrawerOpen(true);
+        requestAnimationFrame(() => searchRef.current?.focus());
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active, addNote]);
 
   if (theCase === undefined && evidence.length === 0) {
     return (
       <div className="board-shell">
         <div className="board-toolbar">
           <HudButton data-testid="back-to-cases" onClick={() => navigate({ name: "cases" })}>
-            ← Cases
+            <Icon name="back" size={14} /> Cases
           </HudButton>
         </div>
       </div>
     );
   }
 
+  const lastActivity = Math.max(theCase?.updatedAt ?? 0, ...evidence.map((e) => e.updatedAt), ...links.map((l) => l.createdAt));
+  const tools = ext?.tools ?? [];
+  const toolButton = (t: BoardTool, extra?: { primary?: boolean; testId?: string }) => (
+    <HudButton
+      key={t.id}
+      className={`with-icon ${extra?.primary ? "primary" : ""}`}
+      data-testid={extra?.testId ?? `open-tool-${t.id}`}
+      onClick={t.open}
+      aria-description={t.blurb}
+    >
+      <Icon name="vision" size={14} /> <span className="btn-text">{t.name}</span>
+    </HudButton>
+  );
+
   return (
     <div className="board-shell" data-testid="board">
-      <div className="board-toolbar">
-        <HudButton data-testid="back-to-cases" onClick={() => navigate({ name: "cases" })}>
-          ← Cases
+      <header className="board-toolbar console">
+        <HudButton className="with-icon" data-testid="back-to-cases" onClick={() => navigate({ name: "cases" })} title="All cases">
+          <Icon name="back" size={14} /> <span className="btn-text">Cases</span>
         </HudButton>
-        <div className="board-title">
-          <span className="label">Case</span>
-          <span>{theCase?.title}</span>
+        <div className="case-header">
+          <span className="case-no" aria-label={`Case number ${caseNo}`}>
+            Nº {pad(caseNo, 3)}
+          </span>
+          <h1 className="case-name">{theCase?.title}</h1>
         </div>
-        <div className="row" style={{ marginLeft: "auto", gap: 8 }}>
-          {ext?.toolbar}
-          <HudButton data-testid="add-note" onClick={addNote}>
-            + Note
-          </HudButton>
+        <dl className="readouts" aria-label="Case readouts">
+          <div>
+            <dt>Opened</dt>
+            <dd>{theCase ? fmtDay(theCase.createdAt) : "—"}</dd>
+          </div>
+          <div>
+            <dt>Exhibits</dt>
+            <dd data-testid="readout-exhibits">{pad(evidence.length)}</dd>
+          </div>
+          <div>
+            <dt>Links</dt>
+            <dd>{pad(links.length)}</dd>
+          </div>
+          <div>
+            <dt>Last activity</dt>
+            <dd>{lastActivity ? fmtActivity(lastActivity) : "—"}</dd>
+          </div>
+        </dl>
+        <div className="toolbar-actions">
+          <div className="tool-group" role="group" aria-label="Add evidence">
+            <HudButton className="with-icon" data-testid="add-note" onClick={addNote} aria-keyshortcuts="N" title="Pin a note (N)">
+              <Icon name="note" size={14} /> <span className="btn-text">Note</span>
+            </HudButton>
+            <HudButton
+              className="with-icon"
+              data-testid="add-evidence"
+              onClick={() => fileRef.current?.click()}
+              aria-keyshortcuts="E"
+              title="Add photos, footage or audio (E)"
+            >
+              <Icon name="upload" size={14} /> <span className="btn-text">Evidence</span>
+            </HudButton>
+          </div>
+          {tools.length > 0 && (
+            <div className="tool-group" role="group" aria-label="Tools">
+              {tools.map((t) => toolButton(t))}
+            </div>
+          )}
+          <div className="tool-group" role="group" aria-label="Case">
+            <HudButton className="with-icon icon-only" data-testid="export-board" onClick={exportThis} aria-label="Export case file" title="Export case file">
+              <Icon name="export" size={14} />
+            </HudButton>
+            {onSettings && (
+              <HudButton className="with-icon icon-only" onClick={onSettings} aria-label="Settings" title="Settings" data-testid="open-settings">
+                <Icon name="gear" size={14} />
+              </HudButton>
+            )}
+            <HudButton
+              className="with-icon icon-only drawer-toggle"
+              aria-label="Evidence index"
+              aria-expanded={drawerOpen}
+              aria-controls="evidence-index"
+              data-testid="toggle-index"
+              onClick={() => setDrawerOpen((o) => !o)}
+            >
+              <Icon name="list" size={14} />
+            </HudButton>
+          </div>
         </div>
-      </div>
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          accept={EVIDENCE_FILE_ACCEPT}
+          hidden
+          data-testid="evidence-file"
+          onChange={(e) => {
+            const files = [...(e.target.files ?? [])];
+            e.target.value = "";
+            addFiles(files);
+          }}
+        />
+      </header>
       <div className="board-body">
         <Sidebar
+          id="evidence-index"
           evidence={evidence}
+          exhibits={exhibits}
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          searchRef={searchRef}
           onPick={(e) => {
-            rf.setCenter(e.position.x + 110, e.position.y + 70, { zoom: 1, duration: 400 });
+            setDrawerOpen(false);
+            rf.setCenter(e.position.x + 110, e.position.y + 70, { zoom: 1, duration: motion(400) });
             setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === e.id })));
           }}
         />
-        <div className="board-canvas">
+        <div
+          className={`board-canvas wall ${dropping ? "dropping" : ""}`}
+          onDragOver={(e) => {
+            if (![...e.dataTransfer.types].includes("Files")) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "copy";
+            setDropping(true);
+          }}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as HTMLElement | null)) setDropping(false);
+          }}
+          onDrop={(e) => {
+            if (!e.dataTransfer.files.length) return;
+            e.preventDefault();
+            setDropping(false);
+            const p = rf.screenToFlowPosition({ x: e.clientX - 110, y: e.clientY - 40 });
+            addFiles([...e.dataTransfer.files], { x: Math.round(p.x / 20) * 20, y: Math.round(p.y / 20) * 20 });
+          }}
+        >
           <ReactFlow
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
             onNodesChange={onNodesChange}
-            onNodeDragStop={(_, node) => store.updateEvidence(node.id, { position: { x: Math.round(node.position.x), y: Math.round(node.position.y) } })}
+            onEdgesChange={onEdgesChange}
+            onNodeDragStop={flush}
             onConnect={(c) => {
               if (c.source && c.target && c.source !== c.target) {
                 store.addLink({ caseId, fromId: c.source, toId: c.target, kind: "user" });
               }
             }}
-            onEdgesDelete={(es) => es.forEach((e) => store.deleteLink(e.id))}
-            onEdgeDoubleClick={async (_, edge) => {
-              const r = await dialogs.form("Label link", [{ name: "label", label: "Label", value: String(edge.label ?? "") }]);
-              if (r) {
+            onEdgesDelete={(es) =>
+              es.forEach((edge) => {
                 const l = links.find((x) => x.id === edge.id);
-                if (l) {
-                  await store.deleteLink(l.id);
-                  await store.addLink({ caseId, fromId: l.fromId, toId: l.toId, kind: l.kind, label: r.label.trim() || undefined });
-                }
-              }
+                if (l) removeLink(l);
+              })
+            }
+            onEdgeDoubleClick={(_, edge) => {
+              const l = links.find((x) => x.id === edge.id);
+              if (l) editLink(l);
             }}
             fitView
-            fitViewOptions={{ maxZoom: 1 }}
+            fitViewOptions={{ maxZoom: 1, padding: 0.15 }}
             minZoom={0.15}
+            maxZoom={2}
             proOptions={{ hideAttribution: true }}
             colorMode="dark"
+            ariaLabelConfig={ARIA_LABELS}
+            deleteKeyCode={["Backspace", "Delete"]}
           >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(89,217,255,0.18)" />
-            <Controls showInteractive={false} />
+            <Background id="wall-fine" variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(89,217,255,0.12)" />
+            <Background id="wall-grid" variant={BackgroundVariant.Lines} gap={160} lineWidth={1} color="rgba(89,217,255,0.05)" />
+            <FlowPanel position="bottom-right">
+              <ZoomReadout />
+            </FlowPanel>
           </ReactFlow>
-          {evidence.length === 0 && (
-            <div className="board-empty">
-              <p>This board is empty.</p>
-              <p className="dim">Pin a note, or open a tool to start collecting evidence.</p>
+          <div className="wall-vignette" aria-hidden />
+          {dropping && (
+            <div className="drop-hint" aria-hidden>
+              <DecoCorners />
+              <Icon name="upload" size={20} />
+              <span>Release to pin as evidence</span>
             </div>
+          )}
+          {evidence.length === 0 && theCase && (
+            <EmptyWall
+              onNote={addNote}
+              onFiles={() => fileRef.current?.click()}
+              tool={tools[0]}
+              renderTool={(t) => toolButton(t, { primary: true, testId: `empty-open-tool-${t.id}` })}
+            />
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function EmptyWall(props: { onNote: () => void; onFiles: () => void; tool?: BoardTool; renderTool: (t: BoardTool) => React.ReactNode }) {
+  const action = (icon: IconName, text: string, onClick: () => void, testId: string) => (
+    <HudButton className="with-icon" onClick={onClick} data-testid={testId}>
+      <Icon name={icon} size={14} /> {text}
+    </HudButton>
+  );
+  return (
+    <section className="board-empty pane" aria-labelledby="empty-wall-title" data-testid="board-empty">
+      <DecoCorners />
+      <h2 id="empty-wall-title">The wall is bare.</h2>
+      <p>Every case starts with one exhibit. Pin what you already know, bring in photos or footage, or point a tool at the scene.</p>
+      <div className="empty-actions">
+        {action("note", "Pin a note", props.onNote, "empty-add-note")}
+        {action("upload", "Add photos or footage", props.onFiles, "empty-add-evidence")}
+        {props.tool && props.renderTool(props.tool)}
+      </div>
+    </section>
+  );
+}
+
+/** Bracketed zoom readout in place of React Flow's stock controls. */
+function ZoomReadout() {
+  const rf = useReactFlow();
+  const { zoom } = useViewport();
+  const d = prefersReducedMotion() ? 0 : 200;
+  return (
+    <div className="zoom-readout" role="group" aria-label="Zoom">
+      <button type="button" onClick={() => rf.zoomOut({ duration: d })} aria-label="Zoom out">
+        <Icon name="zoom-out" size={14} />
+      </button>
+      <output className="zoom-value" aria-live="off">
+        {Math.round(zoom * 100)}%
+      </output>
+      <button type="button" onClick={() => rf.zoomIn({ duration: d })} aria-label="Zoom in">
+        <Icon name="zoom-in" size={14} />
+      </button>
+      <button type="button" onClick={() => rf.fitView({ maxZoom: 1, padding: 0.15, duration: d })} aria-label="Fit all exhibits">
+        <Icon name="fit" size={14} />
+      </button>
     </div>
   );
 }

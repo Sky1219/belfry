@@ -1,15 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
-import { collectErrors } from "./helpers";
+import { collectErrors, skipDemo } from "./helpers";
 
 const MODES = ["detective", "thermal", "night", "motion", "normal"];
 const OVERLAYS = ["xray", "skeleton", "evidence", "vitals", "depthFog", "ghostTrails"];
 const MODELS = ["segmentation", "detection", "depth"]; // what the Investigate preset needs
 
 async function openCaseBoard(page: Page, title: string) {
+  await skipDemo(page);
   await page.goto("./?mock");
   await page.getByTestId("new-case-title").fill(title);
   await page.getByTestId("create-case").click();
-  await page.getByTestId("case-row").filter({ hasText: title }).getByTestId("open-case").click();
   await expect(page.getByTestId("board")).toBeVisible();
 }
 
@@ -67,7 +67,7 @@ test("Detective Vision: modes, overlays, scanning, capture, video input, persist
   // the cup drifts back under the reticle every few seconds, so there may be several scans
   const findings = card(page, "finding", /EV-\d+ · cup — note/);
   await expect(findings.first()).toBeVisible();
-  await expect(findings.first()).toContainText("LOCAL · detective-vision");
+  await expect(findings.first()).toContainText("Detective Vision · Local analysis");
   const scans = await findings.count();
   await expect(card(page, "image", /EV-\d+ · cup/)).toHaveCount(scans);
   await expect(page.locator(".react-flow__edge.link-derived-from")).toHaveCount(scans); // each note linked to its crop
@@ -106,7 +106,12 @@ test("camera denied → message and a way to open the case's videos instead", as
   await openCaseBoard(page, "No Camera Case");
   await page.getByTestId("open-tool-detective-vision").click();
   await expect(page.getByTestId("camera-error")).toContainText(/permission was denied/i);
-  await expect(page.getByTestId("camera-error")).toContainText(/no videos in this case/i);
+  await expect(page.getByTestId("camera-error")).toContainText(/no footage in this case/i);
+
+  // a visitor without a camera can run the synthetic demo feed instead
+  await page.getByTestId("run-demo-feed").click();
+  await expect(page.getByTestId("model-chip-detection")).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
+  await expect(page.locator(".dv-name")).toContainText("DEMO FEED");
 });
 
 test("opening and closing the tool many times doesn't exhaust WebGL contexts", async ({ page }) => {

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useImportCase } from "../board/useImportCase";
 import { listTools } from "../tools/registry";
-import { HudButton, Panel, Toggle } from "../ui/components";
+import { HudButton, Toggle } from "../ui/components";
+import { Modal } from "../ui/Modal";
 import { useSettings, type Settings } from "./settings";
 import { useStore } from "./storeContext";
 
@@ -29,9 +30,8 @@ export function SettingsPanel(props: { onClose: () => void }) {
   }, []);
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && props.onClose()}>
-      <Panel title="Settings" className="modal settings-modal">
-        <div className="col">
+    <Modal title="Settings" onClose={props.onClose} className="settings-modal" testId="settings">
+        <div className="col settings-body">
           <section className="col" style={{ gap: 6 }}>
             <span className="label">Claude API key</span>
             <form
@@ -67,7 +67,7 @@ export function SettingsPanel(props: { onClose: () => void }) {
               label="Remember key on this device"
               onChange={(on) => update({ ...settings, rememberKey: on, apiKey: key.trim() })}
             />
-            <span className="dim" style={{ fontSize: 11, lineHeight: 1.5 }}>
+            <span className="help">
               Used to write forensic notes; without a key Belfry writes local notes instead. The key is sent only to
               api.anthropic.com. {settings.rememberKey
                 ? "It's saved in this browser's storage, which other pages hosted on the same domain (e.g. other projects on the same github.io account) can read — turn this off to keep it only for this tab."
@@ -85,7 +85,7 @@ export function SettingsPanel(props: { onClose: () => void }) {
 
           <section className="col" style={{ gap: 6 }}>
             <span className="label">Storage</span>
-            <span className="dim" style={{ fontSize: 11 }}>
+            <span className="help">
               {!store.persistent
                 ? "This browser is blocking storage — cases will be lost when the tab closes."
                 : usage
@@ -108,13 +108,12 @@ export function SettingsPanel(props: { onClose: () => void }) {
             </div>
           </section>
 
-          <div className="row" style={{ justifyContent: "flex-end" }}>
+          <div className="row dialog-actions">
             <HudButton active onClick={props.onClose} data-testid="close-settings">
               Done
             </HudButton>
           </div>
         </div>
-      </Panel>
-    </div>
+    </Modal>
   );
 }

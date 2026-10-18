@@ -1,0 +1,431 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-18T20:44:36.715Z",
+  "title": "Design System: Belfry",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Tower Night",
+        "canonical": "#02060d",
+        "tonalRamp": [
+          "oklch(10% 0.02 255)",
+          "oklch(20% 0.025 255)",
+          "oklch(30% 0.03 255)",
+          "oklch(42% 0.03 255)",
+          "oklch(55% 0.03 255)",
+          "oklch(68% 0.025 255)",
+          "oklch(82% 0.02 255)",
+          "oklch(95% 0.01 255)"
+        ]
+      },
+      "bg-raised": {
+        "role": "neutral",
+        "displayName": "Console Slate",
+        "canonical": "#06111d",
+        "tonalRamp": [
+          "oklch(15% 0.03 245)",
+          "oklch(24% 0.035 245)",
+          "oklch(34% 0.04 245)",
+          "oklch(45% 0.04 245)",
+          "oklch(57% 0.04 245)",
+          "oklch(69% 0.035 245)",
+          "oklch(82% 0.025 245)",
+          "oklch(95% 0.01 245)"
+        ]
+      },
+      "bg-panel": {
+        "role": "neutral",
+        "displayName": "Smoked Glass",
+        "canonical": "rgba(6, 17, 29, 0.86)"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline Cyan",
+        "canonical": "rgba(89, 217, 255, 0.28)"
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Edge Cyan",
+        "canonical": "rgba(89, 217, 255, 0.6)"
+      },
+      "cyan": {
+        "role": "primary",
+        "displayName": "Nightglass Cyan",
+        "canonical": "#59d9ff",
+        "tonalRamp": [
+          "oklch(15% 0.04 222)",
+          "oklch(27% 0.07 222)",
+          "oklch(39% 0.09 222)",
+          "oklch(51% 0.11 222)",
+          "oklch(63% 0.12 222)",
+          "oklch(74% 0.13 222)",
+          "oklch(84% 0.12 222)",
+          "oklch(95% 0.05 222)"
+        ]
+      },
+      "cyan-dim": {
+        "role": "primary",
+        "displayName": "Nightglass Dim",
+        "canonical": "rgba(89, 217, 255, 0.55)"
+      },
+      "cyan-faint": {
+        "role": "primary",
+        "displayName": "Nightglass Haze",
+        "canonical": "rgba(89, 217, 255, 0.12)"
+      },
+      "orange": {
+        "role": "secondary",
+        "displayName": "Evidence Amber",
+        "canonical": "#ffa040",
+        "tonalRamp": [
+          "oklch(15% 0.04 63)",
+          "oklch(27% 0.07 63)",
+          "oklch(39% 0.1 63)",
+          "oklch(51% 0.12 63)",
+          "oklch(63% 0.14 63)",
+          "oklch(74% 0.15 63)",
+          "oklch(84% 0.12 63)",
+          "oklch(95% 0.05 63)"
+        ]
+      },
+      "orange-dim": {
+        "role": "secondary",
+        "displayName": "Evidence Amber Dim",
+        "canonical": "rgba(255, 160, 64, 0.55)"
+      },
+      "red": {
+        "role": "tertiary",
+        "displayName": "Pin Red",
+        "canonical": "#ff5a5a",
+        "tonalRamp": [
+          "oklch(15% 0.05 22)",
+          "oklch(27% 0.09 22)",
+          "oklch(39% 0.13 22)",
+          "oklch(51% 0.17 22)",
+          "oklch(62% 0.19 22)",
+          "oklch(72% 0.16 22)",
+          "oklch(83% 0.1 22)",
+          "oklch(95% 0.03 22)"
+        ]
+      },
+      "green": {
+        "role": "tertiary",
+        "displayName": "Ready Green",
+        "canonical": "#6dffb0",
+        "tonalRamp": [
+          "oklch(15% 0.04 158)",
+          "oklch(27% 0.07 158)",
+          "oklch(39% 0.1 158)",
+          "oklch(51% 0.12 158)",
+          "oklch(63% 0.14 158)",
+          "oklch(75% 0.15 158)",
+          "oklch(87% 0.15 158)",
+          "oklch(96% 0.06 158)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Pale Readout",
+        "canonical": "#cfeffc",
+        "tonalRamp": [
+          "oklch(15% 0.02 220)",
+          "oklch(27% 0.03 220)",
+          "oklch(39% 0.035 220)",
+          "oklch(51% 0.04 220)",
+          "oklch(63% 0.04 220)",
+          "oklch(75% 0.04 220)",
+          "oklch(86% 0.04 220)",
+          "oklch(94% 0.035 220)"
+        ]
+      },
+      "text-dim": {
+        "role": "neutral",
+        "displayName": "Faded Readout",
+        "canonical": "#7fa7b8"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The BELFRY wordmark only, uppercase with a faint cyan halo."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "A pane that speaks to you, such as the empty wall. Sentence case."
+      },
+      "case-name": {
+        "displayName": "Case Name",
+        "purpose": "The case's own name in the board console; 15px on phones."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Case titles in the list and exhibit titles (two lines)."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Form text, dialog copy, the case-list pitch and index rows; the 13px root size."
+      },
+      "body-small": {
+        "displayName": "Body Small",
+        "purpose": "Exhibit bodies, help text, case-row meta, toasts and readout values."
+      },
+      "panel-title": {
+        "displayName": "Panel Title",
+        "purpose": "Uppercase cyan heading of every panel and dialog."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "Uppercase HUD button text, small buttons included."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase Faded Readout labels, counts, readout captions and exhibit footers."
+      },
+      "chip": {
+        "displayName": "Chip",
+        "purpose": "Status chips; the one size below 11px."
+      }
+    },
+    "shadows": [
+      {
+        "name": "pinned-object",
+        "value": "0 6px 24px rgba(0, 0, 0, 0.45)",
+        "purpose": "Exhibits pinned to the wall (--shadow-pinned)."
+      },
+      {
+        "name": "console",
+        "value": "0 12px 28px -14px rgba(0, 0, 0, 0.85)",
+        "purpose": "Toolbar and zoom readout over the wall (--shadow-console)."
+      },
+      {
+        "name": "console-side",
+        "value": "14px 0 28px -16px rgba(0, 0, 0, 0.85)",
+        "purpose": "Evidence index over the wall (--shadow-console-side)."
+      },
+      {
+        "name": "pane",
+        "value": "0 24px 64px -18px rgba(0, 0, 0, 0.8)",
+        "purpose": "Dialogs, menus, toasts, the empty-wall prompt, the open drawer (--shadow-pane)."
+      },
+      {
+        "name": "selected-halo",
+        "value": "0 0 18px var(--cyan-faint)",
+        "purpose": "A selected exhibit, on top of pinned-object."
+      },
+      {
+        "name": "hover-halo",
+        "value": "0 0 14px var(--cyan-faint)",
+        "purpose": "HUD buttons on hover."
+      },
+      {
+        "name": "focus-haze",
+        "value": "0 0 0 4px var(--cyan-faint)",
+        "purpose": "With a 1px cyan outline at 2px offset: every focused control."
+      },
+      {
+        "name": "instrument-glow",
+        "value": "0 0 18px var(--cyan-faint)",
+        "purpose": "Text-shadow on the wordmark; 8px on the Detective Vision title plate."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Expo ease-out for arrivals, panes and the drawer (--ease-out)."
+      },
+      {
+        "name": "state-quick",
+        "value": "0.15s ease",
+        "purpose": "Button, border and toggle state changes."
+      },
+      {
+        "name": "pane-in",
+        "value": "0.28s ease-out rise from 8px",
+        "purpose": "Dialogs, menus and toasts arriving."
+      },
+      {
+        "name": "pin-drop",
+        "value": "0.62s ease-out",
+        "purpose": "An exhibit arriving on the wall: drop, pin strike, stamp settle. Plays once."
+      },
+      {
+        "name": "drawer",
+        "value": "0.3s ease-out slide",
+        "purpose": "The evidence index drawer on phones."
+      },
+      {
+        "name": "blink",
+        "value": "1s steps(2) infinite",
+        "purpose": "Loading chip dots and SIGNAL LOST."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce",
+        "purpose": "All CSS animation collapses to its end state; JS motion checks prefersReducedMotion()."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "case-row-stack",
+        "value": "600px"
+      },
+      {
+        "name": "phone",
+        "value": "720px"
+      },
+      {
+        "name": "toolbar-icons",
+        "value": "1100px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "HUD Button",
+      "kind": "button",
+      "refersTo": "button-hud",
+      "description": "The one button style: transparent, Edge Cyan hairline, uppercase tracked cyan text.",
+      "html": "<button class=\"ds-hud-btn\">Export</button>",
+      "css": ".ds-hud-btn { background: transparent; border: 1px solid var(--line-strong, rgba(89,217,255,0.6)); color: var(--cyan, #59d9ff); padding: 7px 14px; letter-spacing: 0.14em; text-transform: uppercase; font: 11px 'JetBrains Mono', ui-monospace, monospace; border-radius: 2px; cursor: pointer; white-space: nowrap; transition: background 0.15s, box-shadow 0.15s; } .ds-hud-btn:hover { background: var(--cyan-faint, rgba(89,217,255,0.12)); box-shadow: 0 0 14px var(--cyan-faint, rgba(89,217,255,0.12)); } .ds-hud-btn:focus-visible { outline: 1px solid var(--cyan, #59d9ff); outline-offset: 2px; box-shadow: 0 0 0 4px var(--cyan-faint, rgba(89,217,255,0.12)); }"
+    },
+    {
+      "name": "HUD Button (Active)",
+      "kind": "button",
+      "refersTo": "button-hud-active",
+      "description": "Current mode, preset or primary dialog action: solid cyan with Tower Night text.",
+      "html": "<button class=\"ds-hud-btn-active\">Create</button>",
+      "css": ".ds-hud-btn-active { background: var(--cyan, #59d9ff); color: var(--bg, #02060d); border: 1px solid var(--line-strong, rgba(89,217,255,0.6)); padding: 7px 14px; letter-spacing: 0.14em; text-transform: uppercase; font: 11px 'JetBrains Mono', ui-monospace, monospace; border-radius: 2px; cursor: pointer; } .ds-hud-btn-active:focus-visible { outline: 1px solid var(--cyan, #59d9ff); outline-offset: 2px; box-shadow: 0 0 0 4px var(--cyan-faint, rgba(89,217,255,0.12)); }"
+    },
+    {
+      "name": "HUD Button (Danger)",
+      "kind": "button",
+      "refersTo": "button-hud-danger",
+      "description": "Destructive actions in Pin Red.",
+      "html": "<button class=\"ds-hud-btn-danger\">Delete</button>",
+      "css": ".ds-hud-btn-danger { background: transparent; border: 1px solid rgba(255,90,90,0.6); color: var(--red, #ff5a5a); padding: 7px 14px; letter-spacing: 0.14em; text-transform: uppercase; font: 11px 'JetBrains Mono', ui-monospace, monospace; border-radius: 2px; cursor: pointer; transition: background 0.15s; } .ds-hud-btn-danger:hover { background: rgba(255,90,90,0.1); } .ds-hud-btn-danger:focus-visible { outline: 1px solid var(--red, #ff5a5a); outline-offset: 2px; box-shadow: 0 0 0 4px var(--cyan-faint, rgba(89,217,255,0.12)); }"
+    },
+    {
+      "name": "HUD Input",
+      "kind": "input",
+      "refersTo": "input-hud",
+      "description": "Dark well with a hairline border that goes full cyan on focus.",
+      "html": "<input class=\"ds-hud-input\" placeholder=\"Case title\" />",
+      "css": ".ds-hud-input { background: rgba(0,0,0,0.35); border: 1px solid var(--line, rgba(89,217,255,0.28)); border-radius: 2px; padding: 7px 10px; outline: none; width: 260px; color: var(--text, #cfeffc); font: 13px 'JetBrains Mono', ui-monospace, monospace; } .ds-hud-input::placeholder { color: var(--text-dim, #7fa7b8); } .ds-hud-input:focus { border-color: var(--cyan, #59d9ff); }"
+    },
+    {
+      "name": "Bracketed Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Smoked Glass panel with the signature cyan corner brackets and an uppercase cyan title.",
+      "html": "<section class=\"ds-panel\"><div class=\"ds-panel-title\">No signal</div><div class=\"ds-panel-body\">Camera permission was denied.</div></section>",
+      "css": ".ds-panel { position: relative; width: 320px; background: var(--bg-panel, rgba(6,17,29,0.86)); border: 1px solid var(--line, rgba(89,217,255,0.28)); border-radius: 2px; backdrop-filter: blur(6px); color: var(--text, #cfeffc); font: 13px 'JetBrains Mono', ui-monospace, monospace; } .ds-panel::before, .ds-panel::after { content: ''; position: absolute; width: 10px; height: 10px; border-color: var(--cyan, #59d9ff); border-style: solid; pointer-events: none; } .ds-panel::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; } .ds-panel::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; } .ds-panel-title { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cyan, #59d9ff); padding: 10px 12px 0; } .ds-panel-body { padding: 10px 12px 12px; }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "chip-ready",
+      "description": "Pill with a state dot; ready is green, loading blinks dim cyan, offline is red.",
+      "html": "<span class=\"ds-chip ds-chip-ready\"><span class=\"ds-chip-dot\"></span>segmentation · ready</span> <span class=\"ds-chip ds-chip-loading\"><span class=\"ds-chip-dot\"></span>depth · loading</span> <span class=\"ds-chip ds-chip-offline\"><span class=\"ds-chip-dot\"></span>pose · offline</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; font: 10px 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.15em; text-transform: uppercase; padding: 2px 8px; border: 1px solid var(--line, rgba(89,217,255,0.28)); border-radius: 999px; background: rgba(2,6,13,0.6); } .ds-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; } .ds-chip-ready { color: var(--green, #6dffb0); } .ds-chip-loading { color: var(--cyan-dim, rgba(89,217,255,0.55)); } .ds-chip-loading .ds-chip-dot { animation: ds-blink 1s steps(2) infinite; } .ds-chip-offline { color: var(--red, #ff5a5a); } @keyframes ds-blink { 50% { opacity: 0.3; } } @media (prefers-reduced-motion: reduce) { .ds-chip-loading .ds-chip-dot { animation: none; } }"
+    },
+    {
+      "name": "Square Toggle",
+      "kind": "custom",
+      "refersTo": "toggle",
+      "description": "Square track and thumb switch with an uppercase label; thumb turns cyan when on.",
+      "html": "<label class=\"ds-toggle ds-toggle-on\" role=\"switch\" aria-checked=\"true\" tabindex=\"0\"><span class=\"ds-toggle-box\"></span>X-ray</label>",
+      "css": ".ds-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font: 11px 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text, #cfeffc); } .ds-toggle-box { width: 26px; height: 14px; border: 1px solid var(--line-strong, rgba(89,217,255,0.6)); position: relative; } .ds-toggle-box::after { content: ''; position: absolute; top: 2px; left: 2px; width: 8px; height: 8px; background: var(--text-dim, #7fa7b8); transition: left 0.15s, background 0.15s; } .ds-toggle-on .ds-toggle-box::after { left: 14px; background: var(--cyan, #59d9ff); } .ds-toggle:focus-visible { outline: 1px solid var(--cyan, #59d9ff); outline-offset: 3px; }"
+    },
+    {
+      "name": "Exhibit",
+      "kind": "card",
+      "refersTo": "evidence-card",
+      "description": "An exhibit pinned to the wall: stamp, type, title, body, time and provenance; findings turn amber.",
+      "html": "<article class=\"ds-ex\"><span class=\"ds-dc tl\"></span><span class=\"ds-dc br\"></span><header class=\"ds-ex-head\"><span class=\"ds-ex-stamp\">EXH·002</span><span class=\"ds-ex-type\">Note</span><span class=\"ds-ex-more\">···</span></header><h3 class=\"ds-ex-title\">Rope worn, not cut</h3><p class=\"ds-ex-body\">Fibres splay outward along four centimetres. Worn through by weeks of friction, not a blade.</p><footer class=\"ds-ex-foot\"><span>18 OCT · 14:58</span><span>Pinned by hand</span></footer></article> <article class=\"ds-ex ds-ex-finding\"><span class=\"ds-dc tl\"></span><span class=\"ds-dc br\"></span><header class=\"ds-ex-head\"><span class=\"ds-ex-stamp\">EXH·004</span><span class=\"ds-ex-type\">Finding</span><span class=\"ds-ex-more\">···</span></header><h3 class=\"ds-ex-title\">Pulley runs off true</h3><p class=\"ds-ex-body\">The wear pattern matches a pulley turning about 3° off its axis.</p><footer class=\"ds-ex-foot\"><span>18 OCT · 15:20</span><span>Local analysis · from EXH·002</span></footer></article>",
+      "css": ".ds-ex { position: relative; display: inline-flex; flex-direction: column; gap: 7px; width: 220px; margin: 14px 10px; padding: 10px 10px 8px; vertical-align: top; background: var(--bg-panel, rgba(6,17,29,0.86)); border: 1px solid var(--line, rgba(89,217,255,0.28)); box-shadow: 0 6px 24px rgba(0,0,0,0.45); color: var(--text, #cfeffc); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; --deco: var(--cyan, #59d9ff); } .ds-ex::before { content: ''; position: absolute; top: -5px; left: 50%; width: 9px; height: 9px; margin-left: -4px; border-radius: 50%; background: var(--red, #ff5a5a); } .ds-ex:hover { border-color: var(--cyan, #59d9ff); box-shadow: 0 6px 24px rgba(0,0,0,0.45), 0 0 18px var(--cyan-faint, rgba(89,217,255,0.12)); } .ds-dc { position: absolute; width: 12px; height: 12px; pointer-events: none; } .ds-dc::before, .ds-dc::after { content: ''; position: absolute; border: solid var(--deco); } .ds-dc.tl { top: -1px; left: -1px; } .ds-dc.br { bottom: -1px; right: -1px; } .ds-dc.tl::before { inset: 0; border-width: 2px 0 0 2px; } .ds-dc.tl::after { top: 4px; left: 4px; width: 5px; height: 5px; border-width: 1px 0 0 1px; } .ds-dc.br::before { inset: 0; border-width: 0 2px 2px 0; } .ds-dc.br::after { bottom: 4px; right: 4px; width: 5px; height: 5px; border-width: 0 1px 1px 0; } .ds-ex-head { display: flex; align-items: center; gap: 8px; } .ds-ex-stamp { font-size: 11px; letter-spacing: 0.1em; color: var(--deco); border: 1px solid var(--line-strong, rgba(89,217,255,0.6)); padding: 1px 5px; } .ds-ex-type { flex: 1; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim, #7fa7b8); } .ds-ex-more { color: var(--text-dim, #7fa7b8); } .ds-ex-title { margin: 0; font-size: 13px; font-weight: 700; line-height: 1.35; } .ds-ex-body { margin: 0; font-size: 12px; line-height: 1.5; } .ds-ex-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px; padding-top: 6px; border-top: 1px solid var(--line, rgba(89,217,255,0.28)); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim, #7fa7b8); } .ds-ex-finding { border-color: var(--orange-dim, rgba(255,160,64,0.55)); --deco: var(--orange, #ffa040); } .ds-ex-finding .ds-ex-stamp { border-color: var(--orange-dim, rgba(255,160,64,0.55)); }"
+    },
+    {
+      "name": "Board Toolbar",
+      "kind": "nav",
+      "refersTo": "board-toolbar",
+      "description": "Console Slate strip: back to cases, case label and title, tool launchers on the right.",
+      "html": "<nav class=\"ds-toolbar\"><button class=\"ds-tb-btn\">← Cases</button><div class=\"ds-tb-title\"><span class=\"ds-tb-label\">Case</span><span class=\"ds-tb-name\">The Clocktower Job</span></div><span class=\"ds-tb-spacer\"></span><button class=\"ds-tb-btn\">◉ Detective Vision</button><button class=\"ds-tb-btn\">+ Note</button></nav>",
+      "css": ".ds-toolbar { display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: var(--bg-raised, #06111d); border-bottom: 1px solid var(--line, rgba(89,217,255,0.28)); font: 13px 'JetBrains Mono', ui-monospace, monospace; color: var(--text, #cfeffc); } .ds-tb-title { display: flex; flex-direction: column; gap: 2px; } .ds-tb-label { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-dim, #7fa7b8); } .ds-tb-name { font-weight: 700; } .ds-tb-spacer { flex: 1; } .ds-tb-btn { background: transparent; border: 1px solid var(--line-strong, rgba(89,217,255,0.6)); color: var(--cyan, #59d9ff); padding: 7px 14px; letter-spacing: 0.14em; text-transform: uppercase; font: 11px 'JetBrains Mono', ui-monospace, monospace; border-radius: 2px; cursor: pointer; transition: background 0.15s, box-shadow 0.15s; } .ds-tb-btn:hover { background: var(--cyan-faint, rgba(89,217,255,0.12)); box-shadow: 0 0 14px var(--cyan-faint, rgba(89,217,255,0.12)); } .ds-tb-btn:focus-visible { outline: 1px solid var(--cyan, #59d9ff); outline-offset: 2px; box-shadow: 0 0 0 4px var(--cyan-faint, rgba(89,217,255,0.12)); }"
+    },
+    {
+      "name": "Toast",
+      "kind": "custom",
+      "refersTo": "toast",
+      "description": "A one-line report at the foot of the screen, with Undo after a soft delete.",
+      "html": "<div class=\"ds-toast\"><span>Removed EXH·002 Rope worn, not cut</span><button class=\"ds-toast-act\">Undo</button></div>",
+      "css": ".ds-toast { display: inline-flex; align-items: center; gap: 12px; padding: 6px 6px 6px 14px; background: var(--bg-raised, #06111d); border: 1px solid var(--line-strong, rgba(89,217,255,0.6)); box-shadow: 0 24px 64px -18px rgba(0,0,0,0.8); color: var(--text, #cfeffc); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; } .ds-toast-act { background: none; border: 1px solid var(--line-strong, rgba(89,217,255,0.6)); color: var(--cyan, #59d9ff); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; padding: 4px 8px; cursor: pointer; } .ds-toast-act:hover { background: var(--cyan-faint, rgba(89,217,255,0.12)); } .ds-toast-act:focus-visible { outline: 1px solid var(--cyan, #59d9ff); outline-offset: 2px; box-shadow: 0 0 0 4px var(--cyan-faint, rgba(89,217,255,0.12)); }"
+    },
+    {
+      "name": "Zoom Readout",
+      "kind": "nav",
+      "refersTo": "zoom-readout",
+      "description": "Bracketed zoom strip on the wall: out, percentage, in, fit.",
+      "html": "<div class=\"ds-zoom\"><button aria-label=\"Zoom out\">−</button><output>86%</output><button aria-label=\"Zoom in\">+</button></div>",
+      "css": ".ds-zoom { position: relative; display: inline-flex; background: var(--bg-raised, #06111d); border: 1px solid var(--line, rgba(89,217,255,0.28)); font-family: 'JetBrains Mono', ui-monospace, monospace; } .ds-zoom::before, .ds-zoom::after { content: ''; position: absolute; width: 8px; height: 8px; border: solid var(--cyan, #59d9ff); } .ds-zoom::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; } .ds-zoom::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; } .ds-zoom button { width: 32px; height: 32px; background: none; border: 0; color: var(--cyan, #59d9ff); cursor: pointer; font: inherit; } .ds-zoom button:hover { background: var(--cyan-faint, rgba(89,217,255,0.12)); } .ds-zoom output { display: grid; place-items: center; min-width: 56px; font-size: 11px; letter-spacing: 0.1em; color: var(--text, #cfeffc); border-inline: 1px solid var(--line, rgba(89,217,255,0.28)); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Batcomputer",
+    "overview": "Belfry is the detective's machine in the cave: an industrial, high-tech control room crossed with gothic-noir minimalism and dark deco architecture, dense with surveillance data. Everything sits in near-black, lit by its own cold Nightglass Cyan. The light comes from the instruments, never from the room. Readouts are monospace and uppercase, frames are hairline and near-square, and the only warm colors are evidence and alarms. The theme comes through materials, light and density, never through borrowed marks. The North Star is an internal reference: per PRODUCT.md, the shipped UI never uses DC names, logos, silhouettes or fonts.\n\nThe system is a single monospace family, a two-accent palette (cyan for system, amber for evidence), smoked-glass panes with cyan corner brackets, and a red pin on every exhibit. Density is high and type is small (13px base, 11–12px labels and readouts), on purpose: this is a console you read, not a page you scroll. The case board carries the full idea: a **wall** (the canvas, darkened at the edges) with exhibits pinned to it, **consoles** built into the room (the toolbar with its readout strip, the evidence index) that cast shadow onto the wall, and **panes** in front (dialogs, menus, toasts). **Dark deco ornament** grows out of the bracket: stepped double corners on exhibits and panes, and a doubled rule under the console. Chevrons and heavier geometric framing remain open for later surfaces.\n\nConfirmed rejections: **generic sci-fi neon** (rainbow or purple-pink cyberpunk gradients, Tron grids) and **friendly SaaS** (rounded cards, pastel accents, soft shadows, cheerful empty states).",
+    "keyCharacteristics": [
+      "Near-black field (#02060d) lit only by emitted cyan light.",
+      "One typeface, JetBrains Mono, at two weights; uppercase tracked labels carry the structure.",
+      "Two accents with fixed meanings: cyan is the system, amber is evidence.",
+      "Hairline borders at 28% and 60% cyan; corners are 2px or none.",
+      "Corner brackets on panels, stepped double corners on exhibits: the recurring signature.",
+      "Three planes, wall, console and pane, each with its own depth.",
+      "Every exhibit carries a stable `EXH·nnn` stamp, a timestamp and where it came from.",
+      "High information density; status is always visible, stated in words, never implied by decoration."
+    ],
+    "rules": [
+      {
+        "name": "The Instrument Light Rule",
+        "body": "Light is emitted by instruments, never ambient. Glow (text-shadow, box-shadow halos) appears only on things that are live: the wordmark, the tool title plate, hovered or selected controls. A surface with nothing to report does not glow.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Signals Rule",
+        "body": "Cyan means system and amber means evidence. Never swap them, and never add a third accent for decoration. Red and green are status, not palette.",
+        "section": "colors"
+      },
+      {
+        "name": "The Readout Rule",
+        "body": "Anything structural (titles, labels, buttons, statuses) is uppercase and tracked. Anything the user wrote or the tools observed (case names, note text, findings) stays in its own case. Typography tells you whether a word belongs to the machine or to the evidence.",
+        "section": "typography"
+      },
+      {
+        "name": "The Planes Rule",
+        "body": "Every surface belongs to a plane: the wall (board canvas, stage), the console (toolbar, sidebar, control dock), or a pane in front of it (panels, dialogs, menus). A new surface states its plane, and depth cues follow the plane, not the component.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do take every color from the `:root` tokens in `src/ui/theme.css`. The canvas overlay mirrors them as constants and must stay in sync.",
+      "Do keep cyan for system and amber for evidence (The Two Signals Rule). A finding card, an `EV-nn` tag and a scan outline are amber. Everything else interactive is cyan.",
+      "Do frame new panels with the corner brackets, and build deco ornament (stepped corners, chevrons, geometric rules) out of that same bracket language at 1–2px cyan strokes.",
+      "Do set structural text uppercase and tracked (0.1–0.2em, or 0.5em for the wordmark), and leave user and evidence text in its own case.",
+      "Do place every new surface on a plane (wall, console or pane) and give it that plane's shadow token.",
+      "Do draw new icons on the 16px grid at 1.5px with square caps, and add them to `src/ui/icons.tsx`.",
+      "Do give every exhibit its stamp, time and provenance; a reading that came from a fallback says so.",
+      "Do build dialogs on `Modal` and menus with real menu semantics (Escape, outside click, arrow keys, focus returned).",
+      "Do keep JS-driven motion behind `prefersReducedMotion()`; the global CSS rule only covers CSS animation. Detective Vision's mode pulse and typewriter reveal still need it."
+    ],
+    "donts": [
+      "Don't drift toward generic sci-fi neon: no rainbow or purple-pink gradients, no Tron grids, no extra neon hues beyond the tokens.",
+      "Don't drift toward friendly SaaS: no rounded cards (anything above 2px outside chips and dots), no pastel accents, no soft ambient shadows, no cheerful illustrated empty states.",
+      "Don't add glow to anything that isn't live (The Instrument Light Rule).",
+      "Don't use DC names, logos, bat silhouettes or licensed fonts in shipped UI. \"The Batcomputer\" is this document's reference, not a label.",
+      "Don't introduce a second typeface or new shadow values without adding them to this file first.",
+      "Don't use Unicode glyphs or emoji as icons.",
+      "Don't make a destructive action irreversible when the store can soft-delete it: offer Undo.",
+      "Don't use Nightglass Dim (about 4.2:1 on Tower Night) for running text. It's for short labels and statuses only."
+    ]
+  }
+}

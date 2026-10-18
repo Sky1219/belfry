@@ -221,3 +221,16 @@
     width: 100%;
   }
 }
+
+.dv-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.dv-error-actions .hud-btn,
+.dv-error .hud-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}

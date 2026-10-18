@@ -27,6 +27,26 @@ describe("mergeNodes", () => {
     expect(next.find((n) => n.id === "a")!.data.evidence.title).toBe("A renamed");
   });
 
+  test("carries exhibit numbers, source exhibits, arrivals and unsaved moves", () => {
+    const a = { ...ev("a"), createdAt: 100 };
+    const b = { ...ev("b"), createdAt: 300 };
+    const nodes = mergeNodes([], [a, b], () => [], {
+      exhibits: new Map([
+        ["a", 1],
+        ["b", 2],
+      ]),
+      links: [{ id: "l", caseId: "c", fromId: "b", toId: "a", kind: "derived-from", createdAt: 0, deleted: false }],
+      arrivingAfter: 200,
+      pendingPositions: new Map([["a", { x: 40, y: 60 }]]),
+    });
+    const [na, nb] = nodes;
+    expect([na.data.exhibit, nb.data.exhibit]).toEqual([1, 2]);
+    expect(nb.data.sourceExhibit).toBe(1);
+    expect([na.data.arriving, nb.data.arriving]).toEqual([false, true]);
+    expect(na.position).toEqual({ x: 40, y: 60 });
+    expect(nb.ariaLabel).toBe("EXH 002, note: b");
+  });
+
   test("adds new cards and drops removed ones", () => {
     const prev = mergeNodes([], [ev("a"), ev("b")], () => []);
     const next = mergeNodes(prev, [ev("b"), ev("c")], () => []);

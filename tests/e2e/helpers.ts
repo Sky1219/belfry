@@ -1,5 +1,10 @@
 import type { Page } from "@playwright/test";
 
+/** Marks the demo case as already seen, so the app opens on the case list like a returning visitor. */
+export async function skipDemo(page: Page): Promise<void> {
+  await page.addInitScript(() => localStorage.setItem("belfry.demo.v1", "skip"));
+}
+
 /** Records page errors and console errors, ignoring third-party fetch failures
  * (fonts, model CDNs) that the sandboxed test environment cannot reach. */
 export function collectErrors(page: Page): () => string[] {

@@ -37,6 +37,6 @@ export function inputForEvidence(type: EvidenceType): EvidenceInput | null {
   }
 }
 
-/** Route encoding of a tool input: "live-camera" or "ev:<evidenceId>". */
-export const encodeInput = (input: { kind: "live-camera" } | { kind: "evidence"; id: string }) =>
-  input.kind === "live-camera" ? "live-camera" : `ev:${input.id}`;
+/** Route encoding of a tool input: "live-camera", "demo-feed" or "ev:<evidenceId>". */
+export const encodeInput = (input: { kind: "live-camera" } | { kind: "demo-feed" } | { kind: "evidence"; id: string }) =>
+  input.kind === "evidence" ? `ev:${input.id}` : input.kind;

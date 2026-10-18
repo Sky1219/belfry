@@ -33,6 +33,8 @@ export function ToolHost(props: { caseId: string; toolId: string; input: string;
       let input: ToolInput;
       if (props.input === "live-camera") {
         input = { kind: "live-camera" };
+      } else if (props.input === "demo-feed") {
+        input = { kind: "demo-feed" };
       } else if (props.input.startsWith("ev:")) {
         const ev = await store.getEvidence(props.input.slice(3));
         if (!ev) return alive && setState({ phase: "error", message: "That evidence no longer exists." });

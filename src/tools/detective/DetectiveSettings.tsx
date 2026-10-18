@@ -12,9 +12,7 @@ export function DetectiveSettings({ settings, updateSettings }: { settings: Sett
   return (
     <div className="col" style={{ gap: 10 }}>
       <label className="col" style={{ gap: 4 }}>
-        <span className="dim" style={{ fontSize: 11 }}>
-          Default preset
-        </span>
+        <span className="label">Default preset</span>
         <select className="hud-input" value={s.defaultPresetId} onChange={(e) => save({ defaultPresetId: e.target.value })} data-testid="default-preset">
           {presets.map((p) => (
             <option key={p.id} value={p.id}>
@@ -24,16 +22,14 @@ export function DetectiveSettings({ settings, updateSettings }: { settings: Sett
         </select>
       </label>
       <Toggle on={s.depthEnabled} label="Depth estimation" onChange={(on) => save({ depthEnabled: on })} />
-      <span className="dim" style={{ fontSize: 11, lineHeight: 1.5 }}>
+      <span className="help">
         {hasWebGpu
           ? "Downloads a ~50 MB depth model the first time it's used."
-          : "WebGPU not available — depth will be slow on this browser."}
+          : "WebGPU isn't available in this browser, so depth will be slow."}
       </span>
       {s.customPresets.length > 0 && (
         <div className="col" style={{ gap: 4 }}>
-          <span className="dim" style={{ fontSize: 11 }}>
-            Saved presets
-          </span>
+          <span className="label">Saved presets</span>
           {s.customPresets.map((p) => (
             <div key={p.id} className="row" style={{ justifyContent: "space-between" }}>
               <span>{p.name}</span>

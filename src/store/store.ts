@@ -13,6 +13,21 @@ import type {
 
 type Listener = () => void;
 
+/** What a soft delete removed, so it can be undone precisely. */
+export interface DeleteReceipt {
+  evidenceIds: string[];
+  linkIds: string[];
+}
+
+export interface CaseSummary {
+  /** Stable case number by creation order. */
+  number: number;
+  evidence: number;
+  links: number;
+  /** Latest change to the case, its evidence or its links (epoch ms). */
+  lastActivity: number;
+}
+
 /**
  * All reads and writes of cases, evidence and links go through this class.
  * Every write records a change-log entry in the same transaction, so a future
@@ -73,7 +88,9 @@ export class EvidenceStore {
     return next;
   }
 
-  async deleteCase(id: string): Promise<void> {
+  /** Soft-deletes a case with its evidence and links; the receipt lets `restoreCase` undo exactly this. */
+  async deleteCase(id: string): Promise<DeleteReceipt> {
+    const receipt: DeleteReceipt = { evidenceIds: [], linkIds: [] };
     await this.db.transaction("rw", [this.db.cases, this.db.evidence, this.db.links, this.db.changes], async () => {
       const cur = await this.mustGet(this.db.cases.get(id), "case", id);
       await this.db.cases.put({ ...cur, deleted: true, updatedAt: Date.now() });
@@ -82,14 +99,58 @@ export class EvidenceStore {
         if (e.deleted) continue;
         await this.db.evidence.put({ ...e, deleted: true, updatedAt: Date.now() });
         await this.log("evidence", e.id, "delete");
+        receipt.evidenceIds.push(e.id);
       }
       for (const l of await this.db.links.where("caseId").equals(id).toArray()) {
         if (l.deleted) continue;
         await this.db.links.put({ ...l, deleted: true });
         await this.log("link", l.id, "delete");
+        receipt.linkIds.push(l.id);
       }
     });
     this.emit(id);
+    return receipt;
+  }
+
+  /** Undoes `deleteCase`: brings back the case and exactly the records that delete removed. */
+  async restoreCase(id: string, receipt: DeleteReceipt): Promise<void> {
+    await this.db.transaction("rw", [this.db.cases, this.db.evidence, this.db.links, this.db.changes], async () => {
+      const cur = await this.db.cases.get(id);
+      if (!cur) return;
+      await this.db.cases.put({ ...cur, deleted: false, updatedAt: Date.now() });
+      await this.log("case", id, "put");
+      await this.undelete(receipt);
+    });
+    this.emit(id);
+  }
+
+  /**
+   * Stable case numbers (1, 2, 3…) by creation order, counting deleted cases
+   * too, so a number never moves to a different case.
+   */
+  async caseNumber(id: string): Promise<number> {
+    return (await this.db.cases.where("id").belowOrEqual(id).count()) || 1;
+  }
+
+  /** Per-case counts and last activity, for the case list. */
+  async caseSummaries(): Promise<Map<string, CaseSummary>> {
+    const out = new Map<string, CaseSummary>();
+    const cases = await this.db.cases.toArray();
+    const sorted = [...cases].sort((a, b) => (a.id < b.id ? -1 : 1));
+    sorted.forEach((c, i) => out.set(c.id, { number: i + 1, evidence: 0, links: 0, lastActivity: c.updatedAt }));
+    for (const e of await this.db.evidence.toArray()) {
+      const s = out.get(e.caseId);
+      if (!s || e.deleted) continue;
+      s.evidence++;
+      s.lastActivity = Math.max(s.lastActivity, e.updatedAt);
+    }
+    for (const l of await this.db.links.toArray()) {
+      const s = out.get(l.caseId);
+      if (!s || l.deleted) continue;
+      s.links++;
+      s.lastActivity = Math.max(s.lastActivity, l.createdAt);
+    }
+    return out;
   }
 
   // ---------- evidence ----------
@@ -127,8 +188,10 @@ export class EvidenceStore {
     return next;
   }
 
-  async deleteEvidence(id: string): Promise<void> {
+  /** Soft-deletes evidence and its links; the receipt lets `restoreEvidence` undo exactly this. */
+  async deleteEvidence(id: string): Promise<DeleteReceipt> {
     let caseId = "";
+    const receipt: DeleteReceipt = { evidenceIds: [id], linkIds: [] };
     await this.db.transaction("rw", [this.db.evidence, this.db.links, this.db.changes], async () => {
       const cur = await this.mustGet(this.db.evidence.get(id), "evidence", id);
       caseId = cur.caseId;
@@ -139,14 +202,35 @@ export class EvidenceStore {
         if (l.deleted || (l.fromId !== id && l.toId !== id)) continue;
         await this.db.links.put({ ...l, deleted: true });
         await this.log("link", l.id, "delete");
+        receipt.linkIds.push(l.id);
       }
     });
     this.emit(caseId);
+    return receipt;
+  }
+
+  /** Undoes `deleteEvidence` (or `deleteLink`, with an empty evidence list). */
+  async restoreEvidence(receipt: DeleteReceipt): Promise<void> {
+    let caseId = "";
+    await this.db.transaction("rw", [this.db.evidence, this.db.links, this.db.changes], async () => {
+      caseId = await this.undelete(receipt);
+    });
+    if (caseId) this.emit(caseId);
   }
 
   async listEvidence(caseId: string): Promise<Evidence[]> {
     const all = await this.db.evidence.where("caseId").equals(caseId).toArray();
     return all.filter((e) => !e.deleted).sort((a, b) => (a.id < b.id ? -1 : 1));
+  }
+
+  /**
+   * Exhibit numbers for a case's evidence: 1, 2, 3… by creation order,
+   * counting deleted evidence too, so a number never moves to another exhibit.
+   */
+  async exhibitNumbers(caseId: string): Promise<Map<string, number>> {
+    const all = await this.db.evidence.where("caseId").equals(caseId).toArray();
+    all.sort((a, b) => (a.id < b.id ? -1 : 1));
+    return new Map(all.map((e, i) => [e.id, i + 1]));
   }
 
   // ---------- links ----------
@@ -158,10 +242,11 @@ export class EvidenceStore {
     return l;
   }
 
-  async deleteLink(id: string): Promise<void> {
+  async deleteLink(id: string): Promise<DeleteReceipt> {
     const cur = await this.mustGet(this.db.links.get(id), "link", id);
     await this.write("link", id, "delete", () => this.db.links.put({ ...cur, deleted: true }));
     this.emit(cur.caseId);
+    return { evidenceIds: [], linkIds: [id] };
   }
 
   async listLinks(caseId: string): Promise<Link[]> {
@@ -207,6 +292,26 @@ export class EvidenceStore {
   }
 
   // ---------- internals ----------
+
+  /** Clears `deleted` on the receipt's records; must run inside a transaction over evidence, links and changes. Returns their case. */
+  private async undelete(receipt: DeleteReceipt): Promise<string> {
+    let caseId = "";
+    for (const id of receipt.evidenceIds) {
+      const e = await this.db.evidence.get(id);
+      if (!e) continue;
+      caseId = e.caseId;
+      await this.db.evidence.put({ ...e, deleted: false, updatedAt: Date.now() });
+      await this.log("evidence", id, "put");
+    }
+    for (const id of receipt.linkIds) {
+      const l = await this.db.links.get(id);
+      if (!l) continue;
+      caseId = l.caseId;
+      await this.db.links.put({ ...l, deleted: false });
+      await this.log("link", id, "put");
+    }
+    return caseId;
+  }
 
   /** Runs a record write and its change entry in one transaction. */
   private async write(type: RecordType, id: string, op: "put" | "delete", fn: () => Promise<unknown>) {

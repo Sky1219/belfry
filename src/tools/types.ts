@@ -7,7 +7,8 @@ import type { EvidenceStore } from "../store/store";
 /** What a tool can be pointed at. */
 export type EvidenceInput = "live-camera" | "image" | "video" | "audio";
 
-export type ToolInput = { kind: "live-camera" } | { kind: "evidence"; evidence: Evidence };
+/** "demo-feed" is a synthetic camera for visitors without one; tools that accept "live-camera" accept it too. */
+export type ToolInput = { kind: "live-camera" } | { kind: "demo-feed" } | { kind: "evidence"; evidence: Evidence };
 
 export interface ToolContext {
   caseId: string;

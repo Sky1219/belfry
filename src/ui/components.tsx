@@ -1,11 +1,29 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-export function Panel(props: { title?: string; children: ReactNode; className?: string; style?: React.CSSProperties }) {
+export function Panel(props: { title?: string; titleId?: string; children: ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
     <section className={`panel ${props.className ?? ""}`} style={props.style}>
-      {props.title && <div className="panel-title">{props.title}</div>}
+      {props.title && (
+        <div className="panel-title" id={props.titleId}>
+          {props.title}
+        </div>
+      )}
       <div className="panel-body">{props.children}</div>
     </section>
+  );
+}
+
+/**
+ * Stepped deco corners: a doubled bracket at two opposite corners of the
+ * parent (which must be positioned). Grows out of the panel's bracket language.
+ */
+export function DecoCorners(props: { tone?: "cyan" | "amber" }) {
+  const cls = `deco-corner ${props.tone === "amber" ? "amber" : ""}`;
+  return (
+    <>
+      <span className={`${cls} tl`} aria-hidden />
+      <span className={`${cls} br`} aria-hidden />
+    </>
   );
 }
 
@@ -77,3 +95,7 @@ export function Toggle(props: { on: boolean; label: string; onChange: (on: boole
     </label>
   );
 }
+
+/** True when the visitor asked the OS for less motion; used for JS-driven animation. */
+export const prefersReducedMotion = () =>
+  typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;

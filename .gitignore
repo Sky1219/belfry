@@ -5,3 +5,5 @@ dist
 public/mediapipe
 test-results
 playwright-report
+.impeccable/config.local.json
+.impeccable/live/
