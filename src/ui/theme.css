@@ -116,7 +116,8 @@ a {
   opacity: 0.4;
   cursor: default;
 }
-.hud-btn.active {
+.hud-btn.active,
+.hud-btn.active:hover:not(:disabled) {
   background: var(--cyan);
   color: var(--bg);
 }
