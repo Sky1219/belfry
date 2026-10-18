@@ -18,6 +18,7 @@ import type { Case, Evidence, Link } from "../store/schema";
 import { HudButton } from "../ui/components";
 import { useDialogs } from "../ui/dialogs";
 import { EvidenceCard, type CardMenuItem, type CardNode } from "./EvidenceCard";
+import { mergeNodes } from "./nodes";
 import { nextPosition } from "./placement";
 import { Sidebar } from "./Sidebar";
 
@@ -83,16 +84,7 @@ function BoardInner({ caseId, navigate, ext }: { caseId: string; navigate: (r: R
   // Nodes are derived from the store, but kept in local state so dragging is smooth.
   const [nodes, setNodes] = useState<CardNode[]>([]);
   useEffect(() => {
-    setNodes((prev) => {
-      const sel = new Set(prev.filter((n) => n.selected).map((n) => n.id));
-      return evidence.map((e) => ({
-        id: e.id,
-        type: "evidence" as const,
-        position: e.position,
-        data: { evidence: e, menu: menuFor(e) },
-        selected: sel.has(e.id),
-      }));
-    });
+    setNodes((prev) => mergeNodes(prev, evidence, menuFor));
   }, [evidence, menuFor]);
 
   const edges: Edge[] = useMemo(

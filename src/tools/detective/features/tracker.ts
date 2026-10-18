@@ -50,6 +50,8 @@ export function iou(a: Box, b: Box): number {
  */
 export class Tracker {
   private list: Track[] = [];
+  /** Consecutive detector runs that did not see each track. */
+  private misses = new Map<number, number>();
   private nextId = 1;
   private iouMatch: number;
   private smoothing: number;
@@ -84,6 +86,28 @@ export class Tracker {
       t.score = d.score;
       t.lastSeenMs = tMs;
     }
+    // Fallback for slow detector cadence / fast motion: pair what's left of the
+    // same label by center distance, if within 1.5× the larger box diagonal.
+    const near: Array<{ t: Track; d: Detection; s: number }> = [];
+    for (const t of live) {
+      if (usedT.has(t)) continue;
+      for (const d of candidates) {
+        if (usedD.has(d) || d.label !== t.label) continue;
+        const dist = Math.hypot((t.box[0] + t.box[2] - d.box[0] - d.box[2]) / 2, (t.box[1] + t.box[3] - d.box[1] - d.box[3]) / 2);
+        const diag = Math.max(Math.hypot(t.box[2] - t.box[0], t.box[3] - t.box[1]), Math.hypot(d.box[2] - d.box[0], d.box[3] - d.box[1]));
+        if (dist < 1.5 * diag) near.push({ t, d, s: dist / diag });
+      }
+    }
+    near.sort((a, b) => a.s - b.s);
+    for (const { t, d } of near) {
+      if (usedT.has(t) || usedD.has(d)) continue;
+      usedT.add(t);
+      usedD.add(d);
+      t.box = [...d.box] as Box; // jumped: snap rather than smooth
+      t.score = d.score;
+      t.lastSeenMs = tMs;
+    }
+    for (const t of live) this.misses.set(t.id, usedT.has(t) ? 0 : (this.misses.get(t.id) ?? 0) + 1);
     for (const d of candidates) {
       if (usedD.has(d)) continue;
       const id = this.nextId++;
@@ -100,9 +124,19 @@ export class Tracker {
     return this.tracks(tMs);
   }
 
-  /** Tracks seen within the last `dropAfterMs`; older ones are discarded. */
+  /**
+   * Live tracks. A track is dropped only once the detector has missed it on two
+   * consecutive runs *and* it has been unseen for `dropAfterMs`. Time alone never
+   * drops a track: a detector slowed by the scheduler, or a paused video, must not
+   * make objects vanish or come back under new ids.
+   */
   tracks(tMs: number): Track[] {
-    this.list = this.list.filter((t) => tMs - t.lastSeenMs <= this.dropAfterMs);
+    this.list = this.list.filter((t) => {
+      const unseen = tMs - t.lastSeenMs;
+      const dead = (this.misses.get(t.id) ?? 0) >= 2 && unseen > this.dropAfterMs;
+      if (dead) this.misses.delete(t.id);
+      return !dead;
+    });
     return [...this.list];
   }
 
