@@ -1,0 +1,81 @@
+:root {
+  --cyan: #59d9ff;
+  --cyan-dim: rgba(89, 217, 255, 0.55);
+  --bg: #02060d;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--cyan);
+}
+
+#view {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 8px var(--cyan-dim);
+  opacity: 0.35;
+  transition: opacity 0.6s;
+}
+body.active #hud { opacity: 1; }
+
+.corner { position: absolute; padding: 16px 20px; }
+.tl { top: 0; left: 0; border-top: 2px solid var(--cyan); border-left: 2px solid var(--cyan); margin: 16px; }
+.tr { top: 0; right: 0; text-align: right; border-top: 2px solid var(--cyan); border-right: 2px solid var(--cyan); margin: 16px; }
+.bl { bottom: 0; left: 0; margin: 16px; }
+
+.title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.dim { color: var(--cyan-dim); }
+
+body.active #status { animation: blink 1.6s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0.4; } }
+
+/* ---------- Start screen ---------- */
+#start {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 16px;
+  text-align: center;
+  background: radial-gradient(ellipse at center, #071a2e 0%, var(--bg) 70%);
+}
+#start h1 { font-size: clamp(24px, 6vw, 48px); letter-spacing: 0.3em; text-shadow: 0 0 18px var(--cyan-dim); }
+#start p { color: var(--cyan-dim); font-size: 13px; }
+
+#startBtn {
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  padding: 12px 28px;
+  color: var(--cyan);
+  background: transparent;
+  border: 1px solid var(--cyan);
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+#startBtn:hover:not(:disabled) { background: rgba(89, 217, 255, 0.1); box-shadow: 0 0 20px var(--cyan-dim); }
+#startBtn:disabled { opacity: 0.5; cursor: wait; }
+
+.err { color: #ff6b6b !important; max-width: 480px; }
