@@ -1,5 +1,6 @@
 import { ulid } from "ulid";
 import { BelfryDB } from "./db";
+import { sha256Hex } from "./blobs";
 import type {
   Case,
   ChangeEntry,
@@ -166,6 +167,24 @@ export class EvidenceStore {
   async listLinks(caseId: string): Promise<Link[]> {
     const all = await this.db.links.where("caseId").equals(caseId).toArray();
     return all.filter((l) => !l.deleted).sort((a, b) => (a.id < b.id ? -1 : 1));
+  }
+
+  // ---------- blobs ----------
+
+  /** Stores bytes under their SHA-256; storing the same bytes twice is a no-op. */
+  async putBlob(bytes: Uint8Array, mime: string): Promise<string> {
+    const hash = await sha256Hex(bytes);
+    await this.db.transaction("rw", [this.db.blobs, this.db.changes], async () => {
+      if (await this.db.blobs.get(hash)) return;
+      await this.db.blobs.put({ hash, mime, size: bytes.byteLength, bytes });
+      await this.log("blob", hash, "put");
+    });
+    return hash;
+  }
+
+  async getBlob(hash: string): Promise<{ bytes: Uint8Array; mime: string } | undefined> {
+    const b = await this.db.blobs.get(hash);
+    return b && { bytes: b.bytes, mime: b.mime };
   }
 
   // ---------- change log + subscriptions ----------
