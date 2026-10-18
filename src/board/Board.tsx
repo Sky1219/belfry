@@ -137,6 +137,18 @@ function BoardInner({ caseId, navigate, ext }: { caseId: string; navigate: (r: R
       provenance: { createdAt: Date.now() },
       position,
     });
+    revealIfHidden(position);
+  };
+
+  /** Pans so a card at `p` is on screen if it landed outside the visible canvas. */
+  const revealIfHidden = (p: { x: number; y: number }) => {
+    const canvas = document.querySelector(".board-canvas")?.getBoundingClientRect();
+    if (!canvas) return;
+    const tl = rf.flowToScreenPosition(p);
+    const br = rf.flowToScreenPosition({ x: p.x + 220, y: p.y + 120 });
+    if (tl.x < canvas.left || tl.y < canvas.top || br.x > canvas.right || br.y > canvas.bottom) {
+      rf.setCenter(p.x + 110, p.y + 60, { zoom: rf.getZoom(), duration: 300 });
+    }
   };
 
   if (theCase === undefined && evidence.length === 0) {

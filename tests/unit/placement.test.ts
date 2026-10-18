@@ -21,6 +21,11 @@ describe("placement", () => {
     expect(overlaps).toBe(false);
   });
 
+  test("prefers right, then below, before going left or up", () => {
+    expect(nextPosition([{ x: 0, y: 0 }])).toEqual({ x: CELL_W, y: 0 });
+    expect(nextPosition([{ x: 0, y: 0 }, { x: CELL_W, y: 0 }])).toEqual({ x: 0, y: CELL_H });
+  });
+
   test("spirals around a near point", () => {
     const near = { x: 1000, y: 500 };
     const taken = [near];

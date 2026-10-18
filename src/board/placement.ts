@@ -10,14 +10,22 @@ export interface Pt {
 const occupied = (existing: Pt[], p: Pt) =>
   existing.some((e) => Math.abs(e.x - p.x) < CELL_W && Math.abs(e.y - p.y) < CELL_H);
 
-/** Grid offsets in rings of increasing distance around (0,0): ring 0, then the 8 cells of ring 1, etc. */
+/**
+ * Grid offsets in rings of increasing distance around (0,0). Within a ring, cells
+ * are ordered like reading a page: right and below first, left and above last,
+ * so new cards land where the eye goes next.
+ */
 function* spiral(): Generator<[number, number]> {
   yield [0, 0];
   for (let r = 1; r < 200; r++) {
-    for (let dx = -r; dx <= r; dx++) yield [dx, -r];
-    for (let dy = -r + 1; dy <= r; dy++) yield [r, dy];
-    for (let dx = r - 1; dx >= -r; dx--) yield [dx, r];
-    for (let dy = r - 1; dy > -r; dy--) yield [-r, dy];
+    const ring: Array<[number, number]> = [];
+    for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) === r) ring.push([dx, dy]);
+    }
+    // penalize left/up; break ties by row, then column
+    const cost = ([dx, dy]: [number, number]) => (dx < 0 ? 4 : 0) + (dy < 0 ? 2 : 0) + Math.abs(dy) * 0.5 + Math.abs(dx) * 0.25;
+    ring.sort((a, b) => cost(a) - cost(b));
+    yield* ring;
   }
 }
 
