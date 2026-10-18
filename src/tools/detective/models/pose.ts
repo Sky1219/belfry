@@ -3,8 +3,6 @@ import { MonotonicClock } from "../../../platform/media/frameSource";
 import { createFileset, createWithFallback, MODEL_URLS } from "./mediapipe";
 import type { ModelAdapter, PoseResult } from "./types";
 
-export const POSE_CONNECTIONS: Array<[number, number]> = PoseLandmarker.POSE_CONNECTIONS.map((c) => [c.start, c.end]);
-
 /** Body pose (MediaPipe Pose Landmarker lite, one person). */
 export function poseAdapter(): ModelAdapter<PoseResult> {
   let pose: PoseLandmarker | null = null;
