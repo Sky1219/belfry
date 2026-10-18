@@ -13,18 +13,21 @@ function memoryStorage() {
   };
 }
 
-beforeEach(() => vi.stubGlobal("localStorage", memoryStorage()));
+beforeEach(() => {
+  vi.stubGlobal("localStorage", memoryStorage());
+  vi.stubGlobal("sessionStorage", memoryStorage());
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe("settings", () => {
   test("settings round-trip", () => {
-    expect(loadSettings()).toEqual({ apiKey: "", tools: {} });
-    saveSettings({ apiKey: "sk-1", tools: { x: { a: 1 } } });
-    expect(loadSettings()).toEqual({ apiKey: "sk-1", tools: { x: { a: 1 } } });
+    expect(loadSettings()).toEqual({ apiKey: "", rememberKey: true, tools: {} });
+    saveSettings({ apiKey: "sk-1", rememberKey: true, tools: { x: { a: 1 } } });
+    expect(loadSettings()).toEqual({ apiKey: "sk-1", rememberKey: true, tools: { x: { a: 1 } } });
   });
 
   test("apiKey is trimmed", () => {
-    saveSettings({ apiKey: "  sk-2 \n", tools: {} });
+    saveSettings({ apiKey: "  sk-2 \n", rememberKey: true, tools: {} });
     expect(loadSettings().apiKey).toBe("sk-2");
   });
 
@@ -33,12 +36,23 @@ describe("settings", () => {
       throw new Error("SecurityError");
     };
     vi.stubGlobal("localStorage", { getItem: boom, setItem: boom, removeItem: boom });
-    expect(() => saveSettings({ apiKey: "sk-3", tools: {} })).not.toThrow();
+    expect(() => saveSettings({ apiKey: "sk-3", rememberKey: true, tools: {} })).not.toThrow();
     expect(loadSettings().apiKey).toBe("sk-3"); // served from the in-memory fallback
   });
 
+  test("a key that isn't remembered never touches localStorage", () => {
+    saveSettings({ apiKey: "sk-secret", rememberKey: false, tools: {} });
+    const local = JSON.stringify(Object.fromEntries([["v", localStorage.getItem("belfry.settings.v1")]]));
+    expect(local).not.toContain("sk-secret");
+    expect(loadSettings()).toMatchObject({ apiKey: "sk-secret", rememberKey: false });
+    // turning remembering back on moves it to localStorage and clears the session copy
+    saveSettings({ apiKey: "sk-secret", rememberKey: true, tools: {} });
+    expect(sessionStorage.getItem("belfry.apiKey.session")).toBeNull();
+    expect(loadSettings().apiKey).toBe("sk-secret");
+  });
+
   test("getToolSettings merges stored values over defaults", () => {
-    const s = setToolSettings({ apiKey: "", tools: {} }, "dv", { depthEnabled: false });
+    const s = setToolSettings({ apiKey: "", rememberKey: true, tools: {} }, "dv", { depthEnabled: false });
     expect(getToolSettings(s, "dv", { depthEnabled: true, defaultPresetId: "investigate" })).toEqual({
       depthEnabled: false,
       defaultPresetId: "investigate",

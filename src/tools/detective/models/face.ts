@@ -1,25 +1,29 @@
 import { FaceLandmarker } from "@mediapipe/tasks-vision";
 import { MonotonicClock } from "../../../platform/media/frameSource";
 import { createFileset, createWithFallback, MODEL_URLS } from "./mediapipe";
+import { TaskHolder } from "./taskHolder";
 import type { FaceResult, ModelAdapter } from "./types";
 
 /** Face mesh incl. iris (MediaPipe Face Landmarker, one face). */
 export function faceAdapter(): ModelAdapter<FaceResult> {
-  let face: FaceLandmarker | null = null;
+  const holder = new TaskHolder<FaceLandmarker>();
   const clock = new MonotonicClock();
   return {
     name: "face",
     async load() {
       const fs = await createFileset();
-      face = await createWithFallback((delegate) =>
+      await holder.load(() =>
+        createWithFallback((delegate) =>
         FaceLandmarker.createFromOptions(fs, {
           baseOptions: { modelAssetPath: MODEL_URLS.face, delegate },
           runningMode: "VIDEO",
           numFaces: 1,
         }),
+      ),
       );
     },
     infer(video, tMs) {
+      const face = holder.get();
       if (!face) return null;
       const r = face.detectForVideo(video, clock.next(tMs));
       const lm = r.faceLandmarks[0];
@@ -34,8 +38,7 @@ export function faceAdapter(): ModelAdapter<FaceResult> {
       return { landmarks: lm.map((p) => ({ x: p.x, y: p.y, z: p.z })), box: [x0, y0, x1, y1] };
     },
     dispose() {
-      face?.close();
-      face = null;
+      holder.dispose();
     },
   };
 }

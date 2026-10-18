@@ -108,3 +108,19 @@ test("camera denied → message and a way to open the case's videos instead", as
   await expect(page.getByTestId("camera-error")).toContainText(/permission was denied/i);
   await expect(page.getByTestId("camera-error")).toContainText(/no videos in this case/i);
 });
+
+test("opening and closing the tool many times doesn't exhaust WebGL contexts", async ({ page }) => {
+  test.setTimeout(180_000);
+  const warnings: string[] = [];
+  page.on("console", (m) => {
+    if (/WebGL contexts|context lost|CONTEXT_LOST/i.test(m.text())) warnings.push(m.text());
+  });
+  await openCaseBoard(page, "Reopen Case");
+  for (let i = 0; i < 18; i++) {
+    await page.getByTestId("open-tool-detective-vision").click();
+    await expect(page.getByTestId("model-chip-detection")).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
+    await page.getByTestId("dv-close").click();
+    await expect(page.getByTestId("board")).toBeVisible();
+  }
+  expect(warnings).toEqual([]);
+});

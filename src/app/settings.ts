@@ -2,13 +2,38 @@ import { createContext, useContext } from "react";
 
 export interface Settings {
   apiKey: string;
+  /**
+   * Keep the API key across browser sessions (localStorage). When false it lives
+   * only in sessionStorage and is gone when the tab closes — safer on a shared
+   * origin such as <user>.github.io, where other project pages can read localStorage.
+   */
+  rememberKey: boolean;
   /** Per-tool settings, keyed by tool id. */
   tools: Record<string, unknown>;
 }
 
 const KEY = "belfry.settings.v1";
-const DEFAULTS: Settings = { apiKey: "", tools: {} };
+const SESSION_KEY = "belfry.apiKey.session";
 let memory: string | null = null; // used when localStorage is unavailable or throws
+let sessionMemory: string | null = null;
+
+function readSession(): string | null {
+  try {
+    return globalThis.sessionStorage?.getItem(SESSION_KEY) ?? sessionMemory;
+  } catch {
+    return sessionMemory;
+  }
+}
+
+function writeSession(v: string | null) {
+  sessionMemory = v;
+  try {
+    if (v === null) globalThis.sessionStorage?.removeItem(SESSION_KEY);
+    else globalThis.sessionStorage?.setItem(SESSION_KEY, v);
+  } catch {
+    /* keep the in-memory copy */
+  }
+}
 
 function read(): string | null {
   try {
@@ -29,20 +54,29 @@ function write(v: string) {
 
 export function loadSettings(): Settings {
   const raw = read();
-  if (!raw) return { ...DEFAULTS, tools: {} };
+  let p: Partial<Settings> = {};
   try {
-    const p = JSON.parse(raw) as Partial<Settings>;
-    return {
-      apiKey: typeof p.apiKey === "string" ? p.apiKey : "",
-      tools: p.tools && typeof p.tools === "object" ? p.tools : {},
-    };
+    if (raw) p = JSON.parse(raw) as Partial<Settings>;
   } catch {
-    return { ...DEFAULTS, tools: {} };
+    p = {};
   }
+  const rememberKey = p.rememberKey !== false;
+  return {
+    apiKey: rememberKey ? (typeof p.apiKey === "string" ? p.apiKey : "") : (readSession() ?? ""),
+    rememberKey,
+    tools: p.tools && typeof p.tools === "object" ? p.tools : {},
+  };
 }
 
 export function saveSettings(s: Settings): void {
-  write(JSON.stringify({ ...s, apiKey: s.apiKey.trim() }));
+  const key = s.apiKey.trim();
+  if (s.rememberKey) {
+    writeSession(null);
+    write(JSON.stringify({ ...s, apiKey: key }));
+  } else {
+    writeSession(key);
+    write(JSON.stringify({ ...s, apiKey: "" }));
+  }
 }
 
 export function getToolSettings<T extends object>(s: Settings, toolId: string, defaults: T): T {

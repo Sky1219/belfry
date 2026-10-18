@@ -2,26 +2,45 @@ import type { DepthMap, ModelAdapter } from "./types";
 
 const INPUT_W = 256;
 
+const defaultWorker = () => new Worker(new URL("./depth.worker.ts", import.meta.url), { type: "module" });
+
 /**
  * Monocular depth (Depth Anything V2 Small via Transformers.js) in a Web Worker.
  * WebGPU + fp16 when available, otherwise WASM + q8.
  */
-export function depthAdapter(): ModelAdapter<DepthMap | null> {
+export function depthAdapter(makeWorker: () => Worker = defaultWorker): ModelAdapter<DepthMap | null> {
   let worker: Worker | null = null;
   let nextId = 0;
   const pending = new Map<number, { resolve: (d: DepthMap | null) => void; reject: (e: Error) => void }>();
 
+  const failAll = (err: Error) => {
+    for (const p of pending.values()) p.reject(err);
+    pending.clear();
+  };
+
+  const stop = () => {
+    worker?.terminate();
+    worker = null;
+  };
+
   return {
     name: "depth",
     load() {
+      stop(); // a retry must not leave the previous worker (and its model) alive
       return new Promise<void>((resolve, reject) => {
-        worker = new Worker(new URL("./depth.worker.ts", import.meta.url), { type: "module" });
+        const w = makeWorker();
+        worker = w;
+        let ready = false;
         const webgpu = typeof navigator !== "undefined" && "gpu" in navigator;
-        worker.onmessage = (e: MessageEvent) => {
+        w.onmessage = (e: MessageEvent) => {
           const m = e.data;
-          if (m.type === "ready") resolve();
-          else if (m.type === "error" && m.id === undefined) reject(new Error(m.message));
-          else if (m.type === "error") {
+          if (m.type === "ready") {
+            ready = true;
+            resolve();
+          } else if (m.type === "error" && m.id === undefined) {
+            if (worker === w) stop();
+            reject(new Error(m.message));
+          } else if (m.type === "error") {
             pending.get(m.id)?.reject(new Error(m.message));
             pending.delete(m.id);
           } else if (m.type === "result") {
@@ -29,23 +48,32 @@ export function depthAdapter(): ModelAdapter<DepthMap | null> {
             pending.delete(m.id);
           }
         };
-        worker.onerror = (e) => reject(new Error(e.message || "depth worker failed"));
-        worker.postMessage({ type: "load", device: webgpu ? "webgpu" : "wasm", dtype: webgpu ? "fp16" : "q8" });
+        w.onerror = (e) => {
+          const err = new Error(e.message || "depth worker failed");
+          failAll(err);
+          if (!ready) reject(err);
+          if (worker === w) stop();
+        };
+        w.postMessage({ type: "load", device: webgpu ? "webgpu" : "wasm", dtype: webgpu ? "fp16" : "q8" });
       });
     },
     async infer(video) {
       if (!worker || !video.videoWidth) return null;
       const h = Math.max(1, Math.round((INPUT_W * video.videoHeight) / video.videoWidth));
       const bitmap = await createImageBitmap(video, { resizeWidth: INPUT_W, resizeHeight: h, resizeQuality: "low" });
+      if (!worker) {
+        bitmap.close();
+        return null;
+      }
       const id = nextId++;
+      const w = worker;
       return new Promise<DepthMap | null>((resolve, reject) => {
         pending.set(id, { resolve, reject });
-        worker!.postMessage({ type: "infer", id, bitmap }, [bitmap]);
+        w.postMessage({ type: "infer", id, bitmap }, [bitmap]);
       });
     },
     dispose() {
-      worker?.terminate();
-      worker = null;
+      stop();
       for (const p of pending.values()) p.resolve(null);
       pending.clear();
     },

@@ -12,6 +12,7 @@ export type ModelStatus = "off" | "loading" | "ready" | "offline";
 export class ModelManager {
   private state = new Map<ModelName, ModelStatus>();
   private listeners = new Set<(name: ModelName, s: ModelStatus) => void>();
+  private disposed = false;
 
   constructor(private adapters: Record<ModelName, ModelAdapter<unknown>>) {}
 
@@ -41,10 +42,11 @@ export class ModelManager {
   }
 
   get<T>(name: ModelName): ModelAdapter<T> | undefined {
-    return this.status(name) === "ready" ? (this.adapters[name] as ModelAdapter<T>) : undefined;
+    return !this.disposed && this.status(name) === "ready" ? (this.adapters[name] as ModelAdapter<T>) : undefined;
   }
 
   dispose(): void {
+    this.disposed = true;
     for (const a of Object.values(this.adapters)) {
       try {
         a.dispose();
@@ -60,6 +62,7 @@ export class ModelManager {
     this.adapters[name].load().then(
       () => this.set(name, "ready"),
       (e) => {
+        if (this.disposed) return;
         console.warn(`[models] ${name} failed to load:`, e);
         this.set(name, "offline");
       },
@@ -67,6 +70,7 @@ export class ModelManager {
   }
 
   private set(name: ModelName, s: ModelStatus) {
+    if (this.disposed) return;
     this.state.set(name, s);
     for (const fn of this.listeners) fn(name, s);
   }

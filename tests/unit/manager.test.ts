@@ -66,6 +66,18 @@ describe("ModelManager", () => {
     expect(loads.pose).toBe(2);
   });
 
+  test("a load that finishes after dispose is ignored", async () => {
+    const { adapters } = fakeAdapters();
+    const m = new ModelManager(adapters);
+    const seen: string[] = [];
+    m.onStatus((name, s) => seen.push(`${name}:${s}`));
+    m.ensure(new Set<ModelName>(["face"]));
+    m.dispose();
+    await flush();
+    expect(m.get("face")).toBeUndefined();
+    expect(seen).toEqual(["face:loading"]);
+  });
+
   test("get returns undefined until ready", async () => {
     const { adapters } = fakeAdapters();
     const m = new ModelManager(adapters);

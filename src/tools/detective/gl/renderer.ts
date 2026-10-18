@@ -254,6 +254,8 @@ export class Renderer {
       gl.deleteTexture(t.tex);
       gl.deleteFramebuffer(t.fbo);
     });
+    // Free the context now rather than waiting for GC; browsers cap live WebGL contexts.
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
   }
 
   // ---------- internals ----------

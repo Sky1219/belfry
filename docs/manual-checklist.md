@@ -4,6 +4,7 @@ The automated tests run with a fake camera and mock models, because the developm
 
 ## Models
 
+- [ ] **First:** with X-ray on, the glowing silhouette covers *you*, not the room around you. (If it's inverted, the segmenter's mask order differs from what Belfry expects — see `models/maskIndex.ts`.)
 - [ ] Open a case → **◉ Detective Vision**. With the Investigate preset, the `SEG`, `DETECT` and `DEPTH` chips reach **READY** (depth only if WebGPU is available or depth is enabled in Settings).
 - [ ] Switch to the Interrogation preset (key `2`): `FACE` and `POSE` reach **READY**.
 - [ ] Open **Perf**: every active model shows a cost in ms and an interval; nothing says offline.

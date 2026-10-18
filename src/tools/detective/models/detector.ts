@@ -1,26 +1,30 @@
 import { ObjectDetector } from "@mediapipe/tasks-vision";
 import { MonotonicClock } from "../../../platform/media/frameSource";
 import { createFileset, createWithFallback, MODEL_URLS } from "./mediapipe";
+import { TaskHolder } from "./taskHolder";
 import type { Detection, ModelAdapter } from "./types";
 
 /** Object detection (EfficientDet-Lite0, COCO classes). Boxes are normalized to the frame. */
 export function detectorAdapter(): ModelAdapter<Detection[]> {
-  let det: ObjectDetector | null = null;
+  const holder = new TaskHolder<ObjectDetector>();
   const clock = new MonotonicClock();
   return {
     name: "detection",
     async load() {
       const fs = await createFileset();
-      det = await createWithFallback((delegate) =>
+      await holder.load(() =>
+        createWithFallback((delegate) =>
         ObjectDetector.createFromOptions(fs, {
           baseOptions: { modelAssetPath: MODEL_URLS.detection, delegate },
           runningMode: "VIDEO",
           scoreThreshold: 0.35,
           maxResults: 12,
         }),
+      ),
       );
     },
     infer(video, tMs) {
+      const det = holder.get();
       if (!det) return [];
       const W = video.videoWidth || 1;
       const H = video.videoHeight || 1;
@@ -39,8 +43,7 @@ export function detectorAdapter(): ModelAdapter<Detection[]> {
       return out;
     },
     dispose() {
-      det?.close();
-      det = null;
+      holder.dispose();
     },
   };
 }

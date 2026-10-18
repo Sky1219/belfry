@@ -10,6 +10,7 @@ import { recordScan } from "./features/forensics";
 import { faceRois, HeartRateEstimator, sampleRgb } from "./features/rppg";
 import { centerRegion, cropRect, ScanController } from "./features/scan";
 import { Tracker, type Track } from "./features/tracker";
+import { Transition } from "./features/transition";
 import { BlinkCounter, eyeAspectRatio, gazeDirection, GazeTracker, type Gaze } from "./features/vitals";
 import { Renderer } from "./gl/renderer";
 import type { ModelManager, ModelStatus } from "./models/manager";
@@ -92,7 +93,7 @@ export class DetectiveEngine {
   // look
   private mode: VisionMode = "detective";
   private prevMode: VisionMode = "normal";
-  private transitionStart = -Infinity;
+  private transition = new Transition(TRANSITION_S * 1000);
   private overlays = new Set<Overlay>();
   private palette: ThermalPalette = "ironbow";
   private hud: HudDensity = "full";
@@ -176,7 +177,7 @@ export class DetectiveEngine {
     if (m === this.mode) return;
     this.prevMode = this.mode;
     this.mode = m;
-    this.transitionStart = this.t();
+    this.transition.start(this.t());
     this.presetId = null;
     this.applyRequirements();
     this.emit(true);
@@ -315,7 +316,9 @@ export class DetectiveEngine {
       if (u.fire) this.runScan(u.fire);
     }
 
-    const transition01 = Math.min(1, (t - this.transitionStart) / 1000 / TRANSITION_S);
+    const transition01 = this.transition.progress(t);
+    // once the pulse finishes, the previous mode's models are no longer needed
+    if (this.transition.consumeEnd(t)) this.applyRequirements();
     this.renderer.render({
       mode: this.mode,
       prevMode: this.prevMode,
@@ -416,7 +419,7 @@ export class DetectiveEngine {
 
   private applyRequirements() {
     const need = requiredModels(this.mode, this.overlays, this.deps.depthEnabled);
-    if (this.transitionStart > -Infinity && this.t() - this.transitionStart < TRANSITION_S * 1000) {
+    if (this.transition.running(this.t())) {
       for (const n of requiredModels(this.prevMode, this.overlays, this.deps.depthEnabled)) need.add(n);
     }
     this.deps.manager.ensure(need);

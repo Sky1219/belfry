@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useImportCase } from "../board/useImportCase";
 import { listTools } from "../tools/registry";
-import { HudButton, Panel } from "../ui/components";
+import { HudButton, Panel, Toggle } from "../ui/components";
 import { useSettings, type Settings } from "./settings";
 import { useStore } from "./storeContext";
 
@@ -62,9 +62,17 @@ export function SettingsPanel(props: { onClose: () => void }) {
                 Clear
               </HudButton>
             </form>
+            <Toggle
+              on={settings.rememberKey}
+              label="Remember key on this device"
+              onChange={(on) => update({ ...settings, rememberKey: on, apiKey: key.trim() })}
+            />
             <span className="dim" style={{ fontSize: 11, lineHeight: 1.5 }}>
-              Stored only in this browser. Used to write forensic notes; without a key Belfry writes local notes instead.
-              {settings.apiKey ? " · Key saved." : ""}
+              Used to write forensic notes; without a key Belfry writes local notes instead. The key is sent only to
+              api.anthropic.com. {settings.rememberKey
+                ? "It's saved in this browser's storage, which other pages hosted on the same domain (e.g. other projects on the same github.io account) can read — turn this off to keep it only for this tab."
+                : "It's kept only for this tab and forgotten when you close it."}
+              {settings.apiKey ? " · Key set." : ""}
             </span>
           </section>
 

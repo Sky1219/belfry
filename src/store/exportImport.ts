@@ -156,18 +156,68 @@ function parse(bytes: Uint8Array): { manifest: Manifest; records: Records; files
   }
   const records = json("records.json") as Records;
   const ok =
-    typeof manifest.case?.id === "string" &&
+    isCase(manifest.case) &&
     Array.isArray(records?.evidence) &&
     Array.isArray(records?.links) &&
     Array.isArray(records?.blobs) &&
-    records.evidence.every((e) => typeof e.id === "string" && e.caseId === manifest.case.id) &&
-    records.links.every((l) => typeof l.id === "string" && l.caseId === manifest.case.id);
+    records.evidence.every((e) => isEvidence(e) && e.caseId === manifest.case.id) &&
+    records.links.every((l) => isLink(l) && l.caseId === manifest.case.id) &&
+    records.blobs.every((b) => typeof b?.hash === "string" && typeof b?.mime === "string");
   if (!ok) throw new ImportError("bad-structure", "The case file's records are malformed.");
   const ids = new Set(records.evidence.map((e) => e.id));
   if (!records.links.every((l) => ids.has(l.fromId) && ids.has(l.toId))) {
     throw new ImportError("bad-structure", "A link points at evidence that isn't in the file.");
   }
   return { manifest, records, files };
+}
+
+const isStr = (v: unknown): v is string => typeof v === "string";
+const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const EVIDENCE_TYPES = new Set(["image", "video", "audio", "note", "finding"]);
+
+function isCase(c: unknown): c is Case {
+  const x = c as Case;
+  return !!x && isStr(x.id) && isStr(x.title) && (x.status === "open" || x.status === "closed") && isNum(x.createdAt);
+}
+
+/** Every field the board reads must be present and well-typed, or the card would crash on render. */
+function isEvidence(e: unknown): e is Evidence {
+  const x = e as Evidence;
+  return (
+    !!x &&
+    isStr(x.id) &&
+    isStr(x.caseId) &&
+    EVIDENCE_TYPES.has(x.type) &&
+    isStr(x.title) &&
+    (x.body === undefined || isStr(x.body)) &&
+    Array.isArray(x.tags) &&
+    x.tags.every(isStr) &&
+    (x.blobHash === undefined || isStr(x.blobHash)) &&
+    (x.thumbHash === undefined || isStr(x.thumbHash)) &&
+    !!x.provenance &&
+    isNum(x.provenance.createdAt) &&
+    !!x.position &&
+    isNum(x.position.x) &&
+    isNum(x.position.y) &&
+    !!x.meta &&
+    typeof x.meta === "object" &&
+    isNum(x.createdAt) &&
+    isNum(x.updatedAt)
+  );
+}
+
+function isLink(l: unknown): l is Link {
+  const x = l as Link;
+  return (
+    !!x &&
+    isStr(x.id) &&
+    isStr(x.caseId) &&
+    isStr(x.fromId) &&
+    isStr(x.toId) &&
+    (x.kind === "derived-from" || x.kind === "user") &&
+    (x.label === undefined || isStr(x.label)) &&
+    isNum(x.createdAt)
+  );
 }
 
 function remap(c: Case, evidence: Evidence[], links: Link[]) {

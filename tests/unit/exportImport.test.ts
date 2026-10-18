@@ -115,6 +115,29 @@ describe(".belfry export/import", () => {
     expect(await counts(b)).toEqual([0, 0, 0, 0]);
   });
 
+  test("rejects malformed records with reason bad-structure and writes nothing", async () => {
+    const a = await fresh();
+    const { c } = await seed(a);
+    const files = unzipSync(await exportCase(a, c.id));
+    const records = JSON.parse(new TextDecoder().decode(files["records.json"]));
+    const breakages: Array<(r: typeof records) => void> = [
+      (r) => delete r.evidence[0].tags,
+      (r) => delete r.evidence[0].provenance,
+      (r) => (r.evidence[0].position = { x: "left" }),
+      (r) => (r.evidence[0].type = "hologram"),
+      (r) => (r.evidence[0].title = 42),
+      (r) => (r.links[0].kind = "telepathy"),
+    ];
+    for (const breakIt of breakages) {
+      const copy = structuredClone(records);
+      breakIt(copy);
+      const b = await fresh();
+      const bad = zipSync({ ...files, "records.json": strToU8(JSON.stringify(copy)) });
+      await expect(importCase(b, bad, "replace")).rejects.toMatchObject({ reason: "bad-structure" });
+      expect(await counts(b)).toEqual([0, 0, 0, 0]);
+    }
+  });
+
   test("rejects random bytes with reason not-zip", async () => {
     const b = await fresh();
     const err = await importCase(b, new Uint8Array([7, 7, 7, 7, 7, 7]), "replace").catch((e) => e);
