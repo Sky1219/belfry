@@ -22,4 +22,13 @@ describe("Transition", () => {
     tr.start(2000);
     expect(tr.consumeEnd(3000)).toBe(true);
   });
+
+  test("an instant start (reduced motion) cuts straight to the new mode and still reports its end", () => {
+    const tr = new Transition(900);
+    tr.start(1000, { instant: true });
+    expect(tr.progress(1000)).toBe(1);
+    expect(tr.running(1000)).toBe(false);
+    expect(tr.consumeEnd(1000)).toBe(true);
+    expect(tr.consumeEnd(1016)).toBe(false);
+  });
 });

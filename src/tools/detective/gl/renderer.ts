@@ -14,6 +14,8 @@ export interface RenderState {
   overlays: Set<Overlay>;
   palette: ThermalPalette;
   timeS: number;
+  /** Reduced motion: grain and shimmer freeze (u_time holds at 0). */
+  still?: boolean;
   hasNewFrame: boolean;
 }
 
@@ -278,7 +280,7 @@ export class Renderer {
     gl.uniform2f(this.u(p, "u_uvOffset"), uv.offset[0], uv.offset[1]);
     gl.uniform1f(this.u(p, "u_mirror"), v?.mirror ? 1 : 0);
     gl.uniform2f(this.u(p, "u_texel"), 1 / this.videoSize.w, 1 / this.videoSize.h);
-    gl.uniform1f(this.u(p, "u_time"), s.timeS);
+    gl.uniform1f(this.u(p, "u_time"), s.still ? 0 : s.timeS);
     gl.uniform1f(this.u(p, "u_depthMix"), Math.min(1, Math.max(0, (s.timeS - this.depthChangedAt) / 0.3)));
     gl.uniform1f(this.u(p, "u_hasMask"), this.hasMask ? 1 : 0);
     gl.uniform1f(this.u(p, "u_hasDepth"), this.hasDepth ? 1 : 0);

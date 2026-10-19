@@ -1,17 +1,23 @@
 /** Timing for the pulse transition between vision modes. */
 export class Transition {
   private startedAt = -Infinity;
+  private duration: number;
   private ended = true;
 
-  constructor(private durationMs: number) {}
+  constructor(private durationMs: number) {
+    this.duration = durationMs;
+  }
 
-  start(tMs: number): void {
+  /** `instant` (for reduced motion) cuts straight to the new mode with no pulse. */
+  start(tMs: number, opts?: { instant?: boolean }): void {
     this.startedAt = tMs;
+    this.duration = opts?.instant ? 0 : this.durationMs;
     this.ended = false;
   }
 
   progress(tMs: number): number {
-    return Math.min(1, Math.max(0, (tMs - this.startedAt) / this.durationMs));
+    if (this.duration <= 0) return 1;
+    return Math.min(1, Math.max(0, (tMs - this.startedAt) / this.duration));
   }
 
   running(tMs: number): boolean {

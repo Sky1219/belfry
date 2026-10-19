@@ -58,6 +58,8 @@ export interface EngineDeps {
   /** Mock mode: heart rate comes from the mock face instead of camera pixels. */
   mock?: boolean;
   now?: () => number;
+  /** True when the visitor asked for less motion: mode changes cut, grain and throb hold still. */
+  reducedMotion?: () => boolean;
 }
 
 const TRANSITION_S = 0.9;
@@ -177,7 +179,7 @@ export class DetectiveEngine {
     if (m === this.mode) return;
     this.prevMode = this.mode;
     this.mode = m;
-    this.transition.start(this.t());
+    this.transition.start(this.t(), { instant: this.stillMotion() });
     this.presetId = null;
     this.applyRequirements();
     this.emit(true);
@@ -307,7 +309,8 @@ export class DetectiveEngine {
     this.tracks = this.tracker.tracks(t);
     this.renderer.setBoxes(this.overlays.has("evidence") ? this.tracks.map((x) => x.box) : []);
     this.updateVitals(t);
-    this.renderer.setFace(this.face?.box ?? null, this.pulsePhase(t));
+    const still = this.stillMotion();
+    this.renderer.setFace(this.face?.box ?? null, still ? 0.5 : this.pulsePhase(t));
 
     // scanning (detection is always on while the tool is open)
     if (!this.scanning && this.viewport && this.deps.manager.status("detection") === "ready") {
@@ -326,6 +329,7 @@ export class DetectiveEngine {
       overlays: this.overlays,
       palette: this.palette,
       timeS: t / 1000,
+      still,
       hasNewFrame,
     });
     this.drawHud();
@@ -447,6 +451,10 @@ export class DetectiveEngine {
       this.heartReading = this.heart.reading(t);
     }
     if (this.heartReading) this.elevation.push(t, this.heartReading.bpm);
+  }
+
+  private stillMotion(): boolean {
+    return this.deps.reducedMotion?.() ?? false;
   }
 
   /** 0..1 heartbeat intensity, used by thermal to make the face throb. */
