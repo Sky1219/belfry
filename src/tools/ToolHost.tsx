@@ -4,6 +4,7 @@ import { useSettings } from "../app/settings";
 import { useStore } from "../app/storeContext";
 import { LlmClient } from "../platform/llm";
 import { HudButton } from "../ui/components";
+import { markToolUsed } from "../board/demoCase";
 import { getTool } from "./registry";
 import type { ToolComponent, ToolContext, ToolInput } from "./types";
 
@@ -25,6 +26,7 @@ export function ToolHost(props: { caseId: string; toolId: string; input: string;
   const llm = useMemo(() => new LlmClient(() => settingsRef.current.apiKey), []);
 
   const close = () => props.navigate({ name: "board", caseId: props.caseId });
+  useEffect(markToolUsed, []);
 
   useEffect(() => {
     let alive = true;

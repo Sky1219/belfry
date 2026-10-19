@@ -1,12 +1,12 @@
 import { COMMON } from "./common";
 
-/** Detective: dark blue forensic grade with glowing edges. */
+/** Detective: a cold grayscale surveillance grade with bone edge lines. */
 export const DETECTIVE = COMMON + /* glsl */ `
 void main() {
   vec2 uv = srcUv();
   float lum = L(uv);
   float edge = smoothstep(0.12, 0.5, sobel(uv));
-  vec3 col = BLUE * (0.12 + lum * 0.55) + CYAN * edge * 0.55;
+  vec3 col = vec3(0.035, 0.04, 0.045) + vec3(0.50, 0.51, 0.53) * lum * lum + LINE * edge * 0.6;
   col = applyOverlays(col, uv, edge);
   outColor = vec4(screenTreatment(col, 1.0), 1.0);
 }`;
@@ -80,7 +80,7 @@ void main() {
   vec2 uv = srcUv();
   float heat = texture(u_hist, uv).r;
   float edge = smoothstep(0.12, 0.5, sobel(uv));
-  vec3 base = vec3(0.04, 0.07, 0.10) + vec3(0.10, 0.14, 0.18) * L(uv) + CYAN * edge * 0.08;
+  vec3 base = vec3(0.04, 0.07, 0.10) + vec3(0.10, 0.14, 0.18) * L(uv) + LINE * edge * 0.08;
   vec3 col = mix(base, ironbow(0.35 + heat * 0.65), smoothstep(0.02, 0.25, heat));
   col = applyOverlays(col, uv, edge);
   outColor = vec4(screenTreatment(col, 0.7), 1.0);

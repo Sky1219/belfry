@@ -1,5 +1,6 @@
-import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { Handle, Position, useStore as useFlowStore, type Node, type NodeProps } from "@xyflow/react";
 import { memo, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useBlobUrl } from "../app/storeContext";
 import type { Evidence, EvidenceType } from "../store/schema";
 import { DecoCorners } from "../ui/components";
@@ -24,6 +25,9 @@ export const TYPE_LABEL: Record<EvidenceType, string> = {
 /** "EXH·007": exhibit numbers are per case and never reused. */
 export const exhibitTag = (n: number | undefined) => (n ? `EXH·${String(n).padStart(3, "0")}` : "EXH·—");
 
+/** "Exhibit 7": how a screen reader should say an exhibit number (never "E X H dot"). */
+export const exhibitSpoken = (n: number | undefined) => (n ? `Exhibit ${n}` : "Exhibit");
+
 const TOOL_NAMES: Record<string, string> = { "detective-vision": "Detective Vision" };
 
 const when = (ms: number) => {
@@ -46,6 +50,8 @@ export type CardData = {
   exhibit?: number;
   /** Exhibit number of the evidence this was derived from, when known. */
   sourceExhibit?: number;
+  /** Outside the current search or type filter: shown dimmed. */
+  dimmed?: boolean;
   /** Arrived while the board was open: plays the pin-drop once. */
   arriving?: boolean;
 };
@@ -67,14 +73,16 @@ function EvidenceCardImpl({ data, selected }: NodeProps<CardNode>) {
   const e = data.evidence;
   const thumb = useBlobUrl(e.thumbHash ?? (e.type === "image" ? e.blobHash : undefined));
   const finding = e.type === "finding";
+  // zoomed far out, a card is just its stamp and title: body text would be unreadable anyway
+  const compact = useFlowStore((s) => s.transform[2] < 0.7);
 
   return (
     <article
-      className={`evidence-card type-${e.type} ${selected ? "selected" : ""} ${data.arriving ? "arriving" : ""}`}
+      className={`evidence-card type-${e.type} ${selected ? "selected" : ""} ${data.arriving ? "arriving" : ""} ${compact ? "compact" : ""} ${data.dimmed ? "dimmed" : ""}`}
       data-testid="evidence-card"
       data-type={e.type}
     >
-      <DecoCorners tone={finding ? "amber" : "cyan"} />
+      <DecoCorners tone={finding ? "amber" : "line"} />
       <Handle type="target" position={Position.Left} />
       <header className="card-head">
         <span className="card-stamp" data-testid="exhibit-tag">
@@ -116,6 +124,8 @@ function EvidenceCardImpl({ data, selected }: NodeProps<CardNode>) {
 /** The card's actions: a real menu button with Escape, outside-click and arrow-key handling. */
 function CardMenu(props: { title: string; items: CardMenuItem[] }) {
   const [open, setOpen] = useState(false);
+  // the menu renders outside the zoomed wall (at full size), anchored under its button
+  const [at, setAt] = useState<{ top: number; right: number } | null>(null);
   const btn = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
 
@@ -125,8 +135,16 @@ function CardMenu(props: { title: string; items: CardMenuItem[] }) {
     const onDown = (ev: PointerEvent) => {
       if (!menu.current?.contains(ev.target as HTMLElement) && !btn.current?.contains(ev.target as HTMLElement)) setOpen(false);
     };
+    // the wall can pan or zoom under an open menu; close rather than float away from the card
+    const onMove = () => setOpen(false);
     document.addEventListener("pointerdown", onDown, true);
-    return () => document.removeEventListener("pointerdown", onDown, true);
+    window.addEventListener("wheel", onMove, { passive: true });
+    window.addEventListener("resize", onMove);
+    return () => {
+      document.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("wheel", onMove);
+      window.removeEventListener("resize", onMove);
+    };
   }, [open]);
 
   const close = (refocus: boolean) => {
@@ -166,13 +184,24 @@ function CardMenu(props: { title: string; items: CardMenuItem[] }) {
         data-testid="card-menu"
         onClick={(ev) => {
           ev.stopPropagation();
+          const r = btn.current!.getBoundingClientRect();
+          setAt({ top: r.bottom + 4, right: window.innerWidth - r.right });
           setOpen((o) => !o);
         }}
       >
         <Icon name="more" />
       </button>
-      {open && (
-        <div ref={menu} className="card-menu nodrag nowheel" role="menu" aria-label={`Actions for ${props.title}`} onKeyDown={onKeyDown}>
+      {open &&
+        at &&
+        createPortal(
+        <div
+          ref={menu}
+          className="card-menu"
+          role="menu"
+          aria-label={`Actions for ${props.title}`}
+          onKeyDown={onKeyDown}
+          style={{ top: Math.min(at.top, window.innerHeight - 220), right: Math.max(8, at.right) }}
+        >
           {props.items.map((m) => (
             <button
               key={m.label}
@@ -190,8 +219,9 @@ function CardMenu(props: { title: string; items: CardMenuItem[] }) {
               {m.label}
             </button>
           ))}
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </>
   );
 }

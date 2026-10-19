@@ -2,334 +2,404 @@
 name: Belfry
 description: A detective's console for investigation tools that run in the browser.
 colors:
-  bg: "#02060d"
-  bg-raised: "#06111d"
-  bg-panel: "rgba(6, 17, 29, 0.86)"
-  line: "rgba(89, 217, 255, 0.28)"
-  line-strong: "rgba(89, 217, 255, 0.6)"
-  cyan: "#59d9ff"
-  cyan-dim: "rgba(89, 217, 255, 0.55)"
-  cyan-faint: "rgba(89, 217, 255, 0.12)"
-  orange: "#ffa040"
-  orange-dim: "rgba(255, 160, 64, 0.55)"
-  red: "#ff5a5a"
-  green: "#6dffb0"
-  text: "#cfeffc"
-  text-dim: "#7fa7b8"
+  void: "#050506"
+  metal-900: "#0e0f11"
+  metal-800: "#161719"
+  metal-700: "#212225"
+  metal-600: "#2e2f33"
+  metal-400: "#4d4f54"
+  spill-red: "rgba(255, 74, 44, 0.16)"
+  spill-amber: "rgba(255, 160, 60, 0.14)"
+  screen: "#07090c"
+  screen-raised: "#0e1116"
+  screen-pane: "rgba(10, 12, 16, 0.94)"
+  ink: "#ece6dc"
+  ink-dim: "#9aa3ad"
+  ink-faint: "rgba(236, 230, 220, 0.07)"
+  line: "rgba(236, 230, 220, 0.14)"
+  line-strong: "rgba(236, 230, 220, 0.34)"
+  signal: "#ff4433"
+  signal-dim: "rgba(255, 68, 51, 0.55)"
+  signal-faint: "rgba(255, 68, 51, 0.14)"
+  signal-deep: "#8f1c13"
+  amber: "#ffa733"
+  amber-dim: "rgba(255, 167, 51, 0.5)"
+  amber-faint: "rgba(255, 167, 51, 0.12)"
+  ok: "#6fd38a"
 typography:
-  display:
+  wordmark:
+    fontFamily: "Barlow Condensed, Arial Narrow, system-ui, sans-serif"
+    fontSize: "30px"
+    fontWeight: 700
+    lineHeight: 1
+    letterSpacing: "0.34em"
+  readout:
     fontFamily: "JetBrains Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
+    fontSize: "32px"
+    fontWeight: 700
+    lineHeight: 1
+    fontFeature: "tnum"
+  headline:
+    fontFamily: "Barlow Condensed, Arial Narrow, system-ui, sans-serif"
+    fontSize: "28px"
+    fontWeight: 700
+    lineHeight: 1.05
+    letterSpacing: "0.01em"
+  case-name:
+    fontFamily: "Barlow Condensed, Arial Narrow, system-ui, sans-serif"
     fontSize: "22px"
     fontWeight: 700
-    letterSpacing: "0.5em"
-  headline:
-    fontFamily: "JetBrains Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
-    fontSize: "20px"
-    fontWeight: 700
+    lineHeight: 1.1
     letterSpacing: "0.02em"
-  case-name:
-    fontFamily: "JetBrains Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
-    fontSize: "17px"
-    fontWeight: 700
-    letterSpacing: "0.01em"
+  title-compact:
+    fontFamily: "Barlow Condensed, Arial Narrow, system-ui, sans-serif"
+    fontSize: "24px"
+    fontWeight: 600
+    lineHeight: 1.15
   title:
-    fontFamily: "JetBrains Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
+    fontFamily: "Barlow Condensed, Arial Narrow, system-ui, sans-serif"
+    fontSize: "17px"
+    fontWeight: 600
+    lineHeight: 1.15
+  control:
+    fontFamily: "Barlow Condensed, Arial Narrow, system-ui, sans-serif"
+    fontSize: "14px"
+    fontWeight: 600
+    letterSpacing: "0.08em"
+  screen-title:
+    fontFamily: "Barlow Condensed, Arial Narrow, system-ui, sans-serif"
     fontSize: "13px"
-    fontWeight: 700
-    lineHeight: 1.35
-  body:
-    fontFamily: "JetBrains Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
-    fontSize: "13px"
-    fontWeight: 400
-  body-small:
-    fontFamily: "JetBrains Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
-    fontSize: "12px"
-    fontWeight: 400
-    lineHeight: 1.5
-  panel-title:
-    fontFamily: "JetBrains Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
-    fontSize: "11px"
-    fontWeight: 400
-    letterSpacing: "0.2em"
-  button:
-    fontFamily: "JetBrains Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
-    fontSize: "11px"
-    fontWeight: 400
-    letterSpacing: "0.14em"
+    fontWeight: 600
+    letterSpacing: "0.1em"
   label:
+    fontFamily: "Barlow Condensed, Arial Narrow, system-ui, sans-serif"
+    fontSize: "12px"
+    fontWeight: 600
+    letterSpacing: "0.12em"
+  body:
+    fontFamily: "Barlow, system-ui, sans-serif"
+    fontSize: "14px"
+    fontWeight: 400
+    lineHeight: 1.45
+  body-small:
+    fontFamily: "Barlow, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+    lineHeight: 1.45
+  data:
     fontFamily: "JetBrains Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
     fontSize: "11px"
     fontWeight: 400
-    letterSpacing: "0.18em"
-  chip:
-    fontFamily: "JetBrains Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
-    fontSize: "10px"
-    fontWeight: 400
-    letterSpacing: "0.15em"
+    fontFeature: "tnum"
 rounded:
-  none: "0px"
+  plate: "1px"
   sm: "2px"
-  pill: "999px"
+  bezel: "3px"
+  dot: "50%"
 spacing:
   2xs: "4px"
   xs: "6px"
   sm: "8px"
+  stack: "10px"
   md: "12px"
-  lg: "16px"
-  xl: "32px"
+  wall: "14px"
+  xl: "16px"
+  2xl: "20px"
 components:
-  button-hud:
-    backgroundColor: "transparent"
-    textColor: "{colors.cyan}"
-    typography: "{typography.button}"
+  button-key:
+    backgroundColor: "{colors.metal-600}"
+    textColor: "{colors.ink}"
+    typography: "{typography.control}"
     rounded: "{rounded.sm}"
-    padding: "7px 14px"
-  button-hud-hover:
-    backgroundColor: "{colors.cyan-faint}"
-    textColor: "{colors.cyan}"
-  button-hud-active:
-    backgroundColor: "{colors.cyan}"
-    textColor: "{colors.bg}"
-  button-hud-danger:
-    backgroundColor: "transparent"
-    textColor: "{colors.red}"
-  button-hud-small:
-    padding: "4px 10px"
+    padding: "5px 14px"
+    height: "32px"
+  button-key-engaged:
+    backgroundColor: "{colors.signal}"
+    textColor: "#1a0503"
+  button-key-danger:
+    backgroundColor: "{colors.metal-600}"
+    textColor: "#ff7466"
+  button-key-danger-hover:
+    backgroundColor: "{colors.signal-deep}"
+    textColor: "#ffffff"
+  button-key-small:
+    padding: "3px 10px"
     height: "28px"
-  input-hud:
-    backgroundColor: "rgba(0, 0, 0, 0.35)"
-    textColor: "{colors.text}"
+  input-well:
+    backgroundColor: "#030405"
+    textColor: "{colors.ink}"
+    typography: "{typography.body}"
     rounded: "{rounded.sm}"
-    padding: "7px 10px"
-  panel:
-    backgroundColor: "{colors.bg-panel}"
-    textColor: "{colors.text}"
+    padding: "6px 10px"
+    height: "34px"
+  bezel:
+    backgroundColor: "{colors.metal-700}"
+    textColor: "{colors.ink}"
+    typography: "{typography.screen-title}"
+    rounded: "{rounded.bezel}"
+    padding: "0 5px 5px"
+  screen:
+    backgroundColor: "{colors.screen}"
     rounded: "{rounded.sm}"
-    padding: "10px 14px 14px"
-  dialog:
-    backgroundColor: "{colors.bg-raised}"
-    textColor: "{colors.text}"
-    rounded: "{rounded.sm}"
-    width: "460px"
-  chip-ready:
-    textColor: "{colors.green}"
-    typography: "{typography.chip}"
-    rounded: "{rounded.pill}"
-    padding: "2px 8px"
-  chip-loading:
-    textColor: "{colors.cyan-dim}"
-    typography: "{typography.chip}"
-    rounded: "{rounded.pill}"
-    padding: "2px 8px"
-  chip-offline:
-    textColor: "{colors.red}"
-    typography: "{typography.chip}"
-    rounded: "{rounded.pill}"
-    padding: "2px 8px"
-  evidence-card:
-    backgroundColor: "{colors.bg-panel}"
-    textColor: "{colors.text}"
-    rounded: "{rounded.none}"
-    padding: "10px 10px 8px"
-    width: "220px"
-  exhibit-stamp:
-    textColor: "{colors.cyan}"
+  plate-steel:
+    backgroundColor: "{colors.metal-800}"
+    textColor: "{colors.ink-dim}"
     typography: "{typography.label}"
-    rounded: "{rounded.none}"
-    padding: "1px 5px"
-  exhibit-stamp-finding:
-    textColor: "{colors.orange}"
-  board-toolbar:
-    backgroundColor: "{colors.bg-raised}"
-    padding: "10px 16px 0"
-  evidence-index:
-    backgroundColor: "{colors.bg-raised}"
-    width: "272px"
-  toast:
-    backgroundColor: "{colors.bg-raised}"
-    textColor: "{colors.text}"
+    rounded: "{rounded.plate}"
+    padding: "2px 8px"
+  chip-status:
+    textColor: "{colors.ok}"
+    typography: "{typography.label}"
+    rounded: "{rounded.plate}"
+    padding: "1px 8px"
+  evidence-card:
+    backgroundColor: "rgba(10, 12, 15, 0.97)"
+    textColor: "{colors.ink}"
     typography: "{typography.body-small}"
-    padding: "6px 6px 6px 14px"
+    padding: "0 10px 8px"
+    width: "220px"
+  evidence-stamp:
+    textColor: "{colors.ink-dim}"
+    typography: "{typography.data}"
+  evidence-stamp-selected:
+    textColor: "{colors.signal}"
+  evidence-stamp-finding:
+    textColor: "{colors.amber}"
+  readout:
+    backgroundColor: "{colors.screen}"
+    textColor: "{colors.signal}"
+    typography: "{typography.readout}"
+    padding: "10px 12px 9px"
+  readout-zero:
+    textColor: "{colors.ink-dim}"
+  case-number:
+    backgroundColor: "rgba(255, 68, 51, 0.06)"
+    textColor: "{colors.signal}"
+    typography: "{typography.data}"
+    padding: "5px 8px"
+  rail:
+    backgroundColor: "{colors.metal-900}"
+    textColor: "{colors.ink}"
+    padding: "9px 14px"
+  toast:
+    backgroundColor: "{colors.metal-700}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body-small}"
+    rounded: "{rounded.bezel}"
+    padding: "5px 5px 5px 12px"
+  modal:
+    backgroundColor: "{colors.metal-700}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.bezel}"
+    width: "460px"
 ---
 
 # Design System: Belfry
 
 ## Overview
 
-**Creative North Star: "The Batcomputer"**
+**Creative North Star: "The Monitor Wall"**
 
-Belfry is the detective's machine in the cave: an industrial, high-tech control room crossed with gothic-noir minimalism and dark deco architecture, dense with surveillance data. Everything sits in near-black, lit by its own cold Nightglass Cyan. The light comes from the instruments, never from the room. Readouts are monospace and uppercase, frames are hairline and near-square, and the only warm colors are evidence and alarms. The theme comes through materials, light and density, never through borrowed marks. The North Star is an internal reference: per PRODUCT.md, the shipped UI never uses DC names, logos, silhouettes or fonts.
+Belfry is a wall of monitors in a dark steel room. Every surface is a screen set in a light gunmetal bezel: the case board is the main screen, and instrument screens (evidence index, readouts, feeds, tools) flank it. Between the screens the wall is near-black, with sparse red pinpoints. A warm-lit steel console rail runs across the top, and a low red glow rises from the floor. The light belongs to the hardware, and it means something: a lamp is lit only when its screen has something live, a key is lit only when it is the next step, and red marks only what is live, selected, primary or alarming. The North Star is an internal reference; the shipped UI carries no borrowed names or marks.
 
-The system is a single monospace family, a two-accent palette (cyan for system, amber for evidence), smoked-glass panes with cyan corner brackets, and a red pin on every exhibit. Density is high and type is small (13px base, 11–12px labels and readouts), on purpose: this is a console you read, not a page you scroll. The case board carries the full idea: a **wall** (the canvas, darkened at the edges) with exhibits pinned to it, **consoles** built into the room (the toolbar with its readout strip, the evidence index) that cast shadow onto the wall, and **panes** in front (dialogs, menus, toasts). **Dark deco ornament** grows out of the bracket: stepped double corners on exhibits and panes, and a doubled rule under the console. Chevrons and heavier geometric framing remain open for later surfaces.
+The material comes from industrial console hardware: warm gunmetal with a lit top edge, black glass screens with a dot grid and faint scan lines, bone-white line work and text, and two lights. Signal red is live data, selection, primary action and alarm. Amber is findings and warnings. Steel grey carries secondary text and everything at rest. Type is a condensed uppercase hardware voice (Barlow Condensed) for labels and controls, a plain humanist voice (Barlow) for what people wrote, and a monospace voice (JetBrains Mono) for numerals, IDs and times. Density is that of a console: small type, packed screens, status always visible and stated in words, but evidence stays readable on the wall at every zoom.
 
-Confirmed rejections: **generic sci-fi neon** (rainbow or purple-pink cyberpunk gradients, Tron grids) and **friendly SaaS** (rounded cards, pastel accents, soft shadows, cheerful empty states).
+The signature move is the wall itself, with grayscale surveillance feeds that light up in color, framed in red, when their exhibit is selected on the board. Big red numerals over solid red meters, steel OFFLINE plates on unbuilt tools, and hazard-stripe plates for warnings complete the vocabulary. The world rejects the single-canvas node editor with a toolbar on top: content lives on screens, not on a bare page.
 
 **Key Characteristics:**
-- Near-black field (#02060d) lit only by emitted cyan light.
-- One typeface, JetBrains Mono, at two weights; uppercase tracked labels carry the structure.
-- Two accents with fixed meanings: cyan is the system, amber is evidence.
-- Hairline borders at 28% and 60% cyan; corners are 2px or none.
-- Corner brackets on panels, stepped double corners on exhibits: the recurring signature.
-- Three planes, wall, console and pane, each with its own depth.
-- Every exhibit carries a stable `EXH·nnn` stamp, a timestamp and where it came from.
-- High information density; status is always visible, stated in words, never implied by decoration.
+- A near-black room (`void`) with a red floor glow and a sparse field of red pinpoints between screens.
+- Every surface is a black-glass screen in a 3px gunmetal bezel with a warm lit top edge; its title and lamp sit on the bezel.
+- Two lights with fixed meanings: signal red (live, selected, primary, alarm) and amber (findings, warnings). At rest, things are Steel Grey.
+- Lamps report state; a lit bezel throws warm light down onto the wall.
+- Bone line work (`ink` at 14% and 34%) draws every hairline; steel grey (`ink-dim`) carries secondary text.
+- Three type voices: condensed uppercase for hardware, humanist for writing, monospace for numbers.
+- Imagery sits in grayscale until it is picked, and then lights in full color.
+- Corners stay near-square: 1px plates, 2px keys and glass, 3px bezels.
 
 ## Colors
 
-A cold monochrome of black and cyan, broken only by amber evidence and the red of pins and alarms.
+A warm gunmetal and black-glass room lit by two lights, signal red and amber, with bone line work.
 
 ### Primary
-- **Nightglass Cyan** (`cyan`): the system's own light. Panel titles, button text and borders, icons, exhibit and case stamps, the focus ring, active states, the connector studs on cards, the HUD wordmark and Detective Vision's 2D overlay strokes. When something is *on*, it is filled with Nightglass Cyan and its text drops to Tower Night (`button-hud-active`).
-- **Nightglass Dim** (`cyan-dim`): secondary cyan for loading chips, status lines and the strings of links you drew on the board. It reaches only about 4.2:1 on Tower Night, so keep it to short labels.
-- **Nightglass Haze** (`cyan-faint`): hover fills, selection backgrounds and the soft halo behind glowing elements.
+- **Signal Red** (`signal`): live data, selection, primary actions and alarms. Lit lamps, the engaged key, non-zero readout numerals, the activity trace bars, case numbers (`Nº 001`), a selected card's frame and stamp, a lit feed's frame and tag, the selected index row's stamp and icon, the zoom percentage, links when selected, the global focus ring, the pin on every card, the toast lamp and the UNDO key. In Detective Vision it is x-ray's color and the HUD's alert color.
+- **Signal Dim** (`signal-dim`): borders only, for case-number boxes and the primary key's inner rim. Never text.
+- **Signal Haze** (`signal-faint`): the focus haze, the selection marquee and the lit row in the evidence index (at 16%).
+- **Signal Deep** (`signal-deep`): the hover fill of a danger key. Danger text itself is a lighter red (#ff7466) so it holds 4.5:1 on the steel key face.
 
 ### Secondary
-- **Evidence Amber** (`orange`): everything that is a *finding*. Finding cards' stamp, icon and deco corners, `EV-nn` tags and object outlines in Detective Vision, the HUD hint pill, warning toasts and the storage banner. Amber means "this is evidence or needs your eye", and it is never decorative.
-- **Evidence Amber Dim** (`orange-dim`): the border of finding cards, the dashed derived-from string (with an amber arrowhead) and amber hint pills.
+- **Readout Amber** (`amber`): findings and warnings. Finding cards' stamp, icon, corners and selected frame; a non-zero FINDINGS readout; amber lamps (a staged demo case, Detective Vision's No Signal); warning toasts; the storage banners and the drop hint (with hazard stripes); `EV-nn` tags and evidence outlines on the Detective Vision overlay; the case file's title.
+- **Amber Dim** (`amber-dim`) and **Amber Haze** (`amber-faint`): a finding card's resting border, the dashed derived-from link, the hint pill's border and amber plates.
 
 ### Tertiary
-- **Pin Red** (`red`): the tack on every evidence card, destructive buttons, `offline` chips and the blinking `SIGNAL LOST` status. Red is reserved for the physical pin and for failure.
-- **Ready Green** (`green`): used only for the `ready` status chip.
+- **Lamp Green** (`ok`): status only. The lamp of a live tool in the tools rack, the System screen's lamp and the `ready` chip.
 
 ### Neutral
-- **Tower Night** (`bg`): the page, the board wall and the Detective Vision stage. The case list adds a one-off radial wash from #071a2e at the top, like distant light reaching down a shaft. The wall darkens toward its edges with a black vignette (to 60%).
-- **Console Slate** (`bg-raised`): the toolbar, evidence index, zoom readout, dialogs, card menus, toasts and edge-label plates. The readout strip sits on a 28% black inset within it.
-- **Smoked Glass** (`bg-panel`): translucent panels and evidence cards, always with `backdrop-filter: blur(6px)` when floating over live content.
-- **Hairline Cyan** (`line`) and **Edge Cyan** (`line-strong`): every border. Hairline for resting frames, Edge for buttons, hover and open menus.
-- **Pale Readout** (`text`): primary text, a cyan-tinted white.
-- **Faded Readout** (`text-dim`): secondary text, labels, timestamps and empty states.
+- **Void** (`void`): the room. The page, the tool layer and the Detective Vision stage. The app frame adds a red floor glow (13% at the bottom) and a faint steel light from the top.
+- **Console Gunmetal** (`metal-900` through `metal-400`): the hardware. Bezels run `metal-700` to `metal-900` top to bottom; keys run `metal-600` to `metal-700`; `metal-400` is idle lamps, toggle thumbs, `kbd` edges and scrollbars.
+- **Lamp Spill** (`spill-red`, `spill-amber`): the warm light a lit lamp throws along its bezel, as a 120px radial behind the bezel head.
+- **Black Glass** (`screen`): every screen surface. `screen-raised` is a pane set on the glass, and `screen-pane` is the translucent empty-board pane.
+- **Bone** (`ink`): primary text and line work. `line` (14%) is every resting hairline; `line-strong` (34%) is card frames, panes and link label plates; `ink-faint` (7%) is the hover wash on rows.
+- **Steel Grey** (`ink-dim`): secondary text, labels, captions, placeholders and empty states (about 7.7:1 on Black Glass). It is also the at-rest state of things that light up: card stamps, zero readouts, OFFLINE plates and the focused input's border.
 
 ### Named Rules
-**The Instrument Light Rule.** Light is emitted by instruments, never ambient. Glow (text-shadow, box-shadow halos) appears only on things that are live: the wordmark, the tool title plate, hovered or selected controls. A surface with nothing to report does not glow.
+**The Two Lights Rule.** Red is live, selected, primary or alarm; amber is a finding or a warning. Nothing at rest is red: a card's stamp is Steel Grey until the card is selected, a readout at zero is Steel Grey with no glow, and an unbuilt tool's OFFLINE plate is steel. Lamp green is status, and the false color inside Detective Vision's camera modes belongs to the feed, not the HUD.
 
-**The Two Signals Rule.** Cyan means system and amber means evidence. Never swap them, and never add a third accent for decoration. Red and green are status, not palette.
+**The Lit Feed Rule.** Photos and footage sit in grayscale (feeds fully, card thumbnails at 85%) until they are hovered or selected; selection restores full color and frames them in Signal Red. Color in an image means attention.
 
 ## Typography
 
-**Display Font:** JetBrains Mono (with ui-monospace, SF Mono, Menlo, Consolas)
-**Body Font:** JetBrains Mono, the same family
-**Label/Mono Font:** JetBrains Mono, the same family
+**Display Font:** Barlow Condensed (with Arial Narrow, system-ui), self-hosted at 500, 600 and 700
+**Body Font:** Barlow (with system-ui), self-hosted at 400, 500 and 600
+**Label/Mono Font:** JetBrains Mono (with ui-monospace, SF Mono, Menlo, Consolas), self-hosted at 400 and 700, tabular numerals
 
-**Character:** One monospace family at 400 and 700 does everything. Hierarchy comes from case, tracking and color rather than size. That reads as terminal output and machine labels, the voice of a console rather than a publication.
+**Character:** A condensed industrial grotesque stamped on the hardware, a plain humanist sans for what people wrote, and a monospace for anything counted, numbered or timed. All three faces are bundled with the app; nothing loads from a font CDN.
 
 ### Hierarchy
-- **Display** (700, 22px, 0.5em tracking, uppercase): the `BELFRY` wordmark on the case list, with a faint cyan halo. Only the wordmark uses it.
-- **Headline** (700, 20px): the heading of a pane that speaks to you, such as the empty wall ("The wall is bare."). Sentence case.
-- **Case Name** (700, 17px, 15px on phones): the case's own name in the board console.
-- **Title** (700, 13px, 1.35 line height): case titles in the list, exhibit titles (clamped to two lines), and the Detective Vision tool name (which adds 0.25em tracking and cyan).
-- **Body** (400, 13px, the root size): form text, dialog copy, the case-list pitch and index rows.
-- **Body Small** (400, 12px, 1.5 line height): exhibit bodies (clamped to five lines), help text, case-row meta, toasts and readout values. The Detective Vision case file uses it for its typewriter reveal.
-- **Panel Title** (400, 11px, 0.2em tracking, uppercase, Nightglass Cyan): the heading of every panel and dialog ("OPEN A NEW CASE", "NO SIGNAL", "PIN A NOTE").
-- **Button** (400, 11px, 0.14em tracking, uppercase): all HUD buttons, small ones included (0.12em).
-- **Label** (400, 11px, 0.18em tracking, uppercase, Faded Readout): field labels, counts ("EVIDENCE · 1 OF 3"), readout captions, exhibit type and footer lines, control-row headings. Status chips stay at 10px/0.15em, the one size below 11px.
+- **Wordmark** (Barlow Condensed 700, 30px, 0.34em tracking, uppercase; 24px on phones): `BELFRY` on the case list rail, led by a lamp. Only the wordmark uses it.
+- **Readout** (JetBrains Mono 700, 32px, line height 1): the big numerals on the Readouts and System screens, zero-padded (`05`), in Signal Red (Amber for findings) with a soft 14px glow; Steel Grey without glow at zero.
+- **Headline** (Barlow Condensed 700, 28px, 1.05; 24px on phones): a pane that speaks to you, such as "The wall is bare." Sentence case.
+- **Case Name** (Barlow Condensed 700, 22px, 1.1; 19px on phones): the open case's name on the board rail.
+- **Title Compact** (Barlow Condensed 600, 24px, three lines): an exhibit's title when the wall is zoomed below 70%, over a 15px stamp.
+- **Title** (Barlow Condensed 600, 17px, 1.15): exhibit titles on cards, clamped to two lines. Case rows use Barlow 600 at 16px; the tools rack uses 15px uppercase at 0.06em.
+- **Control** (Barlow Condensed 600, 14px, 0.08em, uppercase): every key, menu item, toast in Detective Vision and the drop hint. Small keys and phone rail keys drop to 13px.
+- **Screen Title** (Barlow Condensed 600, 13px, 0.1em, uppercase): the title on every bezel and dialog.
+- **Label** (Barlow Condensed 600, 12px, 0.12em, uppercase, Steel Grey): field labels, readout captions, card type, provenance, plates and chips.
+- **Body** (Barlow 400, 14px, 1.45): the root size; forms, dialog copy (to 60ch), the case-list pitch (to 64ch), index rows.
+- **Body Small** (Barlow 400, 13px, 1.45): card bodies (clamped to five lines), help text, case meta, toasts.
+- **Data** (JetBrains Mono, 11–13px, tabular): `EXH·nnn` stamps (700), card times (`OCT 18 · 16:38`), bezel readouts (`EXH 05 LNK 03`), feed tags, the trace span (`17:58 → 18:38 · peak 1`), case numbers, the zoom value, `kbd` keys and the Detective Vision status line and case file.
 
 ### Named Rules
-**The Readout Rule.** Anything structural (titles, labels, buttons, statuses) is uppercase and tracked. Anything the user wrote or the tools observed (case names, note text, findings) stays in its own case. Typography tells you whether a word belongs to the machine or to the evidence.
+**The Three Voices Rule.** Hardware speaks in condensed uppercase; people speak in Barlow, in their own case; the machine's numbers, IDs and times speak in mono. If a word is a control or a label, it's Barlow Condensed; if someone wrote it, it's Barlow; if it counts or identifies, it's JetBrains Mono. Screen readers hear identifiers as words ("Exhibit 7"), never as spelled-out letters.
 
 ## Layout
 
-A full-viewport app shell: `body` never scrolls, and each screen owns its own scroll region. The **case list** is a single centered column, at most 800px wide, with 20px between panels: wordmark and a one-line pitch, then the new-case form, then numbered case rows. The **board** is a console across the top (a control row of back, case number and name, and grouped actions; below it a full-width readout strip of OPENED, EXHIBITS, LINKS and LAST ACTIVITY), a 272px evidence index on the left and the wall filling the rest, with a bracketed zoom readout pinned 16px in from its bottom-right corner. Toolbar actions sit in groups (add evidence, tools, case) divided by hairlines. **Detective Vision** is a full-bleed stage with HUD pieces placed absolutely in from the edges at a 16px gutter: title plate top-left, status chips top-right, toasts top-center, the control dock along the bottom (capped at 45% height and scrolling), and the case file panel bottom-right.
+A full-viewport app: `body` never scrolls and each screen owns its own scroll region. A **rail** (a steel console strip with a 1px black edge and a tick ruler hanging 5px below it) runs across the top of every view. Below it, the **monitor wall** is a CSS grid of bezels laid over the pinpoint field: 14px gaps on the board (wide enough for a lit bezel's floor glow to land on the wall), 10px on the case list and between stacked instruments, with 14px / 10px / 10px padding.
 
-Spacing runs on small steps: 4, 6, 8, 12 (the base `--gap`) and 16px, with 32px only for page-level top padding. Rows and columns use flex with the 12px gap. Density is intentionally high.
+- **Case board:** the rail holds back (`CASES`), the boxed case number with the case name over an uppercase sub-line (opened, last activity), then grouped actions divided by a black-and-highlight seam (Note and Evidence; the tool; export and settings). The wall is three columns: the evidence index (264px), the board screen (the remainder; its bezel carries its own `EXH nn LNK nn` readout), and an instruments column (300px) of three stacked screens: Readouts, Feeds (flexible height, at least 120px) and Tools.
+- **Case list:** the rail holds the wordmark and a one-line pitch, with Settings at the far end. The wall is two columns (1.35fr and at least 320px): Case Files on the left; New Case, Demo Case and System stacked on the right.
+- **Detective Vision:** a full-bleed stage with HUD pieces set 16px in from the edges: the title plate top-left, status chips top-right, toasts top-center, the control console along the bottom (capped at 45% height, scrolling inside its frame), and the case file pane bottom-right. Without a feed, a No Signal bezel sits centered.
 
-Responsive behavior: at **1100px and below** toolbar buttons become icon-only (their text stays available to screen readers). At **720px and below** the toolbar stacks into three rows (identity, actions, readouts, with the readouts scrolling sideways), the evidence index becomes a drawer over the wall opened from a list button, the first fit of the wall starts no smaller than 60% so cards stay legible, and the Detective Vision case file moves from bottom-right to the top. At **600px and below** case-list rows stack their actions under the title. On coarse pointers every button, menu item and zoom control grows to a 44px target.
+**The board's first fit** holds a zoom floor (0.85 on desktop, 0.6 on phones) so cards stay readable, and opens on the case's next step: the demo's "Your move" note on its first visit (selected), otherwise the newest exhibit. New exhibits are placed clear of existing cards, link lines and link labels; scan findings sit beside their crop; anything that arrives after the board opened is selected and brought into view.
+
+Spacing runs on 4, 6, 8, 10, 12, 14, 16 and 20px. Screens pad 8–12px inside the glass; bezel heads are 28px tall.
+
+Responsive behavior: at **1280px and below** the instruments column becomes a right-hand drawer (up to 320px) behind a Gauges toggle on the rail. At **1100px and below** the case list's side column narrows to 300px. At **960px and below** rail keys go icon-only (their text stays for screen readers). At **860px and below** the board wall is a single column, the evidence index becomes a left-hand drawer with a 60% scrim, and the case list stacks its side screens above Case Files. At **720px and below** the rail wraps to two rows: back and the case name, then the actions with the index and instruments toggles; every rail key shows a short word instead of an icon (Note, Files, Vision, Index, Gauges), and export and settings leave the board. On coarse pointers every key, input, menu item, index row, rack row and zoom control grows to a 44px target.
+
+### Named Rules
+**The Monitor Rule.** Every new surface joins the wall as a screen in a bezel (`Bezel`): its title, lamp and readout sit on the bezel, and its content sits on the glass. A surface that floats in front (dialog, menu, toast) is a monitor brought forward and uses the same bezel-and-glass construction.
 
 ## Elevation & Depth
 
-Depth is structural: a **layered control room**. The wall is the back plane (Tower Night with a dot grid, a faint 160px deco line grid and an edge vignette). Consoles are built into the room and cast shadow onto the wall: the toolbar downward, the evidence index sideways. Exhibits are physical objects pinned to the wall. Panes (dialogs, menus, toasts, the empty-wall prompt, the mobile drawer) float in front with the deepest shadow and arrive with a short rise. Glow stays reserved for live or selected elements. The shadow values live as tokens in `src/ui/theme.css`.
+Depth is physical: the room, the bezel set into it, the glass recessed into the bezel, and panes brought forward. Bezels and keys catch a warm light along their top edge; glass is recessed with an inner shadow; evidence cards sit on the glass with a soft drop; panes cast the deepest shadow. Glow is reserved for lit things: lamps and the wall under a lit bezel, the engaged key, non-zero readout numerals, a selected card, a lit feed.
 
 ### Shadow Vocabulary
-- **Pinned object** (`--shadow-pinned: 0 6px 24px rgba(0, 0, 0, 0.45)`): exhibits on the wall.
-- **Console** (`--shadow-console: 0 12px 28px -14px rgba(0, 0, 0, 0.85)`; sideways as `--shadow-console-side`): the toolbar, evidence index and zoom readout over the wall.
-- **Pane** (`--shadow-pane: 0 24px 64px -18px rgba(0, 0, 0, 0.8)`): dialogs, menus, toasts, the empty-wall prompt, the open drawer.
-- **Selected halo** (`0 0 18px var(--cyan-faint)`, on top of Pinned object): a selected exhibit, together with a full cyan (amber for findings) border.
-- **Hover halo** (`0 0 14px var(--cyan-faint)`): HUD buttons on hover.
-- **Focus haze** (`0 0 0 4px var(--cyan-faint)` with a 1px cyan outline at 2px offset): every focused control.
-- **Instrument glow** (`text-shadow: 0 0 18px var(--cyan-faint)`; 8px on the tool title plate): the wordmark and the Detective Vision title.
-
-The pin itself no longer glows at rest (it isn't live); it flares red only during the arrival strike.
+- **Bezel edge** (`--bezel-edge: inset 0 1px 0 rgba(255, 170, 130, 0.13), inset 0 -1px 0 rgba(0, 0, 0, 0.6)`): the warm lit top edge on every bezel, plate of hardware, menu, modal, toast and the Detective Vision title plate and console.
+- **Bezel** (`--shadow-bezel: 0 10px 30px -12px rgba(0, 0, 0, 0.9)`): bezels on the wall, the zoom plate and the Detective Vision console.
+- **Lit bezel floor glow** (`0 22px 44px -26px rgba(255, 74, 44, 0.35)`, added to Bezel): a bezel whose lamp is on throws warm light down onto the wall below it.
+- **Glass** (`--glass: inset 0 0 0 1px rgba(0, 0, 0, 0.8), inset 0 18px 40px -24px rgba(0, 0, 0, 0.9)`): every screen, recessed into its bezel.
+- **Pinned** (`--shadow-pinned: 0 6px 20px rgba(0, 0, 0, 0.55)`): evidence cards on the board's glass.
+- **Pane** (`--shadow-pane: 0 24px 64px -18px rgba(0, 0, 0, 0.85)`): modals, card menus, toasts, the empty-board pane, the drop hint, open drawers and the case file.
+- **Lamp glow** (`0 0 6px 1px rgba(255, 68, 51, 0.65)`; amber and green at 55% and 50%): lit lamps, the pin and the toggle thumb.
+- **Selected** (`0 0 0 1px` signal plus `0 0 22px rgba(255, 68, 51, 0.25)`, over Pinned): a selected card; amber at 22% for a finding. A lit feed uses `0 0 16px rgba(255, 68, 51, 0.35)`.
+- **Engaged key** (`inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 14px -2px rgba(255, 68, 51, 0.55)`): the key lit red.
+- **Focus haze** (`0 0 0 4px` Signal Haze with a 1px Signal Red outline at 2px offset): every focused control except inputs, which take a Steel Grey border and a 3px bone ring at 10%.
 
 ### Named Rules
-**The Planes Rule.** Every surface belongs to a plane: the wall (board canvas, stage), the console (toolbar, sidebar, control dock), or a pane in front of it (panels, dialogs, menus). A new surface states its plane, and depth cues follow the plane, not the component.
+**The Lamp Rule.** A lamp reports state, never decoration. Board: the board screen is on; Readouts is on only when the case has evidence; Feeds is on only when the selected exhibit is a feed; the Evidence index is on only while a search or type filter is active; Tools is off. Case list: Case Files and Open a New Case are off, Demo Case is amber while staged, System is green. Only lit things glow; a surface with nothing live to report stays matte.
 
 ## Shapes
 
-Near-square everywhere: 2px corners on panels, buttons and inputs, and none on evidence cards, case rows, menus or the Detective Vision title plate. Only status chips are pills, and only dots and the pin are circles. Borders are 1px hairlines. Emphasis comes from color (Hairline Cyan to Edge Cyan to full Nightglass Cyan), never from thicker strokes, with one exception: the corner brackets.
+Near-square hardware. Plates and chips are 1px, keys, inputs and glass are 2px, bezels, menus, modals, toasts and the zoom plate are 3px. Only lamps, chip dots and the pin are circles. Borders are 1px: black (`#000`) where hardware meets hardware, bone hairlines (`line`, `line-strong`) on the glass.
 
-**Corner brackets** are the signature form. Two 10px L-shaped cyan corners (2px strokes) sit top-left and bottom-right on every `.panel`, and 8px versions frame the zoom readout. The Detective Vision title plate uses the same idea as a 2px top and left rule.
+**The bezel** is a light-touch frame: 5px of gunmetal on the sides and bottom, a 28px head carrying the lamp, the title and an optional readout, a 1px black outline and the warm top edge. It never thickens and never takes ornament.
 
-**Stepped deco corners** (`DecoCorners`) double the bracket: a 12px 2px-stroke L with a 5px 1px-stroke L stepped 4px inside it, at top-left and bottom-right. They mark exhibits (amber on findings), the empty-wall pane and the drop target. The console's doubled rule (a fading hairline 5px under the toolbar border) is the same move applied to a line.
+**Corner brackets** (`DecoCorners`) are the one framing mark: two 10px L-shaped 1px corners at top-left and bottom-right, in bone by default, amber on findings and the case file. They mark evidence cards, the empty-board pane, the drop hint and the Detective Vision console.
 
-**Icons** are an authored SVG set (`src/ui/icons.tsx`): 16px grid, 1.5px stroke, square caps, mitred joins, drawn in `currentColor`. Note, image, footage, audio, finding (a cut gem), vision (an aperture), gear, upload, export, link, list, zoom, fit (four brackets), close, more, and demo (a broadcast mast). No Unicode glyphs or emoji stand in for icons.
+**Hazard stripes** (amber and #111 at -45deg, 6–7px bands) are set into warning plates only: the storage banners and the drop hint.
 
-**Connector studs** on cards are 8px squares (not dots), quiet at 35% until you reach for the card.
+**The pinpoint field** (`src/ui/pinpoints.svg`) is a 1920×1200 tile of hand-placed 1.1–1.7px dots, mostly Signal Red with a few amber, at 40–80% opacity, seen only in the gaps between screens.
+
+**Icons** are an authored SVG set (`src/ui/icons.tsx`): a 16px grid, 1.5px stroke, square caps and mitred joins, drawn in `currentColor`; the gauge (a dial with a needle) marks the instruments. Connector studs on cards are 8px squares in bone, quiet at 35% until you reach for the card.
 
 ## Components
 
-Components are **machined and deco-ornamented**: hairline frames, uppercase tracked labels, 150ms responses, and geometric framing from dark deco architecture grown out of the bracket language.
+Components are **hardware set into a console**: steel keys, recessed wells, lamps and plates, with 150ms responses.
 
 ### Buttons
-- **Shape:** near-square (2px), 1px Edge Cyan border, transparent fill, at least 32px tall (28px small, 44px on touch).
-- **Primary (`button-hud`):** Nightglass Cyan uppercase text at 11px/0.14em, 7px × 14px padding, no wrapping. With an icon, 8px gap; icon-only buttons are 32px square and carry an `aria-label`.
-- **Hover:** Nightglass Haze fill plus a 14px Haze halo, with 150ms transitions.
-- **Focus:** the global ring, a 1px cyan outline at 2px offset plus a 4px Haze.
-- **Active / selected:** solid Nightglass Cyan fill with Tower Night text. Used for the current mode, preset or toggle, and as the primary action in dialogs (OPEN CASE, PIN NOTE).
-- **Launcher (`.primary`):** full cyan border on a Haze fill, for the one tool launch on the empty wall.
-- **Danger:** Pin Red text with a 60% red border, labelled with its verb ("Delete case", "Remove exhibit"). A destructive confirmation lands focus on Cancel.
-- **Small:** 4px × 10px padding at 11px.
+- **Shape:** a steel key, 2px corners, 1px black border, a `metal-600` to `metal-700` gradient with a faint top highlight; at least 32px tall (28px small, 44px on touch).
+- **Default:** Bone, Control type, 5px × 14px padding, no wrapping. With an icon, a 7px gap; icon-only keys are 32px square and carry an `aria-label`.
+- **Hover / Focus:** the text goes white and the key brightens one step; pressed, it sinks (`inset 0 2px 4px`). Focus is the global red hairline and haze.
+- **Engaged:** lit red (a #ff5a4a to Signal Red to #e5321f gradient) with dark text (#1a0503) and a red glow. It marks the current mode, preset or toggle, and the one next step on a surface: OPEN CASE once a name is typed, Done in Settings (Save stays plain), Run the demo feed when a case has no footage, and the rail's tool key until a tool has been opened once in this browser.
+- **Primary (`.primary`):** a steel key with a Signal Dim inner rim, for a strong action that isn't the one lit key.
+- **Danger:** a lighter red text (#ff7466) on steel; on hover, a deep-red fill with white text. Always labelled with its verb ("Delete case", "Close case"); a destructive confirmation lands focus on Cancel.
 - **Disabled:** 40% opacity, default cursor.
 
+### Named Rules
+**The Next Step Rule.** A surface lights at most one key outside its mode and preset groups, and that key is the next step. Everything else is plain steel.
+
 ### Chips
-- **Style:** pill, 1px Hairline Cyan border, 10px uppercase at 0.15em, 2px × 8px padding, a 6px dot in `currentColor`, with the text reading `label · state`.
-- **State:** `ready` is Ready Green, `loading` is Nightglass Dim with the dot blinking (1s, two steps), `offline` is Pin Red (clickable to retry), and `off` is Faded Readout.
+- **Status chip:** a 1px-cornered tag with a hairline border, Label type, 1px × 8px padding and a 6px dot in `currentColor`, reading `label · state`. `ready` is Lamp Green, `loading` is Amber with the dot blinking (1s, two steps), `offline` is Signal Red (clickable to retry), `off` is Steel Grey.
+- **Plates:** labels set into the hardware. `steel` (OFFLINE on unbuilt tools, No feeds) is Steel Grey on `metal-800` with a `metal-400` border; `amber` for findings.
 
 ### Cards / Containers
-- **Panel:** Smoked Glass, 2px corners, Hairline Cyan border, backdrop blur 6px, corner brackets, a Panel Title heading and 10px × 14px body padding.
-- **Dialog (`Modal`):** a pane: a Console Slate panel at most 460px wide (settings at most 560px) over a 62% black backdrop, with the Pane shadow and a 280ms rise. `role="dialog"`, labelled by its title, traps Tab, closes on Escape or a backdrop click, and returns focus to whatever opened it. Actions sit right-aligned; a secondary destructive action ("Remove link") sits far left.
-- **Exhibit (evidence card):** 220px wide, Smoked Glass, square corners, 10px padding, 7px internal gap, stepped deco corners, the Pinned-object shadow and a 9px Pin Red tack on the top edge. The head row is the `EXH·nnn` stamp (11px, boxed in Edge Cyan; amber on findings), the type as icon plus uppercase label, and a `···` actions button. Then the title (bold 13px, two lines), the thumbnail (at most 150px tall) or a hatched "No preview" plate, the body (12px, five lines), a footer rule with the time (`18 OCT · 14:58`) and provenance ("Pinned by hand", "Imported file", "Detective Vision · Local analysis · from EXH·003", "Staged"), then tags. Finding cards turn border, stamp, icon and corners amber.
-- **Arrival:** an exhibit that arrives while the board is in view drops 16px onto the wall from a slight tilt and blur (620ms, expo ease-out), the pin strikes with a brief red flare, and the stamp settles in. It plays once, and not at all under reduced motion.
-- **Case row:** square-cornered, Hairline border that turns Edge on hover, 10px × 12px padding. A boxed case number (`Nº 003`) spans the title (bold Pale Readout) and a meta line ("5 exhibits · 3 links · last activity today 15:36 · opened Oct 18, 2026"), and the actions are small HUD buttons.
-- **Empty wall:** a centered pane (at most 540px) with deco corners, a Headline ("The wall is bare."), one line of guidance, and the three ways in: pin a note, add photos or footage, and the tool launcher.
-- **Toast:** a Console Slate strip with an Edge Cyan border and the Pane shadow, centered 20px above the bottom, announced politely. It holds a message, an optional boxed action (UNDO) and a close button. Warnings are amber. It lasts 7 seconds.
+- **Bezel and screen:** see Shapes. A lit lamp (`on`, `pulse`, `amber`, `ok`) throws Lamp Spill along its bezel head, and `on` adds the floor glow. A dot-grid screen variant uses 1px bone dots on an 18px grid.
+- **Evidence card:** 220px, near-opaque black (97%), square, a `line-strong` frame, corner brackets, the Pinned shadow and a 9px red pin on the top edge. Its head strip (30px, 5% bone wash, hairline below) holds the `EXH·nnn` stamp (Steel Grey at rest, Signal Red when selected, Amber on findings), the type as icon plus label, and a menu key. Then the title, a grayscale thumbnail (at most 150px) or a scan-lined "No preview" plate, the body, a hairline footer with the time and provenance in Label type ("Staged", "Imported file", "Detective Vision · Local analysis"), then tags. Selected, the frame turns Signal Red with a red glow; findings turn the frame, stamp, icon and brackets Amber. Cards are announced as "Exhibit 7, note: …".
+- **Compact card:** below 70% zoom a card shows only its stamp (15px) and title (Title Compact), so the wall stays legible zoomed out.
+- **Dimmed card:** while the index search or type filter is active, exhibits outside it drop to 25% opacity in full grayscale.
+- **Arrival:** an exhibit that arrives while the board is in view drops 16px onto the glass from a slight blur (620ms), the pin strikes with a red flare, and the stamp settles in. It plays once and not at all under reduced motion.
+- **Modal:** a monitor brought forward: a bezel (at most 460px; settings 560px) whose head holds the title and whose glass holds the body, over a 70% black backdrop, rising in over 280ms. `role="dialog"`, labelled by its title; it traps Tab, closes on Escape or a backdrop click, and returns focus to whatever opened it. Actions sit right-aligned; a secondary destructive action sits far left.
+- **Card menu:** a small bezel-edged plate (190px) of uppercase menu items, rendered outside the zoomed wall at full size and fixed under its button; it closes when the wall pans or zooms or the window resizes. Hover and focus wash items red (18%). Real menu semantics: Escape, outside click, arrow keys, focus returned. "Links…" lists the card's links to label or remove; the danger item sits last below a seam.
+- **Toast:** a steel plate centered 20px above the foot of the room, with a red lamp (amber and amber text for warnings), the message, an optional lit UNDO key and a close button. Announced politely; lasts 7 seconds. Ctrl/Cmd+Z restores the latest soft delete while the board is open.
+- **Empty board:** a translucent pane (at most 540px) with corner brackets, a Headline, one line of guidance and the three ways in.
 
 ### Inputs / Fields
-- **Style:** 35% black fill, 1px Hairline Cyan border, 2px corners, 7px × 10px padding, full width. Selects share the style. Range sliders use `accent-color: var(--cyan)`.
-- **Focus:** border goes to full Nightglass Cyan with a 3px Haze ring. Placeholders are Faded Readout (7.85:1), never the browser grey.
-- **Toggle:** a square 26×14px track with an 8px square thumb that slides 12px and turns cyan when on, with an uppercase label at 11px/0.1em. It's a keyboard-operable `role="switch"`.
+- **Style:** a recessed well: #030405, a `metal-600` border, 2px corners, an inner shadow, 6px × 10px padding, at least 34px tall. Selects share the style.
+- **Focus:** the border turns Steel Grey with a 3px bone ring at 10%; typing is not an alarm, so it never turns red. Placeholders are Steel Grey, never the browser default.
+- **Toggle:** a square 28×14px rocker well with an 8px square thumb that slides 14px and lights red when on; uppercase 13px label. A keyboard-operable `role="switch"`.
 
 ### Navigation
-- **Board console:** Console Slate with the Console shadow and doubled rule. The control row holds `CASES` (back), the boxed case number `Nº 003` beside the case name, then three action groups divided by hairlines: add (Note, Evidence), tools (Detective Vision), case (export, settings, and the index toggle on phones). Below it, the readout strip: caption and value pairs divided by hairlines.
-- **Evidence index:** a 272px Console Slate column: a count heading ("EVIDENCE · 1 OF 3" when filtered), search and type filter, rows of icon, `EXH·nnn` and title (finding icons amber), an empty state that says which emptiness it is (none yet, or none matching, with Clear filters), and a footer of keyboard shortcuts (`N` note, `E` files, `/` search). On phones it is a drawer with a scrim, closed by Escape, a pick, or its close button.
-- **Zoom readout:** a bracketed Console Slate strip on the wall: zoom out, the percentage, zoom in, fit. It replaces React Flow's stock controls.
-- **Links:** taut straight strings between connector studs. Links you drew are Nightglass Dim; derived-from links are dashed Evidence Amber Dim with an amber arrowhead toward the source. Selected or focused, they turn full cyan at 2px. Labels sit on Console Slate plates. Double-click a link to label or remove it; Delete removes a selected link (undoable).
-- **Tool layer:** tools mount full-screen over the board on Tower Night. Their loading state is a centered tool label, an uppercase status line and `BACK TO BOARD`.
+- **Rail:** see Layout. Action groups are divided by a 1px black seam with a 5% highlight beside it.
+- **Evidence index:** a search well and type filter, then rows of icon, mono `EXH·nnn` and title (findings in Amber), announced as "Exhibit 7, …". The selected exhibit's row lights red (16% wash, red stamp and icon). The lamp is lit while a filter is active. A footer lists the keys (`N` note, `E` files, `/` search). Below 860px it is a drawer with a scrim, closed by Escape, a pick or its close button.
+- **Zoom plate:** a small steel plate on the glass: zoom out, the percentage in red mono on a recessed well, zoom in, fit.
+- **Links:** taut straight strings between square studs. Links you drew are bone at 55%, 1.25px; derived-from links are dashed Amber Dim. Selected, they turn Signal Red at 2px. Labels sit on `metal-800` plates with a `line-strong` edge. Links are not Tab stops; the keyboard reaches them through a card's Links… menu.
 
-### Detective Vision HUD (signature)
-- **Title plate:** 2px cyan top and left rules, 55% Tower Night fill, bold tool name at 0.25em tracking with a cyan glow over an 11px status line (STANDBY, or a blinking Pin Red SIGNAL LOST).
-- **Control dock:** pinned 16px from the bottom and sides, 72% Tower Night fill with blur. It holds labeled rows (MODE, OVERLAYS, PRESETS, HUD) of HUD buttons and toggles.
-- **Toasts and hints:** centered pills with an 85% Tower Night fill and 11px uppercase text. Toasts are cyan, and hints are Evidence Amber with an amber border.
-- **Canvas overlay:** the 2D HUD on the video uses the same tokens in code: Nightglass Cyan strokes, Evidence Amber evidence outlines and `EV-nn` tags, Pale Readout text on 75–78% Tower Night plates.
-- **HUD density:** full, minimal or off. When off, only a faint "show HUD" tab remains bottom-right.
+### Instruments (signature)
+- **Readouts:** three cells divided by hairlines, each a big zero-padded numeral over a Label caption (EXHIBITS, LINKS, and FINDINGS in Amber), Steel Grey at zero. Then a 24-slot bar trace of when evidence was found, in solid Signal Red bars over faint bone slots, captioned "Found over time" with its span and peak.
+- **Feeds:** every photo and piece of footage as a 4:3 grayscale tile with scan lines and an 11px mono exhibit tag (one or two feeds fill the screen). Picking a feed or its card lights it: full color, a red frame and glow, and a red tag. Video carries a small red footage icon.
+- **Tools rack:** one row per tool, a lamp, the name in uppercase condensed type and an action: live tools show a green lamp and an OPEN key; planned tools show an idle lamp, their phase, and a steel OFFLINE plate.
+
+### Detective Vision HUD
+- **Title plate:** a gunmetal plate with the bezel edge, a red lamp and its spill, the tool name in Barlow Condensed 700 at 18px and 0.16em, over a mono status line (a blinking red SIGNAL LOST when the feed drops; still under reduced motion).
+- **No Signal:** a bezel with an amber lamp, centered on the stage, offering the ways in; Run the demo feed is the lit key when the case has no footage.
+- **Console:** a 92–94% gunmetal strip pinned 16px from the bottom and sides, blurred behind, with corner brackets: labelled rows (MODE, OVERLAYS, PRESETS, HUD) of keys and toggles, then the capture keys. The current mode and preset are engaged keys.
+- **Case file:** a pane with an Amber Dim border, an amber title, amber corner brackets and the Pane shadow; its mono text arrives like a teleprinter, or all at once under reduced motion.
+- **Modes:** Detective is a cold grayscale surveillance grade with bone edge lines; x-ray glows Signal Red. The 2D overlay mirrors the tokens in code: Bone text and strokes, Signal Red alerts, Amber `EV-nn` evidence outlines, on 80% black plates.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** take every color from the `:root` tokens in `src/ui/theme.css`. The canvas overlay mirrors them as constants and must stay in sync.
-- **Do** keep cyan for system and amber for evidence (The Two Signals Rule). A finding card, an `EV-nn` tag and a scan outline are amber. Everything else interactive is cyan.
-- **Do** frame new panels with the corner brackets, and build deco ornament (stepped corners, chevrons, geometric rules) out of that same bracket language at 1–2px cyan strokes.
-- **Do** set structural text uppercase and tracked (0.1–0.2em, or 0.5em for the wordmark), and leave user and evidence text in its own case.
-- **Do** place every new surface on a plane (wall, console or pane) and give it that plane's shadow token.
-- **Do** draw new icons on the 16px grid at 1.5px with square caps, and add them to `src/ui/icons.tsx`.
-- **Do** give every exhibit its stamp, time and provenance; a reading that came from a fallback says so.
+- **Do** take every color from the `:root` tokens in `src/ui/theme.css`; the canvas overlay and the shaders mirror Bone, Signal Red and Amber as constants and must stay in sync.
+- **Do** build every new surface as a screen in a bezel (The Monitor Rule), with its title, lamp and readout on the bezel.
+- **Do** keep red for live, selected, primary and alarm, and amber for findings and warnings; leave everything at rest Steel Grey (The Two Lights Rule).
+- **Do** light a lamp only when its screen has something live to report (The Lamp Rule).
+- **Do** light at most one key per surface, the next step (The Next Step Rule).
+- **Do** show imagery in grayscale until it is picked, and light it in color with a red frame when it is (The Lit Feed Rule).
+- **Do** set labels and controls in Barlow Condensed uppercase, writing in Barlow in its own case, and every number, ID and time in JetBrains Mono (The Three Voices Rule).
+- **Do** keep evidence readable on the wall: hold the zoom floor on first fit, and drop cards to stamp and title when zoomed out.
+- **Do** give every exhibit its `EXH·nnn` stamp, time and provenance, and announce it as "Exhibit n"; a reading that came from a fallback says so, and an unknown value shows `--`.
+- **Do** mark unbuilt capability honestly with an idle lamp and a steel OFFLINE plate rather than hiding it or faking it.
 - **Do** build dialogs on `Modal` and menus with real menu semantics (Escape, outside click, arrow keys, focus returned).
-- **Do** keep JS-driven motion behind `prefersReducedMotion()`; the global CSS rule only covers CSS animation. Detective Vision's mode pulse and typewriter reveal still need it.
+- **Do** keep JS-driven motion behind `prefersReducedMotion()`; the global CSS rule only covers CSS animation and transitions.
+- **Do** offer Undo (toast and Ctrl/Cmd+Z) when a destructive action can soft-delete.
 
 ### Don't:
-- **Don't** drift toward generic sci-fi neon: no rainbow or purple-pink gradients, no Tron grids, no extra neon hues beyond the tokens.
-- **Don't** drift toward friendly SaaS: no rounded cards (anything above 2px outside chips and dots), no pastel accents, no soft ambient shadows, no cheerful illustrated empty states.
-- **Don't** add glow to anything that isn't live (The Instrument Light Rule).
-- **Don't** use DC names, logos, bat silhouettes or licensed fonts in shipped UI. "The Batcomputer" is this document's reference, not a label.
-- **Don't** introduce a second typeface or new shadow values without adding them to this file first.
-- **Don't** use Unicode glyphs or emoji as icons.
-- **Don't** make a destructive action irreversible when the store can soft-delete it: offer Undo.
-- **Don't** use Nightglass Dim (about 4.2:1 on Tower Night) for running text. It's for short labels and statuses only.
+- **Don't** put content on a bare page or a lone full-bleed canvas with a toolbar above it; it belongs on a screen on the wall.
+- **Don't** add hues to the HUD beyond Signal Red, Amber and Lamp Green; no cyan, blue or purple chrome.
+- **Don't** color an identifier, a zero or an idle status red; red at rest is noise.
+- **Don't** add glow to anything that isn't lit (The Lamp Rule).
+- **Don't** round anything past 3px, except the circular lamps, dots and pin.
+- **Don't** thicken bezels or decorate them beyond the lamp, title, readout and corner brackets.
+- **Don't** use DC names, logos, bat silhouettes or licensed fonts in shipped UI.
+- **Don't** load fonts from a CDN; faces are bundled through `@fontsource`.
+- **Don't** use Unicode glyphs or emoji as icons; draw them on the 16px grid in `src/ui/icons.tsx`.
+- **Don't** use Signal Dim or Amber Dim for text; they are border and stroke colors.

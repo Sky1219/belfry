@@ -44,7 +44,7 @@ describe("mergeNodes", () => {
     expect(nb.data.sourceExhibit).toBe(1);
     expect([na.data.arriving, nb.data.arriving]).toEqual([false, true]);
     expect(na.position).toEqual({ x: 40, y: 60 });
-    expect(nb.ariaLabel).toBe("EXH 002, note: b");
+    expect(nb.ariaLabel).toBe("Exhibit 2, note: b");
   });
 
   test("adds new cards and drops removed ones", () => {

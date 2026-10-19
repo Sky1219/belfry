@@ -8,7 +8,7 @@ import { openVideo } from "../../platform/media/videoFile";
 import { CameraError, openWebcam } from "../../platform/media/webcam";
 import { ModelScheduler } from "../../platform/scheduler";
 import type { Evidence } from "../../store/schema";
-import { HudButton, ProgressRing, StatusChip, Toggle } from "../../ui/components";
+import { Bezel, DecoCorners, HudButton, prefersReducedMotion, ProgressRing, StatusChip, Toggle } from "../../ui/components";
 import { useDialogs } from "../../ui/dialogs";
 import { Icon } from "../../ui/icons";
 import type { ToolContext } from "../types";
@@ -94,6 +94,7 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
           caseId: ctx.caseId,
           depthEnabled: settingsRef.current.depthEnabled,
           mock,
+          reducedMotion: prefersReducedMotion,
         });
         engineRef.current = engine;
         const initial = presets.find((p) => p.id === settingsRef.current.defaultPresetId) ?? BUILTIN_PRESETS[0];
@@ -193,9 +194,8 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
       {phase.kind === "starting" && <div className="dv-center label">Starting camera…</div>}
       {phase.kind === "error" && (
         <div className="dv-center">
-          <div className="panel dv-error" data-testid="camera-error">
-            <div className="panel-title">No signal</div>
-            <div className="panel-body col">
+          <Bezel title="No signal" titleId="dv-no-signal" lamp="amber" className="dv-error">
+            <div className="panel-body col" data-testid="camera-error">
               <p style={{ margin: 0 }}>{phase.message}</p>
               {phase.videos.length ? (
                 <>
@@ -213,11 +213,12 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
                 </p>
               )}
               <div className="dv-error-actions">
-                <HudButton active data-testid="open-video-file" onClick={() => fileRef.current?.click()}>
+                {/* with no footage in the case, the demo feed is the quickest way to see the tool work */}
+                <HudButton data-testid="open-video-file" onClick={() => fileRef.current?.click()}>
                   <Icon name="upload" size={14} /> Open a video file
                 </HudButton>
                 {ctx.input.kind !== "demo-feed" && (
-                  <HudButton data-testid="run-demo-feed" onClick={() => openInput("demo-feed")}>
+                  <HudButton active={!phase.videos.length} data-testid="run-demo-feed" onClick={() => openInput("demo-feed")}>
                     <Icon name="demo" size={14} /> Run the demo feed
                   </HudButton>
                 )}
@@ -239,7 +240,7 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
                 }}
               />
             </div>
-          </div>
+          </Bezel>
         </div>
       )}
 
@@ -269,8 +270,8 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
           <HudButton small onClick={() => setShowPerf((v) => !v)} data-testid="toggle-perf">
             Perf
           </HudButton>
-          <HudButton small onClick={ctx.close} data-testid="dv-close">
-            ✕ Board
+          <HudButton small className="with-icon" onClick={ctx.close} data-testid="dv-close">
+            <Icon name="close" size={12} /> Board
           </HudButton>
         </div>
       </div>
@@ -310,65 +311,70 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
 
       {st && phase.kind === "running" && (
         <div className="dv-controls" data-testid="dv-controls">
-          {sourceRef.current?.kind === "file" && <VideoControls source={sourceRef.current} />}
-          <div className="dv-row">
-            <span className="label">Mode</span>
-            {VISION_MODES.map((m) => (
-              <HudButton key={m.id} small active={st.mode === m.id} data-testid={`mode-${m.id}`} onClick={() => eng?.setMode(m.id)}>
-                {m.label}
-              </HudButton>
-            ))}
-            {st.mode === "thermal" &&
-              PALETTES.map((p) => (
-                <HudButton key={p} small active={st.palette === p} onClick={() => eng?.setPalette(p)} data-testid={`palette-${p}`}>
-                  {p}
+          <DecoCorners />
+          <div className="dv-controls-scroll">
+            {sourceRef.current?.kind === "file" && <VideoControls source={sourceRef.current} />}
+            <div className="dv-row">
+              <span className="label">Mode</span>
+              {VISION_MODES.map((m) => (
+                <HudButton key={m.id} small active={st.mode === m.id} data-testid={`mode-${m.id}`} onClick={() => eng?.setMode(m.id)}>
+                  {m.label}
                 </HudButton>
               ))}
-          </div>
-          <div className="dv-row">
-            <span className="label">Overlays</span>
-            {OVERLAYS.map((o) => (
-              <span key={o.id} data-testid={`overlay-${o.id}`}>
-                <Toggle on={st.overlays.includes(o.id)} label={o.label} onChange={() => eng?.toggleOverlay(o.id)} />
+              {st.mode === "thermal" &&
+                PALETTES.map((p) => (
+                  <HudButton key={p} small active={st.palette === p} onClick={() => eng?.setPalette(p)} data-testid={`palette-${p}`}>
+                    {p}
+                  </HudButton>
+                ))}
+            </div>
+            <div className="dv-row">
+              <span className="label">Overlays</span>
+              {OVERLAYS.map((o) => (
+                <span key={o.id} data-testid={`overlay-${o.id}`}>
+                  <Toggle on={st.overlays.includes(o.id)} label={o.label} onChange={() => eng?.toggleOverlay(o.id)} />
+                </span>
+              ))}
+            </div>
+            <div className="dv-row">
+              <span className="label">Presets</span>
+              {presets.map((p, i) => (
+                <HudButton key={p.id} small active={st.presetId === p.id} data-testid={`preset-${p.id}`} onClick={() => eng?.setPreset(p)} title={i < 9 ? `Key ${i + 1}` : undefined}>
+                  {i < 9 ? `${i + 1} · ` : ""}
+                  {p.name}
+                </HudButton>
+              ))}
+              <HudButton small className="with-icon" onClick={savePreset} data-testid="save-preset">
+                <Icon name="plus" size={12} /> Save
+              </HudButton>
+              <span className="dv-spacer" />
+              <span className="label">HUD</span>
+              {HUD_DENSITIES.map((h) => (
+                <HudButton key={h} small active={st.hud === h} onClick={() => eng?.setHud(h)} data-testid={`hud-${h}`}>
+                  {h}
+                </HudButton>
+              ))}
+            </div>
+            <div className="dv-row">
+              <HudButton className="with-icon" onClick={() => eng?.scanCenter()} disabled={st.scanning} data-testid="dv-scan" title="Key S">
+                <Icon name="scan" size={14} /> {st.scanning ? "Analyzing…" : "Scan center"}
+              </HudButton>
+              <HudButton className="with-icon" onClick={() => eng?.snapshot()} data-testid="dv-snapshot">
+                <Icon name="snapshot" size={14} /> Snapshot
+              </HudButton>
+              <HudButton
+                className="with-icon"
+                danger={st.recording}
+                onClick={() => (st.recording ? eng?.stopClip() : eng?.startClip())}
+                data-testid="dv-record"
+              >
+                <Icon name={st.recording ? "stop" : "record"} size={14} />
+                {st.recording ? `Stop (${Math.floor(st.recordingMs / 1000)}s / 30s)` : "Record"}
+              </HudButton>
+              <span className="dim" style={{ fontSize: 11 }}>
+                Hold an object under the reticle for 2 s, or click it, to scan.
               </span>
-            ))}
-          </div>
-          <div className="dv-row">
-            <span className="label">Presets</span>
-            {presets.map((p, i) => (
-              <HudButton key={p.id} small active={st.presetId === p.id} data-testid={`preset-${p.id}`} onClick={() => eng?.setPreset(p)} title={i < 9 ? `Key ${i + 1}` : undefined}>
-                {i < 9 ? `${i + 1} · ` : ""}
-                {p.name}
-              </HudButton>
-            ))}
-            <HudButton small onClick={savePreset} data-testid="save-preset">
-              + Save
-            </HudButton>
-            <span className="dv-spacer" />
-            <span className="label">HUD</span>
-            {HUD_DENSITIES.map((h) => (
-              <HudButton key={h} small active={st.hud === h} onClick={() => eng?.setHud(h)} data-testid={`hud-${h}`}>
-                {h}
-              </HudButton>
-            ))}
-          </div>
-          <div className="dv-row">
-            <HudButton onClick={() => eng?.scanCenter()} disabled={st.scanning} data-testid="dv-scan" title="Key S">
-              {st.scanning ? "Analyzing…" : "⌖ Scan center"}
-            </HudButton>
-            <HudButton onClick={() => eng?.snapshot()} data-testid="dv-snapshot">
-              ▣ Snapshot
-            </HudButton>
-            <HudButton
-              danger={st.recording}
-              onClick={() => (st.recording ? eng?.stopClip() : eng?.startClip())}
-              data-testid="dv-record"
-            >
-              {st.recording ? `■ Stop (${Math.floor(st.recordingMs / 1000)}s / 30s)` : "● Record"}
-            </HudButton>
-            <span className="dim" style={{ fontSize: 11 }}>
-              Hold an object under the reticle for 2 s, or click it, to scan.
-            </span>
+            </div>
           </div>
         </div>
       )}
@@ -386,11 +392,12 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
   );
 }
 
-/** The latest finding, revealed like a teleprinter. */
+/** The latest finding, revealed like a teleprinter (all at once under reduced motion). */
 function CaseFile({ finding }: { finding?: Evidence }) {
   const [shown, setShown] = useState(0);
   const text = finding ? `${finding.title}\n${finding.body ?? ""}` : "";
   useEffect(() => {
+    if (prefersReducedMotion()) return setShown(text.length);
     setShown(0);
     if (!text) return;
     const id = setInterval(() => setShown((n) => (n >= text.length ? (clearInterval(id), n) : n + 2)), 18);
@@ -399,6 +406,7 @@ function CaseFile({ finding }: { finding?: Evidence }) {
   if (!finding) return null;
   return (
     <div className="panel dv-casefile" data-testid="case-file">
+      <DecoCorners tone="amber" />
       <div className="panel-title">Case file</div>
       <div className="panel-body">
         <pre>{text.slice(0, shown)}</pre>
@@ -422,13 +430,15 @@ function VideoControls({ source }: { source: FrameSource }) {
     <div className="dv-row">
       <HudButton
         small
+        className="with-icon"
         data-testid="video-play"
         onClick={() => {
           if (source.paused?.()) source.play?.();
           else source.pause?.();
         }}
       >
-        {paused ? "▶ Play" : "❚❚ Pause"}
+        <Icon name={paused ? "play" : "pause"} size={12} />
+        {paused ? "Play" : "Pause"}
       </HudButton>
       <input
         className="dv-scrub"

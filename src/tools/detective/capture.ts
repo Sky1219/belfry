@@ -1,4 +1,4 @@
-import { nextPosition } from "../../board/placement";
+import { nextPosition, wallGeometry } from "../../board/placement";
 import { makeThumbnail, makeVideoThumbnail } from "../../store/blobs";
 import type { Evidence } from "../../store/schema";
 import type { EvidenceStore } from "../../store/store";
@@ -33,7 +33,7 @@ export async function snapshot(deps: SaveDeps, canvases: { gl: HTMLCanvasElement
     deps.store.putBlob(bytes, "image/png"),
     makeThumbnail(blob).then((t) => deps.store.putBlob(t, "image/jpeg")),
   ]);
-  const existing = (await deps.store.listEvidence(deps.caseId)).map((e) => e.position);
+  const wall = await wallGeometry(deps.store, deps.caseId);
   return deps.store.addEvidence({
     caseId: deps.caseId,
     type: "image",
@@ -41,7 +41,7 @@ export async function snapshot(deps: SaveDeps, canvases: { gl: HTMLCanvasElement
     blobHash,
     thumbHash,
     provenance: { toolId: DETECTIVE_TOOL_ID, createdAt: deps.nowMs },
-    position: nextPosition(existing),
+    position: nextPosition(wall.taken, undefined, wall.segments),
   });
 }
 
@@ -52,7 +52,7 @@ export async function saveClip(deps: SaveDeps, clip: Blob, durationS: number): P
   const thumbHash = await makeVideoThumbnail(clip)
     .then((t) => deps.store.putBlob(t, "image/jpeg"))
     .catch(() => undefined);
-  const existing = (await deps.store.listEvidence(deps.caseId)).map((e) => e.position);
+  const wall = await wallGeometry(deps.store, deps.caseId);
   return deps.store.addEvidence({
     caseId: deps.caseId,
     type: "video",
@@ -60,7 +60,7 @@ export async function saveClip(deps: SaveDeps, clip: Blob, durationS: number): P
     blobHash,
     thumbHash,
     provenance: { toolId: DETECTIVE_TOOL_ID, createdAt: deps.nowMs },
-    position: nextPosition(existing),
+    position: nextPosition(wall.taken, undefined, wall.segments),
   });
 }
 

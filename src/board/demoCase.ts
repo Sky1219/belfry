@@ -20,6 +20,40 @@ const write = (v: string) => {
   }
 };
 
+const TOURED_KEY = "belfry.demo.toured";
+
+/**
+ * True the first time the staged demo case opens (then never again), so the
+ * board can open on its "Your move" note.
+ */
+export function takeDemoTour(caseId: string): boolean {
+  if (demoCaseId() !== caseId) return false;
+  try {
+    if (localStorage.getItem(TOURED_KEY) === caseId) return false;
+    localStorage.setItem(TOURED_KEY, caseId);
+  } catch {
+    /* storage blocked: tour every time, which is harmless */
+  }
+  return true;
+}
+
+/** Whether a tool has ever been opened in this browser (the board keeps its key lit until then). */
+const TOOL_USED_KEY = "belfry.tool.used";
+export const toolEverUsed = (): boolean => {
+  try {
+    return localStorage.getItem(TOOL_USED_KEY) === "1";
+  } catch {
+    return true;
+  }
+};
+export const markToolUsed = (): void => {
+  try {
+    localStorage.setItem(TOOL_USED_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+};
+
 /** The staged demo case's id, if it was staged in this browser. */
 export const demoCaseId = (): string | null => {
   const v = read();

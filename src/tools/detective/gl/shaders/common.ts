@@ -45,9 +45,10 @@ uniform float u_fog;
 uniform float u_ghostOn;
 uniform float u_evidence;
 
-const vec3 CYAN = vec3(0.35, 0.85, 1.0);
-const vec3 BLUE = vec3(0.10, 0.32, 0.70);
-const vec3 ORANGE = vec3(1.0, 0.63, 0.25);
+// Line work (bone) and signal red, the same pair the HUD uses.
+const vec3 LINE = vec3(0.93, 0.90, 0.86);
+const vec3 SIGNAL = vec3(1.0, 0.27, 0.20);
+const vec3 ORANGE = vec3(1.0, 0.655, 0.2); // #ffa733, the HUD's amber
 
 float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 
@@ -143,14 +144,14 @@ vec3 applyOverlays(vec3 col, vec2 uv, float edge) {
   }
   if (u_ghostOn > 0.5) {
     float trail = clamp(texture(u_ghost, uv).r - maskAt(uv) * 1.2, 0.0, 1.0);
-    col += CYAN * trail * 0.55;
+    col += LINE * trail * 0.45;
   }
   if (u_xray > 0.5 && u_hasMask > 0.5) {
     vec2 mr = maskAndRim(uv);
     float person = smoothstep(0.35, 0.75, mr.x);
     float shimmer = 0.85 + 0.15 * sin(u_time * 3.0 + uv.y * 60.0);
-    vec3 body = CYAN * (0.30 + L(uv) * 0.45) * shimmer + CYAN * edge * 0.8;
-    col = mix(col, body, person * u_xrayFill) + CYAN * clamp(mr.y * 2.5, 0.0, 1.0) * 1.3;
+    vec3 body = SIGNAL * (0.28 + L(uv) * 0.45) * shimmer + SIGNAL * edge * 0.8;
+    col = mix(col, body, person * u_xrayFill) + SIGNAL * clamp(mr.y * 2.5, 0.0, 1.0) * 1.3;
   }
   if (u_evidence > 0.5 && u_boxCount > 0) {
     float b = inBoxes(uv);

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type RefObject } from "react";
 import type { Evidence, EvidenceType } from "../store/schema";
-import { HudButton } from "../ui/components";
+import { HudButton, Lamp } from "../ui/components";
 import { Icon } from "../ui/icons";
-import { exhibitTag, TYPE_ICON } from "./EvidenceCard";
+import { exhibitSpoken, exhibitTag, TYPE_ICON } from "./EvidenceCard";
 
 const TYPES: Array<{ value: EvidenceType | "all"; label: string }> = [
   { value: "all", label: "All types" },
@@ -28,9 +28,11 @@ export function Sidebar(props: {
   evidence: Evidence[];
   exhibits: Map<string, number>;
   onPick: (e: Evidence) => void;
+  selectedId?: string;
   open?: boolean;
   onClose?: () => void;
   searchRef?: RefObject<HTMLInputElement | null>;
+  onFilter?: (matches: Set<string> | null) => void;
 }) {
   const [q, setQ] = useState("");
   const [type, setType] = useState<EvidenceType | "all">("all");
@@ -40,6 +42,13 @@ export function Sidebar(props: {
   );
   const filtered = q.trim() !== "" || type !== "all";
   const total = props.evidence.length;
+
+  // Tell the board which exhibits match, so it can dim the rest on the wall.
+  const { onFilter } = props;
+  const matchKey = filtered ? list.map((e) => e.id).join(",") : null;
+  useEffect(() => {
+    onFilter?.(matchKey === null ? null : new Set(matchKey ? matchKey.split(",") : []));
+  }, [matchKey, onFilter]);
 
   // Escape closes the drawer (when it is a drawer).
   const { open, onClose } = props;
@@ -53,15 +62,20 @@ export function Sidebar(props: {
   return (
     <>
       {props.open && <div className="drawer-scrim" onClick={props.onClose} aria-hidden />}
-      <aside id={props.id} className={`sidebar console ${props.open ? "open" : ""}`} aria-label="Evidence index">
-        <div className="sidebar-head">
-          <h2 className="label" data-testid="evidence-count">
-            Evidence · {filtered ? `${list.length} of ${total}` : total}
+      <aside id={props.id} className={`sidebar bezel ${props.open ? "open" : ""}`} aria-labelledby="screen-index">
+        <div className="bezel-head">
+          <Lamp state={filtered ? "on" : "off"} />
+          <h2 className="bezel-title" id="screen-index">
+            Evidence
           </h2>
+          <span className="bezel-meta num" data-testid="evidence-count">
+            {filtered ? `${list.length} of ${total}` : String(total).padStart(2, "0")}
+          </span>
           <HudButton small className="with-icon icon-only drawer-close" aria-label="Close evidence index" onClick={props.onClose}>
             <Icon name="close" size={12} />
           </HudButton>
         </div>
+        <div className="screen sidebar-screen">
         <div className="col sidebar-filters">
           <input
             ref={props.searchRef}
@@ -91,9 +105,16 @@ export function Sidebar(props: {
         <ul className="sidebar-list">
           {list.map((e) => (
             <li key={e.id}>
-              <button type="button" data-testid="sidebar-item" onClick={() => props.onPick(e)} className={`type-${e.type}`}>
+              <button
+                type="button"
+                data-testid="sidebar-item"
+                onClick={() => props.onPick(e)}
+                className={`type-${e.type} ${e.id === props.selectedId ? "lit" : ""}`}
+                aria-current={e.id === props.selectedId ? "true" : undefined}
+                aria-label={`${exhibitSpoken(props.exhibits.get(e.id))}, ${e.title}`}
+              >
                 <Icon name={TYPE_ICON[e.type]} size={14} />
-                <span className="sidebar-stamp">{exhibitTag(props.exhibits.get(e.id))}</span>
+                <span className="sidebar-stamp num">{exhibitTag(props.exhibits.get(e.id))}</span>
                 <span className="sidebar-title">{e.title}</span>
               </button>
             </li>
@@ -131,6 +152,7 @@ export function Sidebar(props: {
             <kbd>/</kbd> search
           </span>
         </footer>
+        </div>
       </aside>
     </>
   );

@@ -1,37 +1,66 @@
-/* Belfry HUD design tokens. Every screen and tool uses these. */
+/*
+ * Belfry tokens: a dark steel room with a wall of monitors.
+ * Steel and black glass are the ground; bone-white line work is the system;
+ * signal red is live data, selection, primary action and alarm; amber screen
+ * readouts mark evidence and findings.
+ */
 :root {
-  --bg: #02060d;
-  --bg-raised: #06111d;
-  --bg-panel: rgba(6, 17, 29, 0.86);
-  --line: rgba(89, 217, 255, 0.28);
-  --line-strong: rgba(89, 217, 255, 0.6);
-  --cyan: #59d9ff;
-  --cyan-dim: rgba(89, 217, 255, 0.55);
-  --cyan-faint: rgba(89, 217, 255, 0.12);
-  --orange: #ffa040;
-  --orange-dim: rgba(255, 160, 64, 0.55);
-  --red: #ff5a5a;
-  --green: #6dffb0;
-  --text: #cfeffc;
-  --text-dim: #7fa7b8;
-  --font: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* the room */
+  --void: #050506;
+  --metal-900: #0e0f11;
+  --metal-800: #161719;
+  --metal-700: #212225;
+  --metal-600: #2e2f33;
+  --metal-400: #4d4f54;
+  /* warm light from the lamps and red screens, falling on the steel */
+  --spill-red: rgba(255, 74, 44, 0.16);
+  --spill-amber: rgba(255, 160, 60, 0.14);
+  /* screens (black glass) */
+  --screen: #07090c;
+  --screen-raised: #0e1116;
+  --screen-pane: rgba(10, 12, 16, 0.94);
+  /* line work and text */
+  --ink: #ece6dc;
+  --ink-dim: #9aa3ad;
+  --ink-faint: rgba(236, 230, 220, 0.07);
+  --line: rgba(236, 230, 220, 0.14);
+  --line-strong: rgba(236, 230, 220, 0.34);
+  /* signal red: live, selected, primary, alarm */
+  --signal: #ff4433;
+  --signal-dim: rgba(255, 68, 51, 0.55);
+  --signal-faint: rgba(255, 68, 51, 0.14);
+  --signal-deep: #8f1c13;
+  /* amber readouts: evidence and findings */
+  --amber: #ffa733;
+  --amber-dim: rgba(255, 167, 51, 0.5);
+  --amber-faint: rgba(255, 167, 51, 0.12);
+  /* status */
+  --ok: #6fd38a;
+
+  --font-ui: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Barlow", system-ui, sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --radius: 2px;
   --gap: 12px;
-  /* depth: wall < console < pane (see DESIGN.md, The Planes Rule) */
-  --shadow-pinned: 0 6px 24px rgba(0, 0, 0, 0.45);
-  --shadow-console: 0 12px 28px -14px rgba(0, 0, 0, 0.85);
-  --shadow-console-side: 14px 0 28px -16px rgba(0, 0, 0, 0.85);
-  --shadow-pane: 0 24px 64px -18px rgba(0, 0, 0, 0.8);
+
+  /* depth: room < bezel < screen < pane */
+  --shadow-pinned: 0 6px 20px rgba(0, 0, 0, 0.55);
+  --shadow-bezel: 0 10px 30px -12px rgba(0, 0, 0, 0.9);
+  --shadow-pane: 0 24px 64px -18px rgba(0, 0, 0, 0.85);
+  --bezel-edge: inset 0 1px 0 rgba(255, 170, 130, 0.13), inset 0 -1px 0 rgba(0, 0, 0, 0.6);
+  --glass: inset 0 0 0 1px rgba(0, 0, 0, 0.8), inset 0 18px 40px -24px rgba(0, 0, 0, 0.9);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
   color-scheme: dark;
-  font-family: var(--font);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  scrollbar-color: var(--line-strong) transparent;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.45;
+  scrollbar-color: var(--metal-400) transparent;
 }
 
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
 }
 
 html,
@@ -39,12 +68,13 @@ body,
 #root {
   margin: 0;
   height: 100%;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--void);
+  color: var(--ink);
 }
 
 body {
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -56,39 +86,36 @@ textarea {
 }
 
 a {
-  color: var(--cyan);
+  color: var(--signal);
   text-underline-offset: 3px;
 }
 
 ::selection {
-  background: rgba(89, 217, 255, 0.3);
+  background: rgba(255, 68, 51, 0.35);
   color: #fff;
 }
 
 ::placeholder {
-  color: var(--text-dim);
+  color: var(--ink-dim);
   opacity: 1;
 }
 
-* {
-  scrollbar-width: thin;
-}
-
-/* One focus treatment everywhere: a hairline cyan ring with a haze, never the browser default. */
+/* One focus treatment everywhere: a hairline signal ring with a red haze. */
 :focus-visible {
-  outline: 1px solid var(--cyan);
+  outline: 1px solid var(--signal);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px var(--cyan-faint);
+  box-shadow: 0 0 0 4px var(--signal-faint);
 }
 :focus:not(:focus-visible) {
   outline: none;
 }
 
 kbd {
-  font: inherit;
+  font-family: var(--font-data);
   font-size: 11px;
-  color: var(--cyan);
-  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  background: var(--metal-700);
+  border: 1px solid var(--metal-400);
   border-bottom-width: 2px;
   padding: 0 5px;
   border-radius: var(--radius);
@@ -99,173 +126,287 @@ kbd {
   display: block;
 }
 
-/* ---------- Panels ---------- */
-.panel {
-  background: var(--bg-panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  backdrop-filter: blur(6px);
-  position: relative;
+.num {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
 }
-.panel::before,
-.panel::after {
+
+/* ---------- Bezel + screen: the unit of the monitor wall ---------- */
+.bezel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 5px 5px;
+  background: linear-gradient(180deg, var(--metal-700), var(--metal-800) 40%, var(--metal-900));
+  border: 1px solid #000;
+  border-radius: 3px;
+  box-shadow: var(--bezel-edge), var(--shadow-bezel);
+}
+/* a lit lamp throws warm light along its bezel, and down onto the wall below */
+.bezel:has(> .bezel-head > .lamp.on) {
+  box-shadow: var(--bezel-edge), var(--shadow-bezel), 0 22px 44px -26px rgba(255, 74, 44, 0.35);
+}
+.bezel:has(> .bezel-head > .lamp.on) > .bezel-head {
+  background: radial-gradient(120px 30px at 9px 50%, var(--spill-red), transparent 75%);
+}
+.bezel:has(> .bezel-head > .lamp.amber) > .bezel-head {
+  background: radial-gradient(120px 30px at 9px 50%, var(--spill-amber), transparent 75%);
+}
+.bezel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 4px 0 6px;
+}
+.bezel-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bezel-meta {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+.screen {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: var(--screen);
+  border-radius: 2px;
+  box-shadow: var(--glass);
+  overflow: hidden;
+}
+.screen.grid {
+  background:
+    radial-gradient(circle, rgba(236, 230, 220, 0.09) 1px, transparent 1.4px) 0 0 / 18px 18px,
+    var(--screen);
+}
+
+/* an indicator lamp: red when live, amber when waiting, steel when idle */
+.lamp {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--metal-400);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.lamp.on {
+  background: var(--signal);
+  box-shadow: 0 0 6px 1px rgba(255, 68, 51, 0.65);
+}
+.lamp.on.pulse {
+  animation: lamp-pulse 2.4s ease-in-out infinite;
+}
+.lamp.amber {
+  background: var(--amber);
+  box-shadow: 0 0 6px 1px rgba(255, 167, 51, 0.55);
+}
+.lamp.ok {
+  background: var(--ok);
+  box-shadow: 0 0 6px 1px rgba(111, 211, 138, 0.5);
+}
+@keyframes lamp-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* a plate: a small label set into the hardware, e.g. OFFLINE */
+.plate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--signal);
+  border: 1px solid var(--signal-dim);
+  background: rgba(255, 68, 51, 0.06);
+  border-radius: 1px;
+}
+.plate.steel {
+  color: var(--ink-dim);
+  border-color: var(--metal-400);
+  background: var(--metal-800);
+}
+.plate.amber {
+  color: var(--amber);
+  border-color: var(--amber-dim);
+  background: var(--amber-faint);
+}
+
+/* hazard stripes: warnings set into the hardware */
+.hazard {
+  background: repeating-linear-gradient(-45deg, var(--amber) 0 7px, #111 7px 14px);
+}
+
+/* ---------- Panels (panes on a screen) ---------- */
+.panel {
+  position: relative;
+  background: var(--screen-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+}
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.panel-title::before {
   content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 6px 1px rgba(255, 68, 51, 0.6);
+}
+.panel-body {
+  padding: 12px 14px 14px;
+}
+
+/* Bracket corner marks: line work at two opposite corners of the parent. */
+.deco-corner {
   position: absolute;
   width: 10px;
   height: 10px;
-  border-color: var(--cyan);
+  pointer-events: none;
+  border-color: var(--deco, var(--line-strong));
   border-style: solid;
-  pointer-events: none;
-}
-.panel::before {
-  top: -1px;
-  left: -1px;
-  border-width: 2px 0 0 2px;
-}
-.panel::after {
-  bottom: -1px;
-  right: -1px;
-  border-width: 0 2px 2px 0;
-}
-.panel-title {
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--cyan);
-  padding: 12px 14px 0;
-}
-.panel-body {
-  padding: 10px 14px 14px;
-}
-
-/* Stepped deco corners: the panel bracket, doubled. Parent must be positioned. */
-.deco-corner {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  pointer-events: none;
-  --deco: var(--cyan);
 }
 .deco-corner.amber {
-  --deco: var(--orange);
+  --deco: var(--amber);
 }
-.deco-corner::before,
-.deco-corner::after {
-  content: "";
-  position: absolute;
-  border-color: var(--deco);
-  border-style: solid;
+.deco-corner.signal {
+  --deco: var(--signal);
 }
 .deco-corner.tl {
   top: -1px;
   left: -1px;
+  border-width: 1px 0 0 1px;
 }
 .deco-corner.br {
   bottom: -1px;
   right: -1px;
-}
-.deco-corner.tl::before {
-  inset: 0;
-  border-width: 2px 0 0 2px;
-}
-.deco-corner.tl::after {
-  top: 4px;
-  left: 4px;
-  width: 5px;
-  height: 5px;
-  border-width: 1px 0 0 1px;
-}
-.deco-corner.br::before {
-  inset: 0;
-  border-width: 0 2px 2px 0;
-}
-.deco-corner.br::after {
-  bottom: 4px;
-  right: 4px;
-  width: 5px;
-  height: 5px;
   border-width: 0 1px 1px 0;
 }
 
-/* ---------- Buttons ---------- */
+/* ---------- Buttons: steel keys ---------- */
 .hud-btn {
-  background: transparent;
-  border: 1px solid var(--line-strong);
-  color: var(--cyan);
   min-height: 32px;
-  padding: 7px 14px;
-  letter-spacing: 0.14em;
+  padding: 5px 14px;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  font-size: 11px;
-  cursor: pointer;
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--metal-600), var(--metal-700));
+  border: 1px solid #000;
   border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 0 rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  white-space: nowrap;
   transition:
     background 0.15s,
-    box-shadow 0.15s,
-    border-color 0.15s;
-  white-space: nowrap;
+    color 0.15s,
+    box-shadow 0.15s;
 }
 .hud-btn:hover:not(:disabled) {
-  background: var(--cyan-faint);
-  box-shadow: 0 0 14px var(--cyan-faint);
+  color: #fff;
+  background: linear-gradient(180deg, #3a3c41, var(--metal-600));
+}
+.hud-btn:active:not(:disabled) {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
 }
 .hud-btn:disabled {
   opacity: 0.4;
   cursor: default;
 }
+/* engaged: the key lit red (current mode, preset, primary action) */
 .hud-btn.active,
 .hud-btn.active:hover:not(:disabled) {
-  background: var(--cyan);
-  color: var(--bg);
+  color: #1a0503;
+  background: linear-gradient(180deg, #ff5a4a, var(--signal) 60%, #e5321f);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 14px -2px rgba(255, 68, 51, 0.55);
 }
 .hud-btn.primary {
-  border-color: var(--cyan);
-  background: var(--cyan-faint);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px var(--signal-dim), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
+/* lighter red so it holds 4.5:1 on the steel key face */
 .hud-btn.danger {
-  border-color: rgba(255, 90, 90, 0.6);
-  color: var(--red);
+  color: #ff7466;
 }
 .hud-btn.danger:hover:not(:disabled) {
-  background: rgba(255, 90, 90, 0.1);
-  box-shadow: none;
+  color: #fff;
+  background: linear-gradient(180deg, #5a1a14, var(--signal-deep));
 }
 .hud-btn.small {
   min-height: 28px;
-  padding: 4px 10px;
-  font-size: 11px;
-  letter-spacing: 0.12em;
+  padding: 3px 10px;
+  font-size: 13px;
 }
 .hud-btn.with-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 7px;
 }
 .hud-btn.icon-only {
-  padding: 7px;
+  padding: 5px;
   min-width: 32px;
 }
 
-/* ---------- Inputs ---------- */
+/* ---------- Inputs: wells in the glass ---------- */
 .hud-input {
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  min-height: 32px;
-  padding: 7px 10px;
   width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  background: #030405;
+  border: 1px solid var(--metal-600);
+  border-radius: var(--radius);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
   transition: border-color 0.15s;
 }
 .hud-input:focus {
-  border-color: var(--cyan);
+  border-color: var(--ink-dim);
 }
 .hud-input:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--cyan-faint);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.6),
+    0 0 0 3px rgba(236, 230, 220, 0.1);
 }
 select.hud-input option {
-  background: var(--bg-raised);
+  background: var(--metal-800);
 }
 
 /* ---------- Status chip ---------- */
@@ -273,12 +414,14 @@ select.hud-input option {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
-  letter-spacing: 0.15em;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 2px 8px;
+  padding: 1px 8px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 1px;
 }
 .chip-dot {
   width: 6px;
@@ -287,37 +430,41 @@ select.hud-input option {
   background: currentColor;
 }
 .chip.loading {
-  color: var(--cyan-dim);
+  color: var(--amber);
 }
 .chip.loading .chip-dot {
   animation: blink 1s steps(2) infinite;
 }
 .chip.ready {
-  color: var(--green);
+  color: var(--ok);
 }
 .chip.offline {
-  color: var(--red);
+  color: var(--signal);
 }
 .chip.off {
-  color: var(--text-dim);
+  color: var(--ink-dim);
 }
 
-/* ---------- Toggle ---------- */
+/* ---------- Toggle: a small rocker ---------- */
 .toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
   user-select: none;
-  font-size: 11px;
-  letter-spacing: 0.1em;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .toggle-box {
-  width: 26px;
+  width: 28px;
   height: 14px;
-  border: 1px solid var(--line-strong);
   position: relative;
+  background: #030405;
+  border: 1px solid var(--metal-400);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7);
 }
 .toggle-box::after {
   content: "";
@@ -326,14 +473,16 @@ select.hud-input option {
   left: 2px;
   width: 8px;
   height: 8px;
-  background: var(--text-dim);
+  background: var(--metal-400);
   transition:
     left 0.15s,
-    background 0.15s;
+    background 0.15s,
+    box-shadow 0.15s;
 }
 .toggle.on .toggle-box::after {
-  left: 14px;
-  background: var(--cyan);
+  left: 16px;
+  background: var(--signal);
+  box-shadow: 0 0 6px rgba(255, 68, 51, 0.7);
 }
 
 /* ---------- Layout helpers ---------- */
@@ -348,30 +497,42 @@ select.hud-input option {
   gap: var(--gap);
 }
 .dim {
-  color: var(--text-dim);
+  color: var(--ink-dim);
 }
 .label {
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.18em;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-dim);
+  color: var(--ink-dim);
 }
 .help {
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-dim);
 }
 
-/* ---------- Banners ---------- */
+/* ---------- Banners: hazard plates across the room ---------- */
 .banner {
-  padding: 8px 16px;
-  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px 6px 0;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 13px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  border-bottom: 1px solid var(--line);
-  background: rgba(255, 160, 64, 0.08);
-  color: var(--orange);
+  color: var(--amber);
+  background: var(--metal-900);
+  border-bottom: 1px solid #000;
+}
+.banner::before {
+  content: "";
+  align-self: stretch;
+  width: 36px;
+  background: repeating-linear-gradient(-45deg, var(--amber) 0 6px, #111 6px 12px);
 }
 
 @keyframes blink {

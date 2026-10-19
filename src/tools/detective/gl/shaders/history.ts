@@ -57,5 +57,5 @@ void main() {
   float inside = 1.0 - smoothstep(radius - 0.02, radius, dist);
   float ring = exp(-pow((dist - radius) * 28.0, 2.0));
   vec3 col = mix(texture(u_from, v_uv).rgb, texture(u_to, v_uv).rgb, inside);
-  outColor = vec4(col + vec3(0.35, 0.85, 1.0) * ring * 1.5, 1.0);
+  outColor = vec4(col + vec3(1.0, 0.27, 0.20) * ring * 1.5, 1.0);
 }`;

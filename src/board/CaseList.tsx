@@ -4,7 +4,7 @@ import type { Route } from "../app/router";
 import { exportCase } from "../store/exportImport";
 import type { Case } from "../store/schema";
 import type { CaseSummary } from "../store/store";
-import { HudButton, Panel } from "../ui/components";
+import { Bezel, HudButton, Lamp } from "../ui/components";
 import { useDialogs } from "../ui/dialogs";
 import { Icon } from "../ui/icons";
 import { useToast } from "../ui/toasts";
@@ -19,6 +19,7 @@ const fmtWhen = (ms: number) => {
     : fmtDate(ms);
 };
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "case";
+const pad = (n: number) => String(n).padStart(2, "0");
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export function CaseList(props: { navigate: (r: Route) => void; onSettings?: () => void }) {
@@ -63,7 +64,7 @@ export function CaseList(props: { navigate: (r: Route) => void; onSettings?: () 
         </button>
         <div className="case-actions">
           <HudButton small onClick={() => store.updateCase(c.id, { status: c.status === "open" ? "closed" : "open" })}>
-            {c.status === "open" ? "Close" : "Reopen"}
+            {c.status === "open" ? "Close case" : "Reopen"}
           </HudButton>
           <HudButton
             small
@@ -96,29 +97,60 @@ export function CaseList(props: { navigate: (r: Route) => void; onSettings?: () 
     );
   };
 
+  const totals = [...stats.entries()].filter(([id]) => cases.some((c) => c.id === id)).map(([, s]) => s);
+  const sum = (k: "evidence" | "links") => totals.reduce((n, s) => n + s[k], 0);
+
   return (
     <div className="case-list">
-      <header className="case-list-header">
+      <header className="rail case-rail">
         <div className="case-list-brand">
-          <h1 className="wordmark">BELFRY</h1>
+          <h1 className="wordmark">
+            <Lamp state="pulse" />
+            BELFRY
+          </h1>
           <p className="case-list-pitch">
             A detective&rsquo;s console that runs in your browser. Pin evidence to a case, send it to a tool, and the findings come back
-            linked to what they came from.
+            linked to what they came from. No API key or camera needed to try it.
           </p>
         </div>
-        <div className="case-list-tools">
-          <HudButton small className="with-icon" onClick={openDemo} data-testid="open-demo">
-            <Icon name="demo" size={12} /> {demo ? "Open the demo case" : "Stage the demo case"}
+        {props.onSettings && (
+          <HudButton className="with-icon" onClick={props.onSettings} data-testid="open-settings">
+            <Icon name="gear" size={14} /> Settings
           </HudButton>
-          {props.onSettings && (
-            <HudButton small className="with-icon" onClick={props.onSettings} data-testid="open-settings">
-              <Icon name="gear" size={12} /> Settings
-            </HudButton>
-          )}
-        </div>
+        )}
       </header>
 
-      <Panel title="Open a new case">
+      <div className="case-wall">
+        <Bezel
+          title="Case files"
+          titleId="screen-cases"
+          lamp="off"
+          className="files-bezel"
+          meta={
+            <span className="num">
+              {pad(open.length)} open · {pad(closed.length)} closed
+            </span>
+          }
+        >
+          <div className="files-screen">
+            <h3 className="files-group label">Open</h3>
+            {open.length === 0 ? (
+              <p className="dim files-empty">No open cases. Name one under Open a new case, or open the demo case to see a finished one.</p>
+            ) : (
+              <ul className="case-ul">{open.map(row)}</ul>
+            )}
+            {closed.length > 0 && (
+              <>
+                <h3 className="files-group label">Closed</h3>
+                <ul className="case-ul">{closed.map(row)}</ul>
+              </>
+            )}
+          </div>
+        </Bezel>
+
+        <div className="case-side">
+          <Bezel title="Open a new case" titleId="screen-new" lamp="off" className="new-bezel">
+            <div className="side-screen">
         <form
           className="new-case"
           onSubmit={(e) => {
@@ -134,7 +166,7 @@ export function CaseList(props: { navigate: (r: Route) => void; onSettings?: () 
             onChange={(e) => setTitle(e.target.value)}
             data-testid="new-case-title"
           />
-          <button type="submit" className="hud-btn active" data-testid="create-case">
+          <button type="submit" className={`hud-btn ${title.trim() ? "active" : ""}`} data-testid="create-case">
             Open case
           </button>
           <HudButton className="with-icon" onClick={() => fileRef.current?.click()} title="Import a .belfry case file">
@@ -153,20 +185,39 @@ export function CaseList(props: { navigate: (r: Route) => void; onSettings?: () 
             }}
           />
         </form>
-      </Panel>
+            </div>
+          </Bezel>
 
-      <Panel title={`Open cases · ${open.length}`}>
-        {open.length === 0 ? (
-          <p className="dim">No open cases. Name one above, or stage the demo case to see how a finished one looks.</p>
-        ) : (
-          <ul className="case-ul">{open.map(row)}</ul>
-        )}
-      </Panel>
-      {closed.length > 0 && (
-        <Panel title={`Closed · ${closed.length}`}>
-          <ul className="case-ul">{closed.map(row)}</ul>
-        </Panel>
-      )}
+          <Bezel title="Demo case" titleId="screen-demo" lamp={demo ? "amber" : "off"} className="demo-bezel">
+            <div className="side-screen">
+              <p className="help">
+                &ldquo;The Silent Bell&rdquo;: a staged case with notes, a photo, a finding and labelled links, so you can see the whole loop
+                before you start your own.
+              </p>
+              <HudButton className="with-icon" onClick={openDemo} data-testid="open-demo">
+                <Icon name="demo" size={14} /> {demo ? "Open the demo case" : "Stage the demo case"}
+              </HudButton>
+            </div>
+          </Bezel>
+
+          <Bezel title="System" titleId="screen-system" lamp="ok" className="system-bezel" meta={<span>THIS BROWSER</span>}>
+            <div className="side-screen readout-row">
+              <div className={`readout ${cases.length ? "" : "zero"}`}>
+                <span className="readout-value num">{pad(cases.length)}</span>
+                <span className="readout-label">Cases</span>
+              </div>
+              <div className={`readout ${sum("evidence") ? "" : "zero"}`}>
+                <span className="readout-value num">{pad(sum("evidence"))}</span>
+                <span className="readout-label">Exhibits</span>
+              </div>
+              <div className={`readout ${sum("links") ? "" : "zero"}`}>
+                <span className="readout-value num">{pad(sum("links"))}</span>
+                <span className="readout-label">Links</span>
+              </div>
+            </div>
+          </Bezel>
+        </div>
+      </div>
     </div>
   );
 }

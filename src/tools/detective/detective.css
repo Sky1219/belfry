@@ -1,7 +1,7 @@
 .dv-root {
   position: absolute;
   inset: 0;
-  background: var(--bg);
+  background: var(--void);
   overflow: hidden;
   user-select: none;
 }
@@ -50,23 +50,29 @@
   flex-direction: column;
   gap: 3px;
   padding: 8px 12px;
-  border-left: 2px solid var(--cyan);
-  border-top: 2px solid var(--cyan);
-  background: rgba(2, 6, 13, 0.55);
-  text-shadow: 0 0 8px var(--cyan-faint);
+  position: relative;
+  padding-left: 28px;
+  border-top: 1px solid #000;
+  background:
+    radial-gradient(120px 40px at 14px 50%, var(--spill-red), transparent 75%),
+    linear-gradient(180deg, rgba(33, 34, 37, 0.94), rgba(14, 15, 17, 0.94));
+  box-shadow: var(--bezel-edge), var(--shadow-bezel);
 }
 .dv-name {
+  font-family: var(--font-ui);
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: 0.25em;
-  color: var(--cyan);
+  letter-spacing: 0.16em;
+  color: var(--ink);
 }
 .dv-status {
+  font-family: var(--font-data);
   font-size: 11px;
-  letter-spacing: 0.15em;
-  color: var(--cyan-dim);
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
 }
 .dv-status.lost {
-  color: var(--red);
+  color: var(--signal);
   animation: blink 1s steps(2) infinite;
 }
 .dv-chips {
@@ -77,11 +83,11 @@
   align-items: center;
 }
 .chip-btn {
-  background: rgba(2, 6, 13, 0.6);
+  background: rgba(4, 5, 7, 0.75);
   border: 0;
   padding: 0;
   cursor: default;
-  border-radius: 999px;
+  border-radius: 1px;
 }
 .chip-btn[data-state="offline"] {
   cursor: pointer;
@@ -100,19 +106,29 @@
 .dv-perf td {
   padding: 2px 8px 2px 0;
 }
+/* a pane in front of the stage; it holds a finding, so its frame is evidence amber */
 .dv-casefile {
   position: absolute;
   right: 16px;
   bottom: 190px;
   width: min(340px, calc(100% - 32px));
+  border-color: var(--amber-dim);
+  box-shadow: var(--shadow-pane);
+}
+.dv-casefile::before,
+.dv-casefile::after {
+  content: none; /* the amber corner marks replace the panel's plain brackets */
+}
+.dv-casefile .panel-title {
+  color: var(--amber);
 }
 .dv-casefile pre {
   margin: 0;
   white-space: pre-wrap;
-  font: inherit;
+  font-family: var(--font-data);
   font-size: 12px;
-  line-height: 1.5;
-  color: var(--text);
+  line-height: 1.55;
+  color: var(--ink);
   min-height: 3em;
 }
 .dv-toasts {
@@ -128,24 +144,26 @@
 }
 .dv-toast,
 .dv-hint {
-  background: rgba(2, 6, 13, 0.85);
+  background: rgba(12, 15, 19, 0.92);
   border: 1px solid var(--line-strong);
-  padding: 6px 14px;
-  font-size: 11px;
+  padding: 5px 14px;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 14px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 .dv-toast {
-  color: var(--cyan);
+  color: var(--ink);
 }
 .dv-hint {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   top: 140px;
-  color: var(--orange);
-  border-color: var(--orange-dim);
+  color: var(--amber);
+  border-color: var(--amber-dim);
 }
 .dv-analyzing {
   position: absolute;
@@ -154,12 +172,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  color: var(--cyan);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  color: var(--signal);
 }
 
-/* controls */
+/* controls: the console plane, built along the bottom of the stage */
 .dv-controls {
   position: absolute;
   left: 16px;
@@ -167,12 +187,19 @@
   bottom: 14px;
   display: flex;
   flex-direction: column;
+  background: linear-gradient(180deg, rgba(33, 34, 37, 0.92), rgba(14, 15, 17, 0.94));
+  border: 1px solid #000;
+  backdrop-filter: blur(6px);
+  box-shadow: var(--bezel-edge), var(--shadow-bezel);
+  max-height: 45%;
+}
+/* the rows scroll inside the frame so the deco corners stay put */
+.dv-controls-scroll {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   padding: 10px 12px;
-  background: rgba(2, 6, 13, 0.72);
-  border: 1px solid var(--line);
-  backdrop-filter: blur(6px);
-  max-height: 45%;
+  min-height: 0;
   overflow: auto;
 }
 .dv-row {
@@ -190,16 +217,19 @@
 .dv-scrub {
   flex: 1;
   min-width: 120px;
-  accent-color: var(--cyan);
+  accent-color: var(--ink);
 }
 .dv-show-hud {
   position: absolute;
   right: 10px;
   bottom: 10px;
   background: transparent;
-  border: 1px solid var(--line);
-  color: var(--cyan-dim);
-  font-size: 10px;
+  border: 1px solid #000;
+  color: var(--ink-dim);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.12em;
   padding: 2px 6px;
   cursor: pointer;
   opacity: 0.5;
@@ -212,9 +242,9 @@
 }
 
 @media (max-width: 720px) {
+  /* the chips wrap on phones, so the case file sits just above the dock's tallest reach */
   .dv-casefile {
-    bottom: auto;
-    top: 120px;
+    bottom: calc(45% + 26px);
   }
   .dv-row > .label {
     min-width: 0;
@@ -233,4 +263,17 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+/* the title plate's lamp: live while the tool runs (replaces a colored side stripe) */
+.dv-title::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 17px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 8px 1px rgba(255, 68, 51, 0.7);
 }

@@ -7,3 +7,5 @@ test-results
 playwright-report
 .impeccable/config.local.json
 .impeccable/live/
+.impeccable/review/
+.impeccable/critique/

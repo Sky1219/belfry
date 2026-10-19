@@ -23,7 +23,15 @@ export type IconName =
   | "fit"
   | "close"
   | "more"
-  | "demo";
+  | "demo"
+  | "scan"
+  | "snapshot"
+  | "record"
+  | "stop"
+  | "play"
+  | "pause"
+  | "instruments"
+  | "gauge";
 
 const PATHS: Record<IconName, string> = {
   // a sheet with a folded corner and two ruled lines
@@ -58,6 +66,19 @@ const PATHS: Record<IconName, string> = {
   more: "M3 8h.01 M8 8h.01 M13 8h.01",
   // a broadcast mast: a synthetic signal
   demo: "M8 6.25v8 M5.5 14.25h5 M8 6.25a1.25 1.25 0 1 0 0-.01 M4.75 3.25a4.5 4.5 0 0 0 0 6 M11.25 3.25a4.5 4.5 0 0 1 0 6 M2.75 1.5a7.25 7.25 0 0 0 0 9.5 M13.25 1.5a7.25 7.25 0 0 1 0 9.5",
+  // a reticle: four brackets closing on a cross
+  scan: "M1.75 5V1.75H5 M11 1.75h3.25V5 M14.25 11v3.25H11 M5 14.25H1.75V11 M8 5.25v5.5 M5.25 8h5.5",
+  // a camera body with its lens
+  snapshot: "M1.75 4.75h3l1.25-2h4l1.25 2h3v8.5H1.75z M8 6.25a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z",
+  // a ring around a lit point: the tally light
+  record: "M8 2.25a5.75 5.75 0 1 1 0 11.5A5.75 5.75 0 0 1 8 2.25z M8 6.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z",
+  stop: "M4 4h8v8H4z",
+  play: "M4.5 2.75l9 5.25-9 5.25z",
+  pause: "M5.25 3v10 M10.75 3v10",
+  // three stacked screens: the instrument column
+  // a dial with its needle: the instrument column
+  gauge: "M1.75 11.5a6.25 6.25 0 0 1 12.5 0 M8 11.5l3.25-3.75 M3.6 7.4l.9.7 M8 5.25v1.25 M12.4 7.4l-.9.7 M1.75 13.75h12.5",
+  instruments: "M2.25 1.75h11.5v3.5H2.25z M2.25 6.25h11.5v3.5H2.25z M2.25 10.75h11.5v3.5H2.25z M4.5 3.5h.01 M4.5 8h.01 M4.5 12.5h.01",
 };
 
 export function Icon({ name, size = 16, ...rest }: { name: IconName; size?: number } & Omit<SVGProps<SVGSVGElement>, "name">) {

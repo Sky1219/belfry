@@ -1,7 +1,7 @@
 import { makeThumbnail, makeVideoThumbnail } from "../store/blobs";
 import type { Evidence, EvidenceType } from "../store/schema";
 import type { EvidenceStore } from "../store/store";
-import { nextPosition, type Pt } from "./placement";
+import { nextPosition, wallGeometry, type Pt } from "./placement";
 
 /** What the board's file picker offers; drops are filtered the same way. */
 export const EVIDENCE_FILE_ACCEPT = "image/*,video/*,audio/*";
@@ -34,7 +34,7 @@ export interface AddFilesResult {
  */
 export async function addEvidenceFiles(store: EvidenceStore, caseId: string, files: File[], near?: Pt): Promise<AddFilesResult> {
   const result: AddFilesResult = { added: [], skipped: [] };
-  const taken = (await store.listEvidence(caseId)).map((e) => e.position);
+  const { taken, segments } = await wallGeometry(store, caseId);
   for (const file of files) {
     const type = evidenceTypeFor(file);
     if (!type) {
@@ -53,7 +53,7 @@ export async function addEvidenceFiles(store: EvidenceStore, caseId: string, fil
     }
     const blobHash = await store.putBlob(new Uint8Array(await file.arrayBuffer()), file.type);
     const thumbHash = thumb && (await store.putBlob(thumb, "image/jpeg"));
-    const position = nextPosition(taken, near);
+    const position = nextPosition(taken, near, segments);
     taken.push(position);
     result.added.push(
       await store.addEvidence({

@@ -13,6 +13,9 @@
     "postinstall": "node scripts/copy-wasm.mjs"
   },
   "dependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "@huggingface/transformers": "^3.8.1",
     "@mediapipe/tasks-vision": "0.10.21",
     "@xyflow/react": "^12.12.0",

@@ -1,5 +1,5 @@
 import type { Evidence, Link, Position } from "../store/schema";
-import { exhibitTag, TYPE_LABEL, type CardMenuItem, type CardNode } from "./EvidenceCard";
+import { exhibitSpoken, TYPE_LABEL, type CardMenuItem, type CardNode } from "./EvidenceCard";
 
 export interface NodeExtras {
   /** Exhibit numbers by evidence id. */
@@ -8,6 +8,8 @@ export interface NodeExtras {
   links?: Link[];
   /** Evidence created after this time plays the pin-drop on arrival. */
   arrivingAfter?: number;
+  /** Ids matching the index search/filter, or null when nothing is filtered (non-matches are dimmed). */
+  matches?: Set<string> | null;
   /** Positions moved locally but not yet saved; they win over the stored ones. */
   pendingPositions?: Map<string, Position>;
 }
@@ -45,9 +47,10 @@ export function mergeNodes(
       menu: menuFor(e),
       exhibit,
       sourceExhibit: sources.get(e.id),
-      arriving: old?.data.arriving ?? (extras.arrivingAfter !== undefined && e.createdAt > extras.arrivingAfter),
+      arriving: extras.arrivingAfter !== undefined && e.createdAt > extras.arrivingAfter,
+      dimmed: !!extras.matches && !extras.matches.has(e.id),
     };
-    const ariaLabel = `${exhibitTag(exhibit).replace("·", " ")}, ${TYPE_LABEL[e.type].toLowerCase()}: ${e.title}`;
+    const ariaLabel = `${exhibitSpoken(exhibit)}, ${TYPE_LABEL[e.type].toLowerCase()}: ${e.title}`;
     const stored = extras.pendingPositions?.get(e.id) ?? e.position;
     if (old) return { ...old, position: old.dragging ? old.position : stored, data, ariaLabel };
     return { id: e.id, type: "evidence" as const, position: stored, data, ariaLabel };

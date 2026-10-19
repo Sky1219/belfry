@@ -50,7 +50,7 @@ export function SettingsPanel(props: { onClose: () => void }) {
                 onChange={(e) => setKey(e.target.value)}
                 data-testid="api-key"
               />
-              <button type="submit" className="hud-btn active" data-testid="save-key">
+              <button type="submit" className="hud-btn" data-testid="save-key">
                 Save
               </button>
               <HudButton

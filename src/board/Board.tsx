@@ -19,7 +19,7 @@ import { downloadBytes, useStore, useStoreQuery } from "../app/storeContext";
 import { exportCase } from "../store/exportImport";
 import type { Case, Evidence, Link, Position } from "../store/schema";
 import type { DeleteReceipt } from "../store/store";
-import { DecoCorners, HudButton, prefersReducedMotion } from "../ui/components";
+import { Bezel, DecoCorners, HudButton, prefersReducedMotion } from "../ui/components";
 import { useDialogs } from "../ui/dialogs";
 import { Icon, type IconName } from "../ui/icons";
 import { modalOpen } from "../ui/Modal";
@@ -27,7 +27,9 @@ import { useToast } from "../ui/toasts";
 import { addEvidenceFiles, EVIDENCE_FILE_ACCEPT } from "./addFiles";
 import { EvidenceCard, exhibitTag, type CardMenuItem, type CardNode } from "./EvidenceCard";
 import { mergeNodes } from "./nodes";
-import { nextPosition } from "./placement";
+import { takeDemoTour, toolEverUsed } from "./demoCase";
+import { FeedsScreen, ReadoutsScreen, ToolsScreen } from "./Instruments";
+import { nextPosition, wallGeometry } from "./placement";
 import { Sidebar } from "./Sidebar";
 
 const nodeTypes = { evidence: EvidenceCard };
@@ -105,7 +107,17 @@ function BoardInner({
   const fileRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [instrumentsOpen, setInstrumentsOpen] = useState(false);
+  useEffect(() => {
+    if (!instrumentsOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !modalOpen() && setInstrumentsOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [instrumentsOpen]);
   const [dropping, setDropping] = useState(false);
+  const [matches, setMatches] = useState<Set<string> | null>(null);
+  // until a visitor has opened a tool once, its key stays lit: it's the next step
+  const [toolUsed] = useState(toolEverUsed);
   const motion = (ms: number) => (prefersReducedMotion() ? 0 : ms);
 
   const byId = useMemo(() => new Map(evidence.map((e) => [e.id, e])), [evidence]);
@@ -113,9 +125,17 @@ function BoardInner({
 
   // ---------- undoable deletes ----------
 
+  // The latest soft delete can be undone from its toast or with Ctrl/Cmd+Z for as long as the board is open.
+  const lastUndo = useRef<(() => Promise<void>) | null>(null);
   const undoable = useCallback(
-    (message: string, receipt: DeleteReceipt) =>
-      toast({ message, action: { label: "Undo", run: () => store.restoreEvidence(receipt) } }),
+    (message: string, receipt: DeleteReceipt) => {
+      const run = async () => {
+        if (lastUndo.current === run) lastUndo.current = null;
+        await store.restoreEvidence(receipt);
+      };
+      lastUndo.current = run;
+      toast({ message, action: { label: "Undo", run } });
+    },
     [toast, store],
   );
 
@@ -191,14 +211,35 @@ function BoardInner({
     [dialogs, label, removeLink, store, caseId],
   );
 
+  /** The keyboard path to a link: pick one of this exhibit's links, then label or remove it. */
+  const linksOf = useCallback(
+    async (e: Evidence) => {
+      const mine = links.filter((l) => l.fromId === e.id || l.toId === e.id);
+      const id = await dialogs.choose(
+        `Links of ${exhibitTag(exhibits.get(e.id))}`,
+        "Pick a link to label or remove.",
+        mine.map((l) => {
+          const other = l.fromId === e.id ? l.toId : l.fromId;
+          return { id: l.id, label: `${l.fromId === e.id ? "→" : "←"} ${label(other)}${l.label ? ` (${l.label})` : ""}` };
+        }),
+      );
+      const l = mine.find((x) => x.id === id);
+      if (l) await editLink(l);
+    },
+    [links, dialogs, exhibits, label, editLink],
+  );
+
   const menuFor = useCallback(
     (e: Evidence): CardMenuItem[] => [
       ...(ext?.cardMenu?.(e) ?? []),
       { label: "Link to…", testId: "menu-link", onSelect: () => linkFrom(e) },
+      ...(links.some((l) => l.fromId === e.id || l.toId === e.id)
+        ? [{ label: "Links…", testId: "menu-links", onSelect: () => linksOf(e) }]
+        : []),
       { label: "Edit", testId: "menu-edit", onSelect: () => editEvidence(e) },
       { label: "Remove", danger: true, testId: "menu-delete", onSelect: () => removeEvidence(e) },
     ],
-    [ext, linkFrom, editEvidence, removeEvidence],
+    [ext, links, linkFrom, linksOf, editEvidence, removeEvidence],
   );
 
   // ---------- nodes ----------
@@ -230,9 +271,10 @@ function BoardInner({
         links,
         arrivingAfter: active ? arrivalsSince : Infinity,
         pendingPositions: pending.current,
+        matches,
       }),
     );
-  }, [evidence, menuFor, exhibits, links, active, arrivalsSince]);
+  }, [evidence, menuFor, exhibits, links, active, arrivalsSince, matches]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<CardNode>[]) => {
@@ -255,11 +297,33 @@ function BoardInner({
   useEffect(() => {
     if (fitted.current || nodes.length === 0) return;
     fitted.current = true;
-    // On a phone, fitting a whole case makes cards unreadable; start legible and let the index do the finding.
-    const narrow = window.matchMedia("(max-width: 720px)").matches;
-    requestAnimationFrame(() => rf.fitView({ maxZoom: 1, minZoom: narrow ? 0.6 : 0.15, padding: 0.15, duration: motion(0) }));
+    requestAnimationFrame(async () => {
+      await rf.fitView({ maxZoom: 1, padding: 0.12, duration: motion(0) });
+      // A whole-case fit can shrink cards past reading size: hold a legible zoom and open on the case's
+      // next step instead (the demo's "Your move", otherwise the newest exhibit).
+      const floor = window.matchMedia("(max-width: 720px)").matches ? 0.6 : 0.85;
+      const tour = takeDemoTour(caseId);
+      const cta = tour ? nodes.find((n) => n.data.evidence.title === "Your move") : undefined;
+      if (cta) setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === cta.id })));
+      if (rf.getZoom() < floor || cta) {
+        const focus = cta ?? [...nodes].sort((a, b) => b.data.evidence.createdAt - a.data.evidence.createdAt)[0];
+        await rf.setCenter(focus.position.x + 110, focus.position.y + 90, { zoom: Math.max(floor, Math.min(1, rf.getZoom())), duration: motion(0) });
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length, rf]);
+
+  // Evidence that arrives after the board opened (a tool's findings, a note, files) is selected and brought into view.
+  const seenUntil = useRef(Date.now());
+  useEffect(() => {
+    if (!active || !evidence.length) return;
+    const newest = evidence.reduce((a, b) => (a.createdAt > b.createdAt ? a : b));
+    if (newest.createdAt <= seenUntil.current) return;
+    seenUntil.current = newest.createdAt;
+    setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === newest.id })));
+    requestAnimationFrame(() => revealIfHidden(newest.position));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, evidence]);
 
   // ---------- edges ----------
 
@@ -276,7 +340,9 @@ function BoardInner({
           label: l.label,
           className: `link-${l.kind}`,
           selected: selectedEdges.has(l.id),
-          markerEnd: derived ? { type: MarkerType.ArrowClosed, width: 12, height: 12, color: "#ffa040" } : undefined,
+          // links are reached from a card's Links… menu, so they don't add Tab stops ahead of the cards
+          focusable: false,
+          markerEnd: derived ? { type: MarkerType.ArrowClosed, width: 12, height: 12, color: "#ffa733" } : undefined,
           ariaLabel: `${derived ? "Derived from" : "Link"}: ${label(l.fromId)} to ${label(l.toId)}${l.label ? `, “${l.label}”` : ""}`,
           deletable: true,
         };
@@ -303,8 +369,8 @@ function BoardInner({
     const cx = canvas ? canvas.left + canvas.width / 2 - 110 : window.innerWidth / 2;
     const cy = canvas ? canvas.top + canvas.height / 2 - 70 : window.innerHeight / 2;
     const center = rf.screenToFlowPosition({ x: cx, y: cy });
-    const taken = (await store.listEvidence(caseId)).map((e) => e.position);
-    return nextPosition(taken, { x: Math.round(center.x / 20) * 20, y: Math.round(center.y / 20) * 20 });
+    const { taken, segments } = await wallGeometry(store, caseId);
+    return nextPosition(taken, { x: Math.round(center.x / 20) * 20, y: Math.round(center.y / 20) * 20 }, segments);
   }, [rf, store, caseId]);
 
   /** Pans so a card at `p` is on screen if it landed outside the visible canvas. */
@@ -370,7 +436,14 @@ function BoardInner({
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      if (e.metaKey || e.ctrlKey || e.altKey || modalOpen()) return;
+      if (modalOpen()) return;
+      const typing = !!t?.closest("input, textarea, select, [contenteditable=true]");
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "z" || e.key === "Z") && !typing && lastUndo.current) {
+        e.preventDefault();
+        lastUndo.current().then(() => toast({ message: "Restored" }));
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (t && (t.closest("input, textarea, select, [contenteditable=true]") || t.closest("[role=menu]"))) return;
       if (e.key === "n" || e.key === "N") {
         e.preventDefault();
@@ -405,49 +478,48 @@ function BoardInner({
   const toolButton = (t: BoardTool, extra?: { primary?: boolean; testId?: string }) => (
     <HudButton
       key={t.id}
-      className={`with-icon ${extra?.primary ? "primary" : ""}`}
+      className={`with-icon ${extra?.primary ? "primary" : ""} ${!extra?.primary && !toolUsed ? "active" : ""}`}
       data-testid={extra?.testId ?? `open-tool-${t.id}`}
       onClick={t.open}
       aria-description={t.blurb}
     >
-      <Icon name="vision" size={14} /> <span className="btn-text">{t.name}</span>
+      <Icon name="vision" size={14} /> <span className="btn-text">{t.name}</span> <span className="btn-short">{t.name.split(" ").pop()}</span>
     </HudButton>
   );
 
+  const selectedId = nodes.find((n) => n.selected)?.id;
+  const pick = (e: Evidence) => {
+    // picking the exhibit that is already selected lets go of it (feeds toggle)
+    if (e.id === selectedId) {
+      setNodes((ns) => ns.map((n) => ({ ...n, selected: false })));
+      return;
+    }
+    setDrawerOpen(false);
+    setInstrumentsOpen(false);
+    rf.setCenter(e.position.x + 110, e.position.y + 70, { zoom: 1, duration: motion(400) });
+    setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === e.id })));
+  };
+
   return (
     <div className="board-shell" data-testid="board">
-      <header className="board-toolbar console">
+      <header className="board-toolbar rail">
         <HudButton className="with-icon" data-testid="back-to-cases" onClick={() => navigate({ name: "cases" })} title="All cases">
           <Icon name="back" size={14} /> <span className="btn-text">Cases</span>
         </HudButton>
         <div className="case-header">
-          <span className="case-no" aria-label={`Case number ${caseNo}`}>
+          <span className="case-no num" aria-label={`Case number ${caseNo}`}>
             Nº {pad(caseNo, 3)}
           </span>
           <h1 className="case-name">{theCase?.title}</h1>
+          <p className="case-sub num">
+            <span>Opened {theCase ? fmtDay(theCase.createdAt) : "—"}</span>
+            <span>Last activity {lastActivity ? fmtActivity(lastActivity) : "—"}</span>
+          </p>
         </div>
-        <dl className="readouts" aria-label="Case readouts">
-          <div>
-            <dt>Opened</dt>
-            <dd>{theCase ? fmtDay(theCase.createdAt) : "—"}</dd>
-          </div>
-          <div>
-            <dt>Exhibits</dt>
-            <dd data-testid="readout-exhibits">{pad(evidence.length)}</dd>
-          </div>
-          <div>
-            <dt>Links</dt>
-            <dd>{pad(links.length)}</dd>
-          </div>
-          <div>
-            <dt>Last activity</dt>
-            <dd>{lastActivity ? fmtActivity(lastActivity) : "—"}</dd>
-          </div>
-        </dl>
         <div className="toolbar-actions">
-          <div className="tool-group" role="group" aria-label="Add evidence">
+          <div className="tool-group labelled" role="group" aria-label="Add evidence">
             <HudButton className="with-icon" data-testid="add-note" onClick={addNote} aria-keyshortcuts="N" title="Pin a note (N)">
-              <Icon name="note" size={14} /> <span className="btn-text">Note</span>
+              <Icon name="note" size={14} /> <span className="btn-text">Note</span> <span className="btn-short">Note</span>
             </HudButton>
             <HudButton
               className="with-icon"
@@ -456,20 +528,22 @@ function BoardInner({
               aria-keyshortcuts="E"
               title="Add photos, footage or audio (E)"
             >
-              <Icon name="upload" size={14} /> <span className="btn-text">Evidence</span>
+              <Icon name="upload" size={14} /> <span className="btn-text">Evidence</span> <span className="btn-short">Files</span>
             </HudButton>
           </div>
           {tools.length > 0 && (
-            <div className="tool-group" role="group" aria-label="Tools">
+            <div className="tool-group labelled" role="group" aria-label="Tools">
               {tools.map((t) => toolButton(t))}
             </div>
           )}
-          <div className="tool-group" role="group" aria-label="Case">
-            <HudButton className="with-icon icon-only" data-testid="export-board" onClick={exportThis} aria-label="Export case file" title="Export case file">
+        </div>
+          {/* Export and settings also live on the case list, so phones drop them here to keep the rail to two rows. */}
+          <div className="tool-group case-tools" role="group" aria-label="Case">
+            <HudButton className="with-icon icon-only phone-hide" data-testid="export-board" onClick={exportThis} aria-label="Export case file" title="Export case file">
               <Icon name="export" size={14} />
             </HudButton>
             {onSettings && (
-              <HudButton className="with-icon icon-only" onClick={onSettings} aria-label="Settings" title="Settings" data-testid="open-settings">
+              <HudButton className="with-icon icon-only phone-hide" onClick={onSettings} aria-label="Settings" title="Settings" data-testid="open-settings">
                 <Icon name="gear" size={14} />
               </HudButton>
             )}
@@ -479,12 +553,27 @@ function BoardInner({
               aria-expanded={drawerOpen}
               aria-controls="evidence-index"
               data-testid="toggle-index"
-              onClick={() => setDrawerOpen((o) => !o)}
+              onClick={() => {
+                setInstrumentsOpen(false);
+                setDrawerOpen((o) => !o);
+              }}
             >
-              <Icon name="list" size={14} />
+              <Icon name="list" size={14} /> <span className="btn-short">Index</span>
+            </HudButton>
+            <HudButton
+              className="with-icon icon-only instruments-toggle"
+              aria-label="Instruments: readouts, feeds and tools"
+              aria-expanded={instrumentsOpen}
+              aria-controls="instruments"
+              data-testid="toggle-instruments"
+              onClick={() => {
+                setDrawerOpen(false);
+                setInstrumentsOpen((o) => !o);
+              }}
+            >
+              <Icon name="gauge" size={14} /> <span className="btn-short">Gauges</span>
             </HudButton>
           </div>
-        </div>
         <input
           ref={fileRef}
           type="file"
@@ -499,20 +588,31 @@ function BoardInner({
           }}
         />
       </header>
-      <div className="board-body">
+      <div className="board-body monitor-wall">
         <Sidebar
           id="evidence-index"
           evidence={evidence}
           exhibits={exhibits}
+          selectedId={selectedId}
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           searchRef={searchRef}
-          onPick={(e) => {
-            setDrawerOpen(false);
-            rf.setCenter(e.position.x + 110, e.position.y + 70, { zoom: 1, duration: motion(400) });
-            setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === e.id })));
-          }}
+          onFilter={setMatches}
+          onPick={pick}
         />
+        <Bezel
+          title="Case board"
+          titleId="screen-board"
+          lamp="on"
+          className="board-bezel"
+          screenClassName="board-screen"
+          meta={
+            <>
+              <span>EXH {pad(evidence.length)}</span>
+              <span>LNK {pad(links.length)}</span>
+            </>
+          }
+        >
         <div
           className={`board-canvas wall ${dropping ? "dropping" : ""}`}
           onDragOver={(e) => {
@@ -563,8 +663,8 @@ function BoardInner({
             ariaLabelConfig={ARIA_LABELS}
             deleteKeyCode={["Backspace", "Delete"]}
           >
-            <Background id="wall-fine" variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(89,217,255,0.12)" />
-            <Background id="wall-grid" variant={BackgroundVariant.Lines} gap={160} lineWidth={1} color="rgba(89,217,255,0.05)" />
+            <Background id="wall-fine" variant={BackgroundVariant.Dots} gap={18} size={1} color="rgba(236,230,220,0.2)" />
+            <Background id="wall-grid" variant={BackgroundVariant.Lines} gap={180} lineWidth={1} color="rgba(236,230,220,0.04)" />
             <FlowPanel position="bottom-right">
               <ZoomReadout />
             </FlowPanel>
@@ -585,6 +685,13 @@ function BoardInner({
               renderTool={(t) => toolButton(t, { primary: true, testId: `empty-open-tool-${t.id}` })}
             />
           )}
+        </div>
+        </Bezel>
+        {instrumentsOpen && <div className="drawer-scrim right" onClick={() => setInstrumentsOpen(false)} aria-hidden />}
+        <div className={`instruments ${instrumentsOpen ? "open" : ""}`} id="instruments" role="region" aria-label="Instruments">
+          <ReadoutsScreen theCase={theCase} evidence={evidence} links={links} lastActivity={lastActivity} />
+          <FeedsScreen evidence={evidence} exhibits={exhibits} selectedId={selectedId} onPick={pick} onAdd={() => fileRef.current?.click()} />
+          <ToolsScreen tools={tools} />
         </div>
       </div>
     </div>

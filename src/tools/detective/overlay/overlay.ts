@@ -25,9 +25,11 @@ export interface OverlayFrame {
   reticle: boolean;
 }
 
-const CYAN = "#59d9ff";
-const CYAN_DIM = "rgba(89,217,255,0.55)";
-const ORANGE = "#ffa040";
+// Line work in bone, live marks in signal red, evidence in amber (see DESIGN.md).
+const INK = "#ece6dc";
+const INK_DIM = "#9aa3ad";
+const SIGNAL = "#ff4433";
+const AMBER = "#ffa733";
 const FONT = '11px "JetBrains Mono", ui-monospace, monospace';
 const FONT_BOLD = 'bold 12px "JetBrains Mono", ui-monospace, monospace';
 
@@ -94,9 +96,9 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, f: OverlayFrame): voi
 function drawSkeleton(ctx: CanvasRenderingContext2D, v: Viewport, pose: NonNullable<PoseResult>) {
   const lm = pose.landmarks;
   const vis = (i: number) => (lm[i]?.visibility ?? 1) > 0.5;
-  ctx.strokeStyle = CYAN;
+  ctx.strokeStyle = INK;
   ctx.lineWidth = 2;
-  ctx.shadowColor = CYAN;
+  ctx.shadowColor = INK;
   ctx.shadowBlur = 8;
   ctx.beginPath();
   for (const [a, b] of POSE_CONNECTIONS) {
@@ -107,7 +109,7 @@ function drawSkeleton(ctx: CanvasRenderingContext2D, v: Viewport, pose: NonNulla
     ctx.lineTo(q.x, q.y);
   }
   ctx.stroke();
-  ctx.fillStyle = "#cfeffc";
+  ctx.fillStyle = INK;
   for (let i = 11; i < lm.length; i++) {
     if (!vis(i)) continue;
     const p = toScreen(v, lm[i].x, lm[i].y);
@@ -121,9 +123,9 @@ function drawSkeleton(ctx: CanvasRenderingContext2D, v: Viewport, pose: NonNulla
 function drawEvidence(ctx: CanvasRenderingContext2D, v: Viewport, t: Track, labels: boolean, targeted: boolean) {
   const r = boxToScreen(v, t.box);
   const c = Math.min(18, r.w / 4, r.h / 4);
-  ctx.strokeStyle = ORANGE;
+  ctx.strokeStyle = AMBER;
   ctx.lineWidth = targeted ? 3 : 2;
-  ctx.shadowColor = ORANGE;
+  ctx.shadowColor = AMBER;
   ctx.shadowBlur = targeted ? 14 : 6;
   ctx.beginPath();
   for (const [x, y, dx, dy] of [
@@ -143,16 +145,16 @@ function drawEvidence(ctx: CanvasRenderingContext2D, v: Viewport, t: Track, labe
   ctx.font = FONT;
   const tw = ctx.measureText(text).width;
   const ty = r.y > 22 ? r.y - 8 : r.y + r.h + 16;
-  ctx.fillStyle = "rgba(2,6,13,0.75)";
+  ctx.fillStyle = "rgba(4,5,7,0.8)";
   ctx.fillRect(r.x - 2, ty - 12, tw + 8, 16);
-  ctx.fillStyle = ORANGE;
+  ctx.fillStyle = AMBER;
   ctx.fillText(text, r.x + 2, ty);
 }
 
 function drawReticle(ctx: CanvasRenderingContext2D, v: Viewport) {
   const cx = v.dstW / 2;
   const cy = v.dstH / 2;
-  ctx.strokeStyle = CYAN_DIM;
+  ctx.strokeStyle = "rgba(255,68,51,0.7)";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(cx, cy, 26, 0, Math.PI * 2);
@@ -182,16 +184,16 @@ function drawScanRing(ctx: CanvasRenderingContext2D, f: OverlayFrame) {
     cy = r.y + r.h / 2;
     rad = Math.max(r.w, r.h) / 2 + 12;
   }
-  ctx.strokeStyle = CYAN;
+  ctx.strokeStyle = SIGNAL;
   ctx.lineWidth = 3;
-  ctx.shadowColor = CYAN;
+  ctx.shadowColor = SIGNAL;
   ctx.shadowBlur = 12;
   ctx.beginPath();
   ctx.arc(cx, cy, rad, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, progress01));
   ctx.stroke();
   ctx.shadowBlur = 0;
   ctx.font = FONT_BOLD;
-  ctx.fillStyle = CYAN;
+  ctx.fillStyle = SIGNAL;
   const label = progress01 >= 1 ? "ANALYZING…" : "SCANNING";
   ctx.fillText(label, cx - ctx.measureText(label).width / 2, cy + rad + 18);
 }
@@ -200,7 +202,7 @@ function drawVitals(ctx: CanvasRenderingContext2D, v: Viewport, vit: OverlayVita
   const lines: Array<{ text: string; color?: string; bar?: number }> = [
     { text: `HR    ${vit.bpm !== null ? Math.round(vit.bpm) : "--"} BPM${full ? " · EST" : ""}`, bar: vit.bpm !== null ? vit.confidence : undefined },
   ];
-  if (vit.bpm !== null && vit.elevated) lines.push({ text: "ELEVATED", color: ORANGE });
+  if (vit.bpm !== null && vit.elevated) lines.push({ text: "ELEVATED", color: AMBER });
   lines.push({ text: `BLINK ${vit.blinksPerMin ?? "--"}/MIN` });
   lines.push({ text: `GAZE  ${(vit.gaze ?? "--").toUpperCase()}${vit.awayPct !== null ? ` · AWAY ${Math.round(vit.awayPct)}%` : ""}` });
 
@@ -216,27 +218,27 @@ function drawVitals(ctx: CanvasRenderingContext2D, v: Viewport, vit: OverlayVita
     y = Math.max(8, Math.min(v.dstH - h - 8, r.y));
     x = Math.max(8, x);
     // leader line from the face to the panel
-    ctx.strokeStyle = CYAN_DIM;
+    ctx.strokeStyle = INK_DIM;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x < r.x ? r.x : r.x + r.w, r.y + r.h * 0.3);
     ctx.lineTo(x < r.x ? x + w : x, y + 12);
     ctx.stroke();
   }
-  ctx.fillStyle = "rgba(2,6,13,0.78)";
+  ctx.fillStyle = "rgba(4,5,7,0.82)";
   ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = CYAN_DIM;
+  ctx.strokeStyle = INK_DIM;
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
   lines.forEach((l, i) => {
     const ly = y + 20 + i * 17;
-    ctx.fillStyle = l.color ?? CYAN;
+    ctx.fillStyle = l.color ?? INK;
     ctx.fillText(l.text, x + 10, ly);
     if (l.bar !== undefined) {
       const bw = 40;
       const bx = x + w - bw - 10;
-      ctx.fillStyle = "rgba(89,217,255,0.2)";
+      ctx.fillStyle = "rgba(255,68,51,0.25)";
       ctx.fillRect(bx, ly - 7, bw, 4);
-      ctx.fillStyle = CYAN;
+      ctx.fillStyle = SIGNAL;
       ctx.fillRect(bx, ly - 7, bw * Math.min(1, l.bar), 4);
     }
   });
