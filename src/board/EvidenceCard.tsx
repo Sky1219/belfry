@@ -83,7 +83,7 @@ function EvidenceCardImpl({ data, selected }: NodeProps<CardNode>) {
       data-type={e.type}
     >
       <DecoCorners tone={finding ? "amber" : "line"} />
-      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Left} title="Drop a link here" />
       <header className="card-head">
         <span className="card-stamp" data-testid="exhibit-tag">
           {exhibitTag(data.exhibit)}
@@ -116,7 +116,7 @@ function EvidenceCardImpl({ data, selected }: NodeProps<CardNode>) {
           ))}
         </div>
       )}
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} title="Drag to another exhibit to link" />
     </article>
   );
 }

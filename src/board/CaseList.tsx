@@ -47,8 +47,21 @@ export function CaseList(props: { navigate: (r: Route) => void; onSettings?: () 
     props.navigate({ name: "board", caseId: c.id });
   };
 
-  const open = cases.filter((c) => c.status === "open");
-  const closed = cases.filter((c) => c.status === "closed");
+  // search and sort the files (newest first by default)
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"newest" | "activity" | "name" | "number">("newest");
+  const shown = cases
+    .filter((c) => c.title.toLowerCase().includes(query.trim().toLowerCase()))
+    .sort((a, b) => {
+      const sa = stats.get(a.id);
+      const sb = stats.get(b.id);
+      if (sort === "activity") return (sb?.lastActivity ?? 0) - (sa?.lastActivity ?? 0);
+      if (sort === "name") return a.title.localeCompare(b.title);
+      if (sort === "number") return (sa?.number ?? 0) - (sb?.number ?? 0);
+      return 0; // already newest first
+    });
+  const open = shown.filter((c) => c.status === "open");
+  const closed = shown.filter((c) => c.status === "closed");
 
   const row = (c: Case) => {
     const s = stats.get(c.id);
@@ -133,9 +146,32 @@ export function CaseList(props: { navigate: (r: Route) => void; onSettings?: () 
           }
         >
           <div className="files-screen">
+            {cases.length > 3 && (
+              <div className="files-tools">
+                <input
+                  className="hud-input"
+                  type="search"
+                  placeholder="Search case names"
+                  aria-label="Search case names"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  data-testid="case-search"
+                />
+                <select className="hud-input" aria-label="Sort cases" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+                  <option value="newest">Newest first</option>
+                  <option value="activity">Recent activity</option>
+                  <option value="name">Name</option>
+                  <option value="number">Case number</option>
+                </select>
+              </div>
+            )}
             <h3 className="files-group label">Open</h3>
             {open.length === 0 ? (
-              <p className="dim files-empty">No open cases. Name one under Open a new case, or open the demo case to see a finished one.</p>
+              <p className="dim files-empty">
+                {query.trim()
+                  ? "No open case names match."
+                  : "No open cases. Name one under Open a new case, or open the demo case to see a finished one."}
+              </p>
             ) : (
               <ul className="case-ul">{open.map(row)}</ul>
             )}

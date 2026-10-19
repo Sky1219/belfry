@@ -51,6 +51,10 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
   const [phase, setPhase] = useState<Phase>({ kind: "starting" });
   const [st, setSt] = useState<EngineState | null>(null);
   const [showPerf, setShowPerf] = useState(false);
+  // the scheduler panel is a developer tool: shown with ?perf (or ?mock), not to every visitor
+  const [perfAvailable] = useState(() => isMock() || new URLSearchParams(window.location.search).has("perf"));
+  // phones show Mode and the capture keys; overlays, presets and HUD density sit behind "More"
+  const [moreOpen, setMoreOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const dialogs = useDialogs();
 
@@ -267,9 +271,11 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
                 <StatusChip state={st.modelStatus[m]} label={MODEL_LABEL[m]} />
               </button>
             ))}
-          <HudButton small onClick={() => setShowPerf((v) => !v)} data-testid="toggle-perf">
-            Perf
-          </HudButton>
+          {perfAvailable && (
+            <HudButton small onClick={() => setShowPerf((v) => !v)} data-testid="toggle-perf">
+              Perf
+            </HudButton>
+          )}
           <HudButton small className="with-icon" onClick={ctx.close} data-testid="dv-close">
             <Icon name="close" size={12} /> Board
           </HudButton>
@@ -310,7 +316,7 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
       <CaseFile finding={st?.lastFinding} />
 
       {st && phase.kind === "running" && (
-        <div className="dv-controls" data-testid="dv-controls">
+        <div className={`dv-controls ${moreOpen ? "more-open" : ""}`} data-testid="dv-controls">
           <DecoCorners />
           <div className="dv-controls-scroll">
             {sourceRef.current?.kind === "file" && <VideoControls source={sourceRef.current} />}
@@ -328,7 +334,7 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
                   </HudButton>
                 ))}
             </div>
-            <div className="dv-row">
+            <div className="dv-row dv-optional">
               <span className="label">Overlays</span>
               {OVERLAYS.map((o) => (
                 <span key={o.id} data-testid={`overlay-${o.id}`}>
@@ -336,7 +342,7 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
                 </span>
               ))}
             </div>
-            <div className="dv-row">
+            <div className="dv-row dv-optional">
               <span className="label">Presets</span>
               {presets.map((p, i) => (
                 <HudButton key={p.id} small active={st.presetId === p.id} data-testid={`preset-${p.id}`} onClick={() => eng?.setPreset(p)} title={i < 9 ? `Key ${i + 1}` : undefined}>
@@ -356,6 +362,9 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
               ))}
             </div>
             <div className="dv-row">
+              <HudButton small className="dv-more" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-testid="dv-more">
+                {moreOpen ? "Fewer" : "More"}
+              </HudButton>
               <HudButton className="with-icon" onClick={() => eng?.scanCenter()} disabled={st.scanning} data-testid="dv-scan" title="Key S">
                 <Icon name="scan" size={14} /> {st.scanning ? "Analyzing…" : "Scan center"}
               </HudButton>

@@ -34,6 +34,13 @@ import { Sidebar } from "./Sidebar";
 
 const nodeTypes = { evidence: EvidenceCard };
 
+/** One undoable change on the board (a delete, an edit, a move). */
+interface UndoStep {
+  label: string;
+  run: () => Promise<unknown>;
+}
+const UNDO_DEPTH = 25;
+
 /** A tool the board can launch on the live camera (or the demo feed). */
 export interface BoardTool {
   id: string;
@@ -123,20 +130,37 @@ function BoardInner({
   const byId = useMemo(() => new Map(evidence.map((e) => [e.id, e])), [evidence]);
   const label = useCallback((id: string) => `${exhibitTag(exhibits.get(id))} ${byId.get(id)?.title ?? ""}`.trim(), [exhibits, byId]);
 
-  // ---------- undoable deletes ----------
+  // ---------- undo ----------
 
-  // The latest soft delete can be undone from its toast or with Ctrl/Cmd+Z for as long as the board is open.
-  const lastUndo = useRef<(() => Promise<void>) | null>(null);
+  // Deletes, edits and moves on this board can be undone newest-first with Ctrl/Cmd+Z while it is open;
+  // deletes also offer Undo in their toast.
+  const undoStack = useRef<UndoStep[]>([]);
+  const pushUndo = useCallback((step: UndoStep) => {
+    undoStack.current = [...undoStack.current.slice(-(UNDO_DEPTH - 1)), step];
+  }, []);
+  const undoLast = useCallback(async () => {
+    const step = undoStack.current.pop();
+    if (!step) return toast({ message: "Nothing to undo" });
+    await step.run();
+    toast({ message: `Undid: ${step.label}` });
+  }, [toast]);
+
   const undoable = useCallback(
     (message: string, receipt: DeleteReceipt) => {
-      const run = async () => {
-        if (lastUndo.current === run) lastUndo.current = null;
-        await store.restoreEvidence(receipt);
-      };
-      lastUndo.current = run;
-      toast({ message, action: { label: "Undo", run } });
+      const step: UndoStep = { label: message, run: () => store.restoreEvidence(receipt) };
+      pushUndo(step);
+      toast({
+        message,
+        action: {
+          label: "Undo",
+          run: async () => {
+            undoStack.current = undoStack.current.filter((s) => s !== step);
+            await step.run();
+          },
+        },
+      });
     },
-    [toast, store],
+    [toast, store, pushUndo],
   );
 
   const removeEvidence = useCallback(
@@ -167,13 +191,15 @@ function BoardInner({
       ];
       const r = await dialogs.form(`Edit ${exhibitTag(exhibits.get(e.id))}`, fields, { submitTestId: "save-edit", submitLabel: "Save exhibit" });
       if (!r) return;
+      const before = { title: e.title, body: e.body, tags: e.tags };
       await store.updateEvidence(e.id, {
         title: r.title.trim() || e.title,
         ...(r.body !== undefined ? { body: r.body } : {}),
         tags: r.tags.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean),
       });
+      pushUndo({ label: `edit to ${exhibitTag(exhibits.get(e.id))}`, run: () => store.updateEvidence(e.id, before) });
     },
-    [dialogs, store, exhibits],
+    [dialogs, store, exhibits, pushUndo],
   );
 
   const linkFrom = useCallback(
@@ -252,15 +278,29 @@ function BoardInner({
     return () => clearTimeout(t);
   }, [active, evidence]);
 
-  // Keyboard moves arrive as many small steps; save them once the card settles.
+  // Keyboard moves arrive as many small steps; save them once the card settles, as one undoable move.
   const pending = useRef(new Map<string, Position>());
   const flushTimer = useRef(0);
+  const byIdRef = useRef(byId);
+  byIdRef.current = byId;
   const flush = useCallback(() => {
     clearTimeout(flushTimer.current);
     const moves = [...pending.current];
     pending.current.clear();
-    for (const [id, p] of moves) store.updateEvidence(id, { position: { x: Math.round(p.x), y: Math.round(p.y) } }).catch(() => {});
-  }, [store]);
+    const origins = new Map<string, Position>();
+    for (const [id, p] of moves) {
+      const from = byIdRef.current.get(id)?.position;
+      const to = { x: Math.round(p.x), y: Math.round(p.y) };
+      if (from && (from.x !== to.x || from.y !== to.y)) origins.set(id, from);
+      store.updateEvidence(id, { position: to }).catch(() => {});
+    }
+    if (origins.size) {
+      pushUndo({
+        label: origins.size === 1 ? "move" : `move of ${origins.size} exhibits`,
+        run: () => Promise.all([...origins].map(([id, position]) => store.updateEvidence(id, { position }))),
+      });
+    }
+  }, [store, pushUndo]);
   useEffect(() => flush, [flush]);
 
   const [nodes, setNodes] = useState<CardNode[]>([]);
@@ -438,9 +478,9 @@ function BoardInner({
       const t = e.target as HTMLElement | null;
       if (modalOpen()) return;
       const typing = !!t?.closest("input, textarea, select, [contenteditable=true]");
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "z" || e.key === "Z") && !typing && lastUndo.current) {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "z" || e.key === "Z") && !typing) {
         e.preventDefault();
-        lastUndo.current().then(() => toast({ message: "Restored" }));
+        undoLast();
         return;
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -459,7 +499,7 @@ function BoardInner({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, addNote]);
+  }, [active, addNote, undoLast]);
 
   if (theCase === undefined && evidence.length === 0) {
     return (
@@ -488,6 +528,40 @@ function BoardInner({
   );
 
   const selectedId = nodes.find((n) => n.selected)?.id;
+  const selectedIds = nodes.filter((n) => n.selected).map((n) => n.id);
+  const clearSelection = () => setNodes((ns) => ns.map((n) => ({ ...n, selected: false })));
+
+  // ---------- bulk actions on a multi-selection (Ctrl/Cmd-click or Shift-drag) ----------
+
+  const removeSelected = async () => {
+    const ids = selectedIds;
+    const ok = await dialogs.confirm(
+      "Remove exhibits",
+      `Take ${ids.length} exhibits off the board? Their links go with them. You can undo this.`,
+      { danger: true, confirmLabel: `Remove ${ids.length} exhibits` },
+    );
+    if (!ok) return;
+    const receipts: DeleteReceipt[] = [];
+    for (const id of ids) receipts.push(await store.deleteEvidence(id));
+    undoable(`Removed ${ids.length} exhibits`, {
+      evidenceIds: receipts.flatMap((r) => r.evidenceIds),
+      linkIds: [...new Set(receipts.flatMap((r) => r.linkIds))],
+    });
+  };
+
+  const tagSelected = async () => {
+    const ids = selectedIds;
+    const r = await dialogs.form(`Tag ${ids.length} exhibits`, [{ name: "tag", label: "Tag", placeholder: "e.g. east-tower", testId: "bulk-tag" }], {
+      submitLabel: "Add tag",
+      submitTestId: "save-bulk-tag",
+    });
+    const tag = r?.tag.trim().replace(/^#/, "").replace(/\s+/g, "-");
+    if (!tag) return;
+    const before = ids.map((id) => [id, byId.get(id)?.tags ?? []] as const);
+    for (const [id, tags] of before) if (!tags.includes(tag)) await store.updateEvidence(id, { tags: [...tags, tag] });
+    pushUndo({ label: `#${tag} on ${ids.length} exhibits`, run: () => Promise.all(before.map(([id, tags]) => store.updateEvidence(id, { tags }))) });
+    toast({ message: `Tagged ${ids.length} exhibits #${tag}` });
+  };
   const pick = (e: Evidence) => {
     // picking the exhibit that is already selected lets go of it (feeds toggle)
     if (e.id === selectedId) {
@@ -598,6 +672,7 @@ function BoardInner({
           onClose={() => setDrawerOpen(false)}
           searchRef={searchRef}
           onFilter={setMatches}
+          rowAction={(e) => ext?.cardMenu?.(e)[0]}
           onPick={pick}
         />
         <Bezel
@@ -675,6 +750,21 @@ function BoardInner({
               <DecoCorners />
               <Icon name="upload" size={20} />
               <span>Release to pin as evidence</span>
+            </div>
+          )}
+          {selectedIds.length > 1 && (
+            <div className="bulk-bar" role="toolbar" aria-label="Selected exhibits" data-testid="bulk-bar">
+              <span className="lamp on" aria-hidden />
+              <span className="bulk-count num">{pad(selectedIds.length)} selected</span>
+              <HudButton small onClick={tagSelected} data-testid="bulk-tag-open">
+                Tag…
+              </HudButton>
+              <HudButton small danger onClick={removeSelected} data-testid="bulk-remove">
+                Remove
+              </HudButton>
+              <HudButton small onClick={clearSelection}>
+                Clear
+              </HudButton>
             </div>
           )}
           {evidence.length === 0 && theCase && (

@@ -349,7 +349,8 @@ Components are **hardware set into a console**: steel keys, recessed wells, lamp
 - **Arrival:** an exhibit that arrives while the board is in view drops 16px onto the glass from a slight blur (620ms), the pin strikes with a red flare, and the stamp settles in. It plays once and not at all under reduced motion.
 - **Modal:** a monitor brought forward: a bezel (at most 460px; settings 560px) whose head holds the title and whose glass holds the body, over a 70% black backdrop, rising in over 280ms. `role="dialog"`, labelled by its title; it traps Tab, closes on Escape or a backdrop click, and returns focus to whatever opened it. Actions sit right-aligned; a secondary destructive action sits far left.
 - **Card menu:** a small bezel-edged plate (190px) of uppercase menu items, rendered outside the zoomed wall at full size and fixed under its button; it closes when the wall pans or zooms or the window resizes. Hover and focus wash items red (18%). Real menu semantics: Escape, outside click, arrow keys, focus returned. "Links…" lists the card's links to label or remove; the danger item sits last below a seam.
-- **Toast:** a steel plate centered 20px above the foot of the room, with a red lamp (amber and amber text for warnings), the message, an optional lit UNDO key and a close button. Announced politely; lasts 7 seconds. Ctrl/Cmd+Z restores the latest soft delete while the board is open.
+- **Toast:** a steel plate centered 20px above the foot of the room, with a red lamp (amber and amber text for warnings), the message, an optional lit UNDO key and a close button. Announced politely; lasts 7 seconds. Ctrl/Cmd+Z undoes the board's changes newest-first while it is open: deletes, edits, tags and moves.
+- **Bulk bar:** with two or more exhibits selected (Ctrl/Cmd-click or Shift-drag), a steel plate centered at the top of the board glass: a lit lamp, the mono count (`02 selected`), then TAG…, REMOVE (danger, one undoable step) and CLEAR.
 - **Empty board:** a translucent pane (at most 540px) with corner brackets, a Headline, one line of guidance and the three ways in.
 
 ### Inputs / Fields
@@ -359,7 +360,7 @@ Components are **hardware set into a console**: steel keys, recessed wells, lamp
 
 ### Navigation
 - **Rail:** see Layout. Action groups are divided by a 1px black seam with a 5% highlight beside it.
-- **Evidence index:** a search well and type filter, then rows of icon, mono `EXH·nnn` and title (findings in Amber), announced as "Exhibit 7, …". The selected exhibit's row lights red (16% wash, red stamp and icon). The lamp is lit while a filter is active. A footer lists the keys (`N` note, `E` files, `/` search). Below 860px it is a drawer with a scrim, closed by Escape, a pick or its close button.
+- **Evidence index:** a search well and type filter, then rows of icon, mono `EXH·nnn` and title (findings in Amber), announced as "Exhibit 7, …". The selected exhibit's row lights red (16% wash, red stamp and icon). The lamp is lit while a filter is active. Footage rows carry a trailing vision key that sends the exhibit straight to the tool. A footer lists the keys (`N` note, `E` files, `/` search, `Ctrl Z` undo) and one line on drag-to-link. Below 860px it is a drawer with a scrim, closed by Escape, a pick or its close button.
 - **Zoom plate:** a small steel plate on the glass: zoom out, the percentage in red mono on a recessed well, zoom in, fit.
 - **Links:** taut straight strings between square studs. Links you drew are bone at 55%, 1.25px; derived-from links are dashed Amber Dim. Selected, they turn Signal Red at 2px. Labels sit on `metal-800` plates with a `line-strong` edge. Links are not Tab stops; the keyboard reaches them through a card's Links… menu.
 
@@ -371,7 +372,7 @@ Components are **hardware set into a console**: steel keys, recessed wells, lamp
 ### Detective Vision HUD
 - **Title plate:** a gunmetal plate with the bezel edge, a red lamp and its spill, the tool name in Barlow Condensed 700 at 18px and 0.16em, over a mono status line (a blinking red SIGNAL LOST when the feed drops; still under reduced motion).
 - **No Signal:** a bezel with an amber lamp, centered on the stage, offering the ways in; Run the demo feed is the lit key when the case has no footage.
-- **Console:** a 92–94% gunmetal strip pinned 16px from the bottom and sides, blurred behind, with corner brackets: labelled rows (MODE, OVERLAYS, PRESETS, HUD) of keys and toggles, then the capture keys. The current mode and preset are engaged keys.
+- **Console:** a 92–94% gunmetal strip pinned 16px from the bottom and sides, blurred behind, with corner brackets: labelled rows (MODE, OVERLAYS, PRESETS, HUD) of keys and toggles, then the capture keys. The current mode and preset are engaged keys. On phones (≤720px) only MODE and the capture keys show; a MORE key opens the overlays, presets and HUD rows. The PERF key and scheduler panel are a developer tool, shown only with `?perf` (or `?mock`).
 - **Case file:** a pane with an Amber Dim border, an amber title, amber corner brackets and the Pane shadow; its mono text arrives like a teleprinter, or all at once under reduced motion.
 - **Modes:** Detective is a cold grayscale surveillance grade with bone edge lines; x-ray glows Signal Red. The 2D overlay mirrors the tokens in code: Bone text and strokes, Signal Red alerts, Amber `EV-nn` evidence outlines, on 80% black plates.
 

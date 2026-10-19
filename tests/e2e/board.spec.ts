@@ -138,6 +138,60 @@ test("removing evidence and links is undoable; keyboard moves are saved", async 
   expect(errors()).toEqual([]);
 });
 
+test("bulk tag and remove, undo for edits, case search", async ({ page }) => {
+  const errors = collectErrors(page);
+  await skipDemo(page);
+  await page.goto("./");
+  await page.getByTestId("new-case-title").fill("Bulk Case");
+  await page.getByTestId("create-case").click();
+  await addNote(page, "Coat button");
+  await addNote(page, "Train ticket");
+  await addNote(page, "Ash sample");
+
+  // select two cards (Ctrl/Cmd-click), tag them together, then undo the tag
+  const mod = process.platform === "darwin" ? "Meta" : "Control";
+  await page.locator(".react-flow__node", { hasText: "Coat button" }).locator(".card-title").click();
+  await page.locator(".react-flow__node", { hasText: "Train ticket" }).locator(".card-title").click({ modifiers: [mod] });
+  await expect(page.getByTestId("bulk-bar")).toContainText("02 selected");
+  await page.getByTestId("bulk-tag-open").click();
+  await page.getByTestId("bulk-tag").fill("platform 9");
+  await page.getByTestId("save-bulk-tag").click();
+  await expect(page.locator(".react-flow__node", { hasText: "#platform-9" })).toHaveCount(2);
+  await page.locator(".board-canvas").click({ position: { x: 20, y: 20 } });
+  await page.keyboard.press(`${mod}+z`);
+  await expect(page.locator(".react-flow__node", { hasText: "#platform-9" })).toHaveCount(0);
+
+  // bulk remove is one undoable step
+  await page.locator(".react-flow__node", { hasText: "Coat button" }).locator(".card-title").click();
+  await page.locator(".react-flow__node", { hasText: "Ash sample" }).locator(".card-title").click({ modifiers: [mod] });
+  await page.getByTestId("bulk-remove").click();
+  await page.getByTestId("confirm-yes").click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(1);
+  await page.getByTestId("toast-action").first().click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(3);
+
+  // an edit can be undone with the keyboard
+  await page.locator(".react-flow__node", { hasText: "Ash sample" }).getByTestId("card-menu").click();
+  await page.getByTestId("menu-edit").click();
+  await page.getByTestId("edit-title").fill("Ash sample, cigar");
+  await page.getByTestId("save-edit").click();
+  await expect(page.locator(".react-flow__node", { hasText: "Ash sample, cigar" })).toHaveCount(1);
+  await page.locator(".board-canvas").click({ position: { x: 20, y: 20 } });
+  await page.keyboard.press(`${mod}+z`);
+  await expect(page.locator(".react-flow__node", { hasText: "Ash sample, cigar" })).toHaveCount(0);
+
+  // case files search filters by name
+  await page.getByTestId("back-to-cases").click();
+  for (const name of ["Second", "Third", "Fourth"]) {
+    await page.getByTestId("new-case-title").fill(name);
+    await page.getByTestId("create-case").click();
+    await page.getByTestId("back-to-cases").click();
+  }
+  await page.getByTestId("case-search").fill("bulk");
+  await expect(page.getByTestId("case-row")).toHaveCount(1);
+  expect(errors()).toEqual([]);
+});
+
 test("first visit opens the staged demo case", async ({ page }) => {
   const errors = collectErrors(page);
   await page.goto("./");

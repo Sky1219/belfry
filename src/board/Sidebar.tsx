@@ -33,6 +33,8 @@ export function Sidebar(props: {
   onClose?: () => void;
   searchRef?: RefObject<HTMLInputElement | null>;
   onFilter?: (matches: Set<string> | null) => void;
+  /** A one-click action on a row, e.g. "Send to Detective Vision" for footage. */
+  rowAction?: (e: Evidence) => { label: string; onSelect: () => void } | null | undefined;
 }) {
   const [q, setQ] = useState("");
   const [type, setType] = useState<EvidenceType | "all">("all");
@@ -117,6 +119,14 @@ export function Sidebar(props: {
                 <span className="sidebar-stamp num">{exhibitTag(props.exhibits.get(e.id))}</span>
                 <span className="sidebar-title">{e.title}</span>
               </button>
+              {(() => {
+                const send = props.rowAction?.(e);
+                return send ? (
+                  <button type="button" className="row-send" onClick={send.onSelect} aria-label={`${send.label}: ${e.title}`} title={send.label} data-testid="row-send">
+                    <Icon name="vision" size={14} />
+                  </button>
+                ) : null;
+              })()}
             </li>
           ))}
         </ul>
@@ -151,6 +161,11 @@ export function Sidebar(props: {
           <span>
             <kbd>/</kbd> search
           </span>
+          <span>
+            <kbd>Ctrl</kbd>
+            <kbd>Z</kbd> undo
+          </span>
+          <span className="keys-hint">Drag from a card&rsquo;s side stud to another card to link them.</span>
         </footer>
         </div>
       </aside>
