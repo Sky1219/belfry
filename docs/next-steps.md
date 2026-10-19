@@ -28,28 +28,32 @@ A working scaffold for what comes after sub-project 1, written 2026-10-18. Every
   - Probably ignore: `.impeccable/review/` and `.impeccable/critique/`, which are working artifacts.
   - Probably ignore: `.claude/launch.json` and the vendored `.claude/skills/`, unless you want them shared.
 - [ ] Re-run `/impeccable critique src/board` to score the latest fixes. Target 32+/40.
-- [ ] Run [`docs/manual-checklist.md`](manual-checklist.md) on a real camera with real models. Add rows for the demo feed, file drop, link avoidance and Ctrl+Z.
+- [x] Add manual-checklist rows for the demo feed, file drop, link avoidance, Ctrl+Z, dimming, compact cards, the phone rail and the key default.
+- [ ] Run [`docs/manual-checklist.md`](manual-checklist.md) on a real camera with real models.
 - [ ] Merge PR #1, then enable GitHub Pages ("GitHub Actions" source) and check the deployed build.
-- [ ] Look at test flakiness under load. The Detective Vision e2e test and one store-numbering test failed once each on a busy machine.
+- [x] Add CI for pull requests (`.github/workflows/ci.yml`: tsc, unit, Playwright with Chromium) with one retry on CI only.
+- [x] Look at test flakiness under load. The Detective Vision e2e test and one store-numbering test failed once each on a busy machine.
   - The numbering bug was real and is fixed: ids are now monotonic.
   - Still to do: consider `retries: 1` for CI only, and a longer per-test timeout for the GPU tests.
-- [ ] `npm audit --omit=dev` reports 2 high and 4 moderate issues, mostly via `@huggingface/transformers` → `sharp` (a Node-only image library; the browser build never runs it). Confirm it's unreachable in the bundle, then pin or override.
-- [ ] Build warns about a >500 kB chunk. Code-split the model and adapter code, so the board loads without the vision stack.
+- [x] Checked: `npm audit --omit=dev` reports 2 high and 4 moderate issues, mostly via `@huggingface/transformers` → `sharp` (a Node-only image library; the browser build never runs it). Confirmed unreachable: no Node-only package is in the browser bundle. The real fix is transformers.js 4.x, a major upgrade that changes the depth model's runtime and needs a real-model check, so it's tracked as its own task below.
+- [x] Build warned about a >500 kB chunk. Done: vendors split into `vendor-react`, `vendor-flow` and `vendor-store`, and the board lazy-loads. Code-split the model and adapter code, so the board loads without the vision stack.
 
 ## 1. Board and shell follow-ups (from the last critique, not yet done)
 
 These are P2/P3 items deliberately left for later. Each is small enough for one session.
 
-- [ ] **Multi-select and bulk actions:** shift-click and marquee are already in React Flow; add bulk remove, bulk link and bulk tag.
-- [ ] **"Send to" from the evidence index row**, not just from the card menu.
-- [ ] **Case list search and sort** (by number, name, last activity) once cases pile up.
-- [ ] **Undo beyond deletes:** edits and moves, with a small history per board session.
-- [ ] **Teach drag-to-link:** a one-time hint on the first hover of a connector stud, and "Link to…" mentioned in the empty state.
-- [ ] **Perf panel:** keep it, but tuck it behind `?perf` or a Settings toggle so visitors don't see it by default.
+- [x] **Multi-select and bulk actions:** shift-click and marquee are already in React Flow; add bulk remove, bulk link and bulk tag.
+- [x] **"Send to" from the evidence index row**, not just from the card menu.
+- [x] **Case list search and sort** (by number, name, last activity) once cases pile up.
+- [x] **Undo beyond deletes:** edits and moves, with a small history per board session.
+- [x] **Teach drag-to-link:** a one-time hint on the first hover of a connector stud, and "Link to…" mentioned in the empty state.
+- [x] **Perf panel:** keep it, but tuck it behind `?perf` or a Settings toggle so visitors don't see it by default.
 - [ ] **Open questions from the critique** (decide, then build):
   - Should the board be the map and the index the reading surface (index rows expand to the full card), or keep the board as the reading surface?
   - Do the four OFFLINE roadmap tools belong on every board, or only on the case list's System screen?
-- [ ] **Detective Vision console density:** about 28 controls are visible at once. Group presets and overlays behind one disclosure on phones.
+- [x] **Detective Vision console density:** about 28 controls are visible at once. Group presets and overlays behind one disclosure on phones.
+
+- [ ] **Upgrade `@huggingface/transformers` 3.8 → 4.x:** clears the production audit findings (`sharp`, `onnxruntime-node`). Check the depth worker's API against the new version, then verify depth with real model downloads on a real camera (manual checklist).
 
 ## 2. Platform work every later tool needs
 

@@ -32,8 +32,21 @@ The automated tests run with a fake camera and mock models, because the developm
 
 - [ ] Snapshot and a short recording both appear on the board; send the clip back to Detective Vision, scrub backwards and forwards, and nothing breaks.
 - [ ] Unplug or disable the camera mid-session: the view freezes with **SIGNAL LOST**; plug it back in and it recovers within a few seconds.
-- [ ] Block camera permission and reopen the tool: you get a clear message and a list of the case's videos to open instead.
+- [ ] Block camera permission and reopen the tool: **No signal** explains why and offers the case's videos, **Open a video file** and **Run the demo feed** (lit when the case has no footage). The demo feed runs with the mock models and scans the drifting cup.
 
 ## Board
 
 - [ ] Export a case, delete it, import the file: everything comes back. Import it again and choose "Import as copy": a second, independent case appears.
+
+## First run and the board (new in the monitor-wall pass)
+
+- [ ] In a fresh browser profile, Belfry opens straight into the staged case **The Silent Bell**, with **Your move** selected and readable; the **Detective Vision** key in the rail is lit until you open a tool once.
+- [ ] Drag a photo, a short phone video and a text file onto the board: the photo and video pin as exhibits (video with a thumbnail), the text file is left out with a reason in a toast.
+- [ ] Scan something with links already on the board: the crop and its finding land clear of every link and label, the finding sits right beside its crop, and back on the board the newest one is selected and in view.
+- [ ] Remove an exhibit, then press **Ctrl+Z** (Cmd+Z on a Mac): it comes back with its links.
+- [ ] Type in the evidence search: non-matching cards dim on the board; clear it and they return.
+- [ ] Select an image or video exhibit: its feed in the **Feeds** screen goes full color with a red frame; pick the feed again to let go.
+- [ ] Zoom the board out past 70%: cards collapse to stamp and title; open a card's **···** menu while zoomed out and it appears at full size.
+- [ ] Tab through the board with a screen reader on: cards read as "Exhibit 3, note: …", links are reached from **Links…** in a card's menu, and every dialog traps focus and returns it on Escape.
+- [ ] On a phone (or a 390px-wide window): the rail shows **Note / Files / Vision / Index / Gauges**, the board opens legibly on the case's next step, and both drawers open and close.
+- [ ] Settings: **Remember key on this device** starts off; with it off, the key is gone after closing the tab.

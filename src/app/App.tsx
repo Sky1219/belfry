@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Board, type BoardExtensions } from "../board/Board";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import type { BoardExtensions } from "../board/Board";
 import { CaseList } from "../board/CaseList";
 import { stageDemoOnFirstVisit } from "../board/demoCase";
 import { EvidenceStore } from "../store/store";
@@ -13,6 +13,9 @@ import { parseRoute, useRoute, type Route } from "./router";
 import { loadSettings, saveSettings, SettingsContext, type Settings } from "./settings";
 import { SettingsPanel } from "./SettingsPanel";
 import { StoreContext } from "./storeContext";
+
+// The board (and React Flow with it) loads on first use, so the case list doesn't wait for it.
+const Board = lazy(() => import("../board/Board").then((m) => ({ default: m.Board })));
 
 function useStorageWarning(store: EvidenceStore | null): boolean {
   const [nearlyFull, setNearlyFull] = useState(false);
@@ -71,6 +74,7 @@ export function App() {
               {route.name !== "cases" && (
                 // While a tool covers the board, the board leaves the tab order and the reading order.
                 <div className="board-host" inert={route.name === "tool"}>
+                  <Suspense fallback={<div className="boot">OPENING CASE</div>}>
                   <Board
                     key={route.caseId}
                     caseId={route.caseId}
@@ -79,6 +83,7 @@ export function App() {
                     onSettings={openSettings}
                     active={route.name === "board"}
                   />
+                  </Suspense>
                 </div>
               )}
               {route.name === "tool" && (
