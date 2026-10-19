@@ -60,7 +60,8 @@ export function loadSettings(): Settings {
   } catch {
     p = {};
   }
-  const rememberKey = p.rememberKey !== false;
+  // Off unless chosen: browser storage is shared by every page on the same origin (e.g. other github.io projects).
+  const rememberKey = p.rememberKey === true;
   return {
     apiKey: rememberKey ? (typeof p.apiKey === "string" ? p.apiKey : "") : (readSession() ?? ""),
     rememberKey,

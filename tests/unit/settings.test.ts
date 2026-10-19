@@ -21,7 +21,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("settings", () => {
   test("settings round-trip", () => {
-    expect(loadSettings()).toEqual({ apiKey: "", rememberKey: true, tools: {} });
+    expect(loadSettings()).toEqual({ apiKey: "", rememberKey: false, tools: {} });
     saveSettings({ apiKey: "sk-1", rememberKey: true, tools: { x: { a: 1 } } });
     expect(loadSettings()).toEqual({ apiKey: "sk-1", rememberKey: true, tools: { x: { a: 1 } } });
   });

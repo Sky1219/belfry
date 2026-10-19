@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { CELL_H, CELL_W, nextPosition, placeNear } from "../../src/board/placement";
+import { CARD_H, CARD_W, CELL_H, CELL_W, linkSegments, nextPosition, placeNear } from "../../src/board/placement";
 
 describe("placement", () => {
   test("first slot is the origin", () => {
@@ -39,6 +39,27 @@ describe("placement", () => {
       expect(Math.max(Math.abs(p.x - near.x) / CELL_W, Math.abs(p.y - near.y) / CELL_H)).toBe(1);
     }
     expect(new Set(seen.map((p) => `${p.x},${p.y}`)).size).toBe(8);
+  });
+
+  test("never places a card on a link line or its label", () => {
+    // two cards three cells apart, linked: the line runs through the cells between them
+    const a = { x: 0, y: 0 };
+    const b = { x: 3 * CELL_W, y: 0 };
+    const segments = linkSegments(
+      new Map([
+        ["a", a],
+        ["b", b],
+      ]),
+      [{ fromId: "a", toId: "b" }],
+    );
+    const p = nextPosition([a, b], { x: CELL_W, y: 0 }, segments);
+    const hit = segments.some((s) => {
+      const y = s.a.y; // horizontal line
+      return y >= p.y - 16 && y <= p.y + CARD_H + 16 && Math.max(s.a.x, s.b.x) >= p.x - 16 && Math.min(s.a.x, s.b.x) <= p.x + CARD_W + 16;
+    });
+    expect(hit).toBe(false);
+    // without the link, the same request takes the slot on the line
+    expect(nextPosition([a, b], { x: CELL_W, y: 0 })).toEqual({ x: CELL_W, y: 0 });
   });
 
   test("placeNear returns count distinct free slots right of the anchor", () => {

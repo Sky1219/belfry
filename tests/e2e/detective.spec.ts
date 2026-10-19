@@ -65,11 +65,11 @@ test("Detective Vision: modes, overlays, scanning, capture, video input, persist
   await page.getByTestId("dv-close").click();
   await expect(page.getByTestId("board")).toBeVisible();
   // the cup drifts back under the reticle every few seconds, so there may be several scans
-  const findings = card(page, "finding", /EV-\d+ · cup — note/);
+  const findings = card(page, "finding", /Cup — note/);
   await expect(findings.first()).toBeVisible();
   await expect(findings.first()).toContainText("Detective Vision · Local analysis");
   const scans = await findings.count();
-  await expect(card(page, "image", /EV-\d+ · cup/)).toHaveCount(scans);
+  await expect(card(page, "image", /Cup — crop/)).toHaveCount(scans);
   await expect(page.locator(".react-flow__edge.link-derived-from")).toHaveCount(scans); // each note linked to its crop
   await expect(card(page, "image", /Snapshot/)).toHaveCount(1);
   await expect(card(page, "video", /Clip/)).toHaveCount(1);

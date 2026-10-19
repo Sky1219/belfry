@@ -25,8 +25,9 @@ describe("recordScan", () => {
     const r = await recordScan({ ...d, nowMs: 1 }, scan);
     expect(r.source).toBe("llm");
     expect(r.finding.body).toBe("White ceramic mug, chipped rim, coffee residue.");
-    expect(r.finding.title).toBe("EV-03 · cup — note");
-    expect(r.image.title).toBe("EV-03 · cup");
+    expect(r.finding.title).toBe("Cup — note");
+    expect(r.image.title).toBe("Cup — crop");
+    expect(r.image.meta.track).toBe("EV-03");
     expect(r.image.blobHash).toMatch(/^[0-9a-f]{64}$/);
     expect(r.finding.meta.source).toBe("llm");
   });

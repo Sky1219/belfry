@@ -8,7 +8,7 @@ This repo currently contains the core platform and the first tool, **Detective V
 
 A forensic camera view for your webcam or any recorded video.
 
-**Vision modes:** Detective (dark blue grade with glowing edges), Thermal (synthetic heat built from the models: people warm, faces hottest and pulsing with your heartbeat), Night vision (real low-light enhancement: multi-frame denoising, auto gain, green phosphor), Motion (only what moved, as a fading heat trail), and Normal.
+**Vision modes:** Detective (cold grayscale surveillance grade with glowing edge lines), Thermal (synthetic heat built from the models: people warm, faces hottest and pulsing with your heartbeat), Night vision (real low-light enhancement: multi-frame denoising, auto gain, green phosphor), Motion (only what moved, as a fading heat trail), and Normal.
 
 **Overlays** (mix and match): x-ray silhouettes, pose skeleton, evidence highlighting, vitals (heart rate, blink rate, gaze), depth fog, ghost trails. Save combinations as presets and switch with keys 1–9.
 
@@ -44,7 +44,7 @@ Open the printed URL. Camera access needs `localhost` or HTTPS. Models download 
 
 **Mock mode:** add `?mock` to the URL to replace every model with synthetic output (a swaying figure, a drifting cup, a blinking face). Useful for working on the UI without downloads, or when you have no good camera.
 
-**Claude API key (optional):** Settings → paste a key. It's sent only to `api.anthropic.com`, and each scan sends one small JPEG crop. By default the key is remembered in this browser's storage. Note that browser storage is shared by every page on the same origin, so on `https://<you>.github.io/belfry/` your other GitHub Pages projects could read it. Turn off **Remember key on this device** to keep it only for the current tab, or deploy Belfry on its own domain.
+**Claude API key (optional):** Settings → paste a key. It's sent only to `api.anthropic.com`, and each scan sends one small JPEG crop. By default the key is kept only for the current tab. Turn on **Remember key on this device** to keep it in this browser's storage, but note that browser storage is shared by every page on the same origin, so on `https://<you>.github.io/belfry/` your other GitHub Pages projects could read it. Deploy Belfry on its own domain if you want it remembered safely.
 
 ## Test
 

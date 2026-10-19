@@ -1,5 +1,8 @@
 import { strFromU8, strToU8, unzipSync, zipSync, type Unzipped } from "fflate";
-import { ulid } from "ulid";
+import { monotonicFactory } from "ulid";
+
+/** Ids sort in creation order even within one millisecond (exhibit and case numbers depend on it). */
+const ulid = monotonicFactory();
 import type { BlobRecord, Case, Evidence, Link } from "./schema";
 import type { EvidenceStore } from "./store";
 import { sha256Hex } from "./blobs";

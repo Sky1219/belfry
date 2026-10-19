@@ -1,4 +1,7 @@
-import { ulid } from "ulid";
+import { monotonicFactory } from "ulid";
+
+/** Ids sort in creation order even within one millisecond (exhibit and case numbers depend on it). */
+const ulid = monotonicFactory();
 import { BelfryDB } from "./db";
 import { sha256Hex } from "./blobs";
 import type {

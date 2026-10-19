@@ -69,6 +69,21 @@ describe("numbering and summaries", () => {
     expect(await s.caseNumber(c2.id)).toBe(2);
   });
 
+  test("exhibits created in the same millisecond still number in creation order", async () => {
+    const s = await fresh();
+    const c = await s.createCase("burst");
+    const now = Date.now;
+    Date.now = () => 1_700_000_000_000; // freeze the clock: every id shares one timestamp
+    try {
+      const made = [];
+      for (let i = 0; i < 40; i++) made.push(await s.addEvidence(note(c.id, `n${i}`)));
+      const nums = await s.exhibitNumbers(c.id);
+      expect(made.map((e) => nums.get(e.id))).toEqual(made.map((_, i) => i + 1));
+    } finally {
+      Date.now = now;
+    }
+  });
+
   test("caseSummaries counts live evidence and links per case", async () => {
     const s = await fresh();
     const c = await s.createCase("c");

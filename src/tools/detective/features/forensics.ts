@@ -1,4 +1,4 @@
-import { nextPosition, placeNear } from "../../../board/placement";
+import { nextPosition, placeNear, wallGeometry } from "../../../board/placement";
 import { LlmError, type LlmClient, type LlmErrorKind } from "../../../platform/llm";
 import type { Evidence } from "../../../store/schema";
 import type { EvidenceStore } from "../../../store/store";
@@ -57,7 +57,8 @@ export async function recordScan(
 ): Promise<ScanResult> {
   const { store, llm, caseId } = deps;
   const t = scan.track;
-  const subject = t ? `${t.tag} · ${t.label}` : "Center scan";
+  // Board titles carry the object, not the on-screen tracker tag (EV-nn), so they never compete with EXH numbers.
+  const subject = t ? t.label.charAt(0).toUpperCase() + t.label.slice(1) : "Center scan";
   const box: Box = t?.box ?? centerRegion();
   const fallback = localNote({ label: t?.label ?? null, score: t?.score ?? null, color: scan.color, box, tVisibleS: scan.tVisibleS });
 
@@ -76,21 +77,22 @@ export async function recordScan(
     }
   }
 
-  const existing = (await store.listEvidence(caseId)).map((e) => e.position);
-  const imgPos = nextPosition(existing, scan.anchor);
-  const [notePos] = placeNear([...existing, imgPos], imgPos, 1);
+  const { taken: existing, segments } = await wallGeometry(store, caseId);
+  const imgPos = nextPosition(existing, scan.anchor, segments);
+  // the finding sits beside the crop it came from
+  const [notePos] = placeNear([...existing, imgPos], imgPos, 1, segments);
 
   const blobHash = await store.putBlob(scan.jpeg, "image/jpeg");
   const now = deps.nowMs;
   const image = await store.addEvidence({
     caseId,
     type: "image",
-    title: subject,
+    title: `${subject} — crop`,
     blobHash,
     tags: t ? [t.label.replace(/\s+/g, "-")] : [],
     provenance: { toolId: DETECTIVE_TOOL_ID, createdAt: now },
     position: imgPos,
-    meta: t ? { label: t.label, score: t.score, box: t.box } : { box },
+    meta: t ? { label: t.label, score: t.score, box: t.box, track: t.tag } : { box },
   });
   const finding = await store.addEvidence({
     caseId,
