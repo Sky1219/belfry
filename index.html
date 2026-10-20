@@ -3,32 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Detective Vision</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <meta name="description" content="Belfry — an investigation and engineering tool suite that runs in your browser." />
+    <title>Belfry</title>
+    <meta name="theme-color" content="#040507" />
   </head>
   <body>
-    <canvas id="view"></canvas>
-
-    <div id="hud">
-      <div class="corner tl">
-        <div class="title">DETECTIVE VISION</div>
-        <div id="status" class="dim">STANDBY</div>
-      </div>
-      <div class="corner tr">
-        <div id="fps">-- FPS</div>
-        <div id="segms" class="dim">SEG -- ms</div>
-      </div>
-      <div class="corner bl dim">[V] toggle &nbsp; [M] mirror</div>
-    </div>
-
-    <div id="start">
-      <h1>DETECTIVE VISION</h1>
-      <p>Runs entirely in your browser. No video leaves your machine.</p>
-      <button id="startBtn">ENABLE CAMERA</button>
-      <p id="err" class="err"></p>
-    </div>
-
-    <script type="module" src="/src/main.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

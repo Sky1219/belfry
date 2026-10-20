@@ -1,0 +1,146 @@
+import type { Box, Detection } from "../models/types";
+
+/** COCO classes treated as potential evidence. People are never evidence. */
+export const EVIDENCE_CLASSES: ReadonlySet<string> = new Set([
+  "cell phone",
+  "bottle",
+  "cup",
+  "wine glass",
+  "book",
+  "laptop",
+  "remote",
+  "keyboard",
+  "mouse",
+  "scissors",
+  "knife",
+  "backpack",
+  "handbag",
+  "umbrella",
+  "clock",
+  "vase",
+  "teddy bear",
+  "toothbrush",
+  "fork",
+  "spoon",
+  "sports ball",
+]);
+
+export interface Track {
+  id: number;
+  tag: string;
+  label: string;
+  score: number;
+  box: Box;
+  firstSeenMs: number;
+  lastSeenMs: number;
+}
+
+export function iou(a: Box, b: Box): number {
+  const ix = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]));
+  const iy = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+  const inter = ix * iy;
+  const area = (r: Box) => Math.max(0, r[2] - r[0]) * Math.max(0, r[3] - r[1]);
+  const union = area(a) + area(b) - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+/**
+ * Keeps stable ids and smoothed boxes for evidence objects between detector
+ * runs (which happen only every few frames). Greedy IoU matching, same label only.
+ */
+export class Tracker {
+  private list: Track[] = [];
+  /** Consecutive detector runs that did not see each track. */
+  private misses = new Map<number, number>();
+  private nextId = 1;
+  private iouMatch: number;
+  private smoothing: number;
+  private dropAfterMs: number;
+
+  constructor(opts: { iouMatch?: number; smoothing?: number; dropAfterMs?: number } = {}) {
+    this.iouMatch = opts.iouMatch ?? 0.3;
+    this.smoothing = opts.smoothing ?? 0.5;
+    this.dropAfterMs = opts.dropAfterMs ?? 500;
+  }
+
+  update(dets: Detection[], tMs: number): Track[] {
+    const candidates = dets.filter((d) => EVIDENCE_CLASSES.has(d.label));
+    const live = this.tracks(tMs);
+    const pairs: Array<{ t: Track; d: Detection; s: number }> = [];
+    for (const t of live) {
+      for (const d of candidates) {
+        if (d.label !== t.label) continue;
+        const s = iou(t.box, d.box);
+        if (s >= this.iouMatch) pairs.push({ t, d, s });
+      }
+    }
+    pairs.sort((a, b) => b.s - a.s);
+    const usedT = new Set<Track>();
+    const usedD = new Set<Detection>();
+    const k = this.smoothing;
+    for (const { t, d } of pairs) {
+      if (usedT.has(t) || usedD.has(d)) continue;
+      usedT.add(t);
+      usedD.add(d);
+      t.box = t.box.map((v, i) => v + (d.box[i] - v) * k) as Box;
+      t.score = d.score;
+      t.lastSeenMs = tMs;
+    }
+    // Fallback for slow detector cadence / fast motion: pair what's left of the
+    // same label by center distance, if within 1.5× the larger box diagonal.
+    const near: Array<{ t: Track; d: Detection; s: number }> = [];
+    for (const t of live) {
+      if (usedT.has(t)) continue;
+      for (const d of candidates) {
+        if (usedD.has(d) || d.label !== t.label) continue;
+        const dist = Math.hypot((t.box[0] + t.box[2] - d.box[0] - d.box[2]) / 2, (t.box[1] + t.box[3] - d.box[1] - d.box[3]) / 2);
+        const diag = Math.max(Math.hypot(t.box[2] - t.box[0], t.box[3] - t.box[1]), Math.hypot(d.box[2] - d.box[0], d.box[3] - d.box[1]));
+        if (dist < 1.5 * diag) near.push({ t, d, s: dist / diag });
+      }
+    }
+    near.sort((a, b) => a.s - b.s);
+    for (const { t, d } of near) {
+      if (usedT.has(t) || usedD.has(d)) continue;
+      usedT.add(t);
+      usedD.add(d);
+      t.box = [...d.box] as Box; // jumped: snap rather than smooth
+      t.score = d.score;
+      t.lastSeenMs = tMs;
+    }
+    for (const t of live) this.misses.set(t.id, usedT.has(t) ? 0 : (this.misses.get(t.id) ?? 0) + 1);
+    for (const d of candidates) {
+      if (usedD.has(d)) continue;
+      const id = this.nextId++;
+      this.list.push({
+        id,
+        tag: `EV-${String(id).padStart(2, "0")}`,
+        label: d.label,
+        score: d.score,
+        box: [...d.box] as Box,
+        firstSeenMs: tMs,
+        lastSeenMs: tMs,
+      });
+    }
+    return this.tracks(tMs);
+  }
+
+  /**
+   * Live tracks. A track is dropped only once the detector has missed it on two
+   * consecutive runs *and* it has been unseen for `dropAfterMs`. Time alone never
+   * drops a track: a detector slowed by the scheduler, or a paused video, must not
+   * make objects vanish or come back under new ids.
+   */
+  tracks(tMs: number): Track[] {
+    this.list = this.list.filter((t) => {
+      const unseen = tMs - t.lastSeenMs;
+      const dead = (this.misses.get(t.id) ?? 0) >= 2 && unseen > this.dropAfterMs;
+      if (dead) this.misses.delete(t.id);
+      return !dead;
+    });
+    return [...this.list];
+  }
+
+  get(id: number): Track | undefined {
+    return this.list.find((t) => t.id === id);
+  }
+}
