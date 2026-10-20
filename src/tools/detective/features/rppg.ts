@@ -1,4 +1,5 @@
 import type { Box, FaceResult, Landmark } from "../models/types";
+import { fft } from "../../../platform/math/fft";
 
 /**
  * Camera heart rate (remote photoplethysmography).
@@ -231,38 +232,4 @@ function spectralPeak(x: number[], fs: number, lo: number, hi: number): { hz: nu
   let peakPower = 0;
   for (let k = Math.max(k0, best - near); k <= Math.min(k1, best + near); k++) peakPower += pw(k);
   return { hz, confidence: peakPower / total };
-}
-
-/** In-place iterative radix-2 FFT (length must be a power of two). */
-export function fft(re: Float64Array, im: Float64Array): void {
-  const n = re.length;
-  for (let i = 1, j = 0; i < n; i++) {
-    let bit = n >> 1;
-    for (; j & bit; bit >>= 1) j ^= bit;
-    j ^= bit;
-    if (i < j) {
-      [re[i], re[j]] = [re[j], re[i]];
-      [im[i], im[j]] = [im[j], im[i]];
-    }
-  }
-  for (let len = 2; len <= n; len <<= 1) {
-    const ang = (-2 * Math.PI) / len;
-    const wr = Math.cos(ang);
-    const wi = Math.sin(ang);
-    for (let i = 0; i < n; i += len) {
-      let cr = 1;
-      let ci = 0;
-      for (let k = 0; k < len / 2; k++) {
-        const ar = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci;
-        const ai = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr;
-        re[i + k + len / 2] = re[i + k] - ar;
-        im[i + k + len / 2] = im[i + k] - ai;
-        re[i + k] += ar;
-        im[i + k] += ai;
-        const nr = cr * wr - ci * wi;
-        ci = cr * wi + ci * wr;
-        cr = nr;
-      }
-    }
-  }
 }

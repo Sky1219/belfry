@@ -2,6 +2,10 @@ import { describe, expect, test } from "vitest";
 import { evidenceTypeFor, titleFromFilename } from "../../src/board/addFiles";
 import { provenanceLabel } from "../../src/board/EvidenceCard";
 import type { Evidence } from "../../src/store/schema";
+import { detectiveManifest } from "../../src/tools/detective/manifest";
+import { registerTool } from "../../src/tools/registry";
+
+registerTool(detectiveManifest);
 
 describe("adding files as evidence", () => {
   test("maps media types to evidence types and rejects the rest", () => {

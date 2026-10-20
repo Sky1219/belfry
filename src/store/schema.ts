@@ -75,3 +75,72 @@ export interface ChangeEntry {
   op: "put" | "delete";
   at: number;
 }
+
+/**
+ * What a finding states, when it's more than an observation in words. Stored
+ * as `meta.finding`; a finding without it is a plain observation. Every value
+ * carries its uncertainty when the tool can measure one.
+ */
+export type FindingDetail =
+  | { kind: "measurement"; value: number | null; unit: string; uncertainty?: number }
+  | { kind: "location"; lat: number; lon: number; radiusM?: number }
+  | { kind: "decode"; scheme: string; text: string };
+
+export type FindingKind = FindingDetail["kind"] | "observation";
+
+const finite = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
+const optFinite = (x: unknown) => x === undefined || (finite(x) && x >= 0);
+
+/**
+ * The finding detail in `meta`, validated. Anything malformed (an imported
+ * file, an older tool) reads as no detail rather than breaking a card.
+ */
+export function readFindingDetail(meta: Record<string, unknown> | undefined): FindingDetail | null {
+  const d = meta?.finding as Record<string, unknown> | undefined;
+  if (!d || typeof d !== "object") return null;
+  switch (d.kind) {
+    case "measurement":
+      return typeof d.unit === "string" && (finite(d.value) || d.value === null) && optFinite(d.uncertainty)
+        ? (d as FindingDetail)
+        : null;
+    case "location":
+      return finite(d.lat) && Math.abs(d.lat) <= 90 && finite(d.lon) && Math.abs(d.lon) <= 180 && optFinite(d.radiusM)
+        ? (d as FindingDetail)
+        : null;
+    case "decode":
+      return typeof d.scheme === "string" && typeof d.text === "string" ? (d as FindingDetail) : null;
+    default:
+      return null;
+  }
+}
+
+export const FINDING_KIND_LABEL: Record<FindingKind, string> = {
+  observation: "Observation",
+  measurement: "Measurement",
+  location: "Location",
+  decode: "Decode",
+};
+
+/** Significant figures that match the uncertainty: 12.34 ± 0.4 → "12.3 ± 0.4". */
+function withUncertainty(value: number, uncertainty: number | undefined): string {
+  if (!uncertainty) return String(Number(value.toPrecision(6)));
+  const decimals = Math.max(0, -Math.floor(Math.log10(uncertainty)));
+  return `${value.toFixed(decimals)} ± ${uncertainty.toFixed(decimals)}`;
+}
+
+const hemi = (x: number, pos: string, neg: string) => `${Math.abs(x).toFixed(5)}° ${x >= 0 ? pos : neg}`;
+
+/** The finding's readout line: "12.3 ± 0.4 px", "51.50120° N, 0.12460° W ± 50 m", "DTMF · 5550134". */
+export function formatFindingDetail(d: FindingDetail): string {
+  switch (d.kind) {
+    case "measurement":
+      // an unknown reading shows "--", never NaN; degrees and percent sit tight against the number
+      return `${finite(d.value) ? withUncertainty(d.value, d.uncertainty) : "--"}${/^[°%]/.test(d.unit) ? "" : " "}${d.unit}`.trim();
+    case "location": {
+      const at = `${hemi(d.lat, "N", "S")}, ${hemi(d.lon, "E", "W")}`;
+      return d.radiusM ? `${at} ± ${Math.round(d.radiusM)} m` : at;
+    }
+    case "decode":
+      return `${d.scheme} · ${d.text || "--"}`;
+  }
+}

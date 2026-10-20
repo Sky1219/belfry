@@ -105,11 +105,11 @@ test("camera denied → message and a way to open the case's videos instead", as
   });
   await openCaseBoard(page, "No Camera Case");
   await page.getByTestId("open-tool-detective-vision").click();
-  await expect(page.getByTestId("camera-error")).toContainText(/permission was denied/i);
-  await expect(page.getByTestId("camera-error")).toContainText(/no footage in this case/i);
+  await expect(page.getByTestId("no-signal")).toContainText(/permission was denied/i);
+  await expect(page.getByTestId("no-signal")).toContainText(/no footage in this case/i);
 
   // a visitor without a camera can run the synthetic demo feed instead
-  await page.getByTestId("run-demo-feed").click();
+  await page.getByTestId("run-demo").click();
   await expect(page.getByTestId("model-chip-detection")).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
   await expect(page.locator(".dv-name")).toContainText("DEMO FEED");
 });

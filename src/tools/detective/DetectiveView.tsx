@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getToolSettings, setToolSettings } from "../../app/settings";
-import { formatRoute } from "../../app/router";
 import type { FrameSource } from "../../platform/media/frameSource";
-import { addEvidenceFiles } from "../../board/addFiles";
 import { openDemoFeed } from "../../platform/media/demoFeed";
 import { openVideo } from "../../platform/media/videoFile";
 import { CameraError, openWebcam } from "../../platform/media/webcam";
 import { ModelScheduler } from "../../platform/scheduler";
 import type { Evidence } from "../../store/schema";
-import { Bezel, DecoCorners, HudButton, prefersReducedMotion, ProgressRing, StatusChip, Toggle } from "../../ui/components";
+import { DecoCorners, HudButton, prefersReducedMotion, ProgressRing, StatusChip, Toggle } from "../../ui/components";
 import { useDialogs } from "../../ui/dialogs";
 import { Icon } from "../../ui/icons";
+import { readEvidenceBlob } from "../inputs";
+import { NoSignal } from "../NoSignal";
 import type { ToolContext } from "../types";
+import { detectiveManifest } from "./manifest";
 import { DetectiveEngine, type EngineState } from "./engine";
 import { ModelManager } from "./models/manager";
 import { createMockAdapters } from "./models/mock";
@@ -31,7 +32,7 @@ import "./detective.css";
 
 type Phase =
   | { kind: "starting" }
-  | { kind: "error"; message: string; videos: Evidence[] }
+  | { kind: "error"; message: string }
   | { kind: "running" };
 
 const isMock = () => new URLSearchParams(window.location.search).has("mock");
@@ -55,7 +56,6 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
   const [perfAvailable] = useState(() => isMock() || new URLSearchParams(window.location.search).has("perf"));
   // phones show Mode and the capture keys; overlays, presets and HUD density sit behind "More"
   const [moreOpen, setMoreOpen] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
   const dialogs = useDialogs();
 
   const dvSettings = getToolSettings<DetectiveSettings>(ctx.settings, DETECTIVE_TOOL_ID, defaultDetectiveSettings());
@@ -73,18 +73,15 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
       try {
         if (ctx.input.kind === "live-camera") {
           source = await openWebcam();
-        } else if (ctx.input.kind === "demo-feed") {
+        } else if (ctx.input.kind === "demo") {
           source = await openDemoFeed();
         } else {
-          const ev = ctx.input.evidence;
-          const blob = ev.blobHash ? await ctx.store.getBlob(ev.blobHash) : undefined;
-          if (!blob) throw new Error("This video's file is missing.");
-          source = await openVideo(new Blob([blob.bytes as BlobPart], { type: blob.mime }));
+          source = await openVideo(await readEvidenceBlob(ctx.store, ctx.input.evidence));
         }
         if (cancelled) return source.dispose();
         sourceRef.current = source;
         // The demo feed is drawn to match the mock models, so it always uses them.
-        const mock = isMock() || ctx.input.kind === "demo-feed";
+        const mock = isMock() || ctx.input.kind === "demo";
         const adapters = mock ? createMockAdapters() : (await import("./models")).createRealAdapters();
         manager = new ModelManager(adapters);
         engine = new DetectiveEngine({
@@ -108,7 +105,6 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
         setPhase({ kind: "running" });
       } catch (e) {
         if (cancelled) return;
-        const videos = (await ctx.store.listEvidence(ctx.caseId)).filter((x) => x.type === "video");
         const message =
           e instanceof CameraError
             ? e.reason === "denied"
@@ -117,7 +113,7 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
                 ? "No camera was found."
                 : e.message
             : (e as Error).message;
-        setPhase({ kind: "error", message, videos });
+        setPhase({ kind: "error", message });
       }
     })();
     return () => {
@@ -179,8 +175,6 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
 
   const eng = engineRef.current;
   const hudOff = st?.hud === "off";
-  const openInput = (input: string) =>
-    (window.location.hash = formatRoute({ name: "tool", caseId: ctx.caseId, toolId: DETECTIVE_TOOL_ID, input }));
 
   return (
     <div className={`dv-root ${hudOff ? "hud-off" : ""}`} data-testid="dv-root">
@@ -197,61 +191,21 @@ export function DetectiveView({ ctx }: { ctx: ToolContext }) {
 
       {phase.kind === "starting" && <div className="dv-center label">Starting camera…</div>}
       {phase.kind === "error" && (
-        <div className="dv-center">
-          <Bezel title="No signal" titleId="dv-no-signal" lamp="amber" className="dv-error">
-            <div className="panel-body col" data-testid="camera-error">
-              <p style={{ margin: 0 }}>{phase.message}</p>
-              {phase.videos.length ? (
-                <>
-                  <span className="label">Footage in this case</span>
-                  {phase.videos.map((v) => (
-                    <HudButton key={v.id} data-testid={`open-video-${v.id}`} onClick={() => openInput(`ev:${v.id}`)}>
-                      <Icon name="video" size={14} /> {v.title}
-                    </HudButton>
-                  ))}
-                </>
-              ) : (
-                <p className="dim" style={{ margin: 0 }}>
-                  There&rsquo;s no footage in this case yet. Open a video from this device, run the demo feed, or allow camera access and
-                  reopen the tool.
-                </p>
-              )}
-              <div className="dv-error-actions">
-                {/* with no footage in the case, the demo feed is the quickest way to see the tool work */}
-                <HudButton data-testid="open-video-file" onClick={() => fileRef.current?.click()}>
-                  <Icon name="upload" size={14} /> Open a video file
-                </HudButton>
-                {ctx.input.kind !== "demo-feed" && (
-                  <HudButton active={!phase.videos.length} data-testid="run-demo-feed" onClick={() => openInput("demo-feed")}>
-                    <Icon name="demo" size={14} /> Run the demo feed
-                  </HudButton>
-                )}
-                <HudButton onClick={ctx.close}>Back to board</HudButton>
-              </div>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="video/*"
-                hidden
-                data-testid="video-file-input"
-                onChange={async (ev) => {
-                  const f = ev.target.files?.[0];
-                  ev.target.value = "";
-                  if (!f) return;
-                  const { added, skipped } = await addEvidenceFiles(ctx.store, ctx.caseId, [f]);
-                  if (added[0]) openInput(`ev:${added[0].id}`);
-                  else if (skipped[0]) setPhase({ ...phase, message: `${skipped[0].name}: ${skipped[0].reason}.` });
-                }}
-              />
-            </div>
-          </Bezel>
-        </div>
+        <NoSignal
+          tool={detectiveManifest}
+          caseId={ctx.caseId}
+          store={ctx.store}
+          message={phase.message}
+          offerDemo={ctx.input.kind !== "demo"}
+          openInput={ctx.openInput}
+          close={ctx.close}
+        />
       )}
 
       {/* top bar */}
       <div className="dv-top">
         <div className="dv-title">
-          <span className="dv-name">DETECTIVE VISION{ctx.input.kind === "demo-feed" ? " · DEMO FEED" : ""}</span>
+          <span className="dv-name">DETECTIVE VISION{ctx.input.kind === "demo" ? " · DEMO FEED" : ""}</span>
           <span className={`dv-status ${st?.signal === "lost" ? "lost" : ""}`} data-testid="dv-signal">
             {st?.signal === "lost" ? "SIGNAL LOST" : st ? `${st.mode.toUpperCase()} · ${Math.round(st.fps)} FPS` : "STANDBY"}
             {st?.recording ? ` · REC ${Math.floor(st.recordingMs / 1000)}s` : ""}

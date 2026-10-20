@@ -5,12 +5,15 @@ import { useStore } from "../app/storeContext";
 import { LlmClient } from "../platform/llm";
 import { HudButton } from "../ui/components";
 import { markToolUsed } from "../board/demoCase";
+import { parseToolInput } from "./inputs";
+import { NoSignal } from "./NoSignal";
 import { getTool } from "./registry";
 import type { ToolComponent, ToolContext, ToolInput } from "./types";
 
 type State =
   | { phase: "loading" }
   | { phase: "error"; message: string }
+  | { phase: "pick" }
   | { phase: "ready"; Component: ToolComponent; input: ToolInput };
 
 /** Full-screen layer over the board that lazily loads and runs one tool. */
@@ -26,27 +29,20 @@ export function ToolHost(props: { caseId: string; toolId: string; input: string;
   const llm = useMemo(() => new LlmClient(() => settingsRef.current.apiKey), []);
 
   const close = () => props.navigate({ name: "board", caseId: props.caseId });
+  const openInput = (input: string) => props.navigate({ name: "tool", caseId: props.caseId, toolId: props.toolId, input });
   useEffect(markToolUsed, []);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       if (!tool) return setState({ phase: "error", message: `Unknown tool “${props.toolId}”.` });
-      let input: ToolInput;
-      if (props.input === "live-camera") {
-        input = { kind: "live-camera" };
-      } else if (props.input === "demo-feed") {
-        input = { kind: "demo-feed" };
-      } else if (props.input.startsWith("ev:")) {
-        const ev = await store.getEvidence(props.input.slice(3));
-        if (!ev) return alive && setState({ phase: "error", message: "That evidence no longer exists." });
-        input = { kind: "evidence", evidence: ev };
-      } else {
-        return setState({ phase: "error", message: "Unrecognized tool input." });
-      }
+      const resolved = await parseToolInput(store, props.input);
+      if (!alive) return;
+      if (resolved.kind === "error") return setState({ phase: "error", message: resolved.message });
+      if (resolved.kind === "pick") return setState({ phase: "pick" });
       try {
         const Component = await tool.load();
-        if (alive) setState({ phase: "ready", Component, input });
+        if (alive) setState({ phase: "ready", Component, input: resolved.input });
       } catch (e) {
         if (alive) setState({ phase: "error", message: `The tool failed to load: ${(e as Error).message}` });
       }
@@ -66,12 +62,15 @@ export function ToolHost(props: { caseId: string; toolId: string; input: string;
 
   const ctx: ToolContext | null =
     state.phase === "ready"
-      ? { caseId: props.caseId, input: state.input, store, llm, settings, updateSettings: update, close }
+      ? { caseId: props.caseId, input: state.input, store, llm, settings, updateSettings: update, openInput, close }
       : null;
 
   return (
     <div className="tool-layer" data-testid="tool-layer" data-tool={props.toolId}>
-      {state.phase !== "ready" && (
+      {state.phase === "pick" && tool && (
+        <NoSignal tool={tool} caseId={props.caseId} store={store} openInput={openInput} close={close} />
+      )}
+      {(state.phase === "loading" || state.phase === "error") && (
         <div className="tool-status">
           <div className="label">{tool?.name ?? "Tool"}</div>
           <p>{state.phase === "loading" ? "LOADING TOOL" : state.message}</p>

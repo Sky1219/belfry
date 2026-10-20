@@ -24,9 +24,6 @@
   place-items: center;
   padding: 16px;
 }
-.dv-error {
-  width: min(460px, 100%);
-}
 
 /* top bar */
 .dv-top {
@@ -252,18 +249,6 @@
   }
 }
 
-.dv-error-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 4px;
-}
-.dv-error-actions .hud-btn,
-.dv-error .hud-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
 
 /* the title plate's lamp: live while the tool runs (replaces a colored side stripe) */
 .dv-title::before {

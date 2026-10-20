@@ -128,6 +128,7 @@ export async function stageDemoCase(store: EvidenceStore): Promise<Case> {
     tags,
     provenance: { ...at(31), sourceEvidenceId: rope.id },
     position: { x: 0, y: 320 },
+    meta: { finding: { kind: "measurement", value: 3, unit: "° off axis", uncertainty: 1 } },
   });
   await store.addEvidence({
     caseId: c.id,

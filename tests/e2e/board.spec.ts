@@ -207,3 +207,18 @@ test("first visit opens the staged demo case", async ({ page }) => {
   await expect(page.locator(".case-name")).toHaveText("The Silent Bell");
   expect(errors()).toEqual([]);
 });
+
+test("a tool opened with no input shows the No Signal picker", async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto("./");
+  await expect(page.locator(".case-name")).toHaveText("The Silent Bell");
+  const hash = await page.evaluate(() => window.location.hash);
+  await page.evaluate((h) => (window.location.hash = `${h}/tool/detective-vision/pick`), hash);
+  await expect(page.getByTestId("no-signal")).toContainText("Choose what Detective Vision should look at.");
+  await expect(page.getByTestId("no-signal")).toContainText(/no footage in this case/i);
+  await expect(page.getByTestId("no-signal-file-input")).toHaveAttribute("accept", "video/*");
+  await page.getByTestId("run-demo").click();
+  await expect(page.getByTestId("dv-root")).toBeVisible();
+  await expect(page).toHaveURL(/\/tool\/detective-vision\/demo$/);
+  expect(errors()).toEqual([]);
+});

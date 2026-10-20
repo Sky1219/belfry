@@ -2,7 +2,8 @@ import { Handle, Position, useStore as useFlowStore, type Node, type NodeProps }
 import { memo, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useBlobUrl } from "../app/storeContext";
-import type { Evidence, EvidenceType } from "../store/schema";
+import { FINDING_KIND_LABEL, formatFindingDetail, readFindingDetail, type Evidence, type EvidenceType } from "../store/schema";
+import { getTool } from "../tools/registry";
 import { DecoCorners } from "../ui/components";
 import { Icon, type IconName } from "../ui/icons";
 
@@ -28,9 +29,9 @@ export const exhibitTag = (n: number | undefined) => (n ? `EXH·${String(n).padS
 /** "Exhibit 7": how a screen reader should say an exhibit number (never "E X H dot"). */
 export const exhibitSpoken = (n: number | undefined) => (n ? `Exhibit ${n}` : "Exhibit");
 
-const TOOL_NAMES: Record<string, string> = { "detective-vision": "Detective Vision" };
 
-const when = (ms: number) => {
+/** "19 OCT · 14:05": when an exhibit was found. */
+export const when = (ms: number) => {
   const d = new Date(ms);
   const day = d.toLocaleDateString(undefined, { day: "2-digit", month: "short" }).toUpperCase();
   const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -58,11 +59,23 @@ export type CardData = {
 
 export type CardNode = Node<CardData, "evidence">;
 
+/** "Finding · Measurement" for a finding with a typed detail, otherwise the plain type label. */
+export function typeLabel(e: Evidence): string {
+  const d = e.type === "finding" ? readFindingDetail(e.meta) : null;
+  return d ? `${TYPE_LABEL.finding} · ${FINDING_KIND_LABEL[d.kind]}` : TYPE_LABEL[e.type];
+}
+
+/** A finding's measured value, place or decoded text, in readout form; null when it has none. */
+export function findingReadout(e: Evidence): string | null {
+  const d = e.type === "finding" ? readFindingDetail(e.meta) : null;
+  return d ? formatFindingDetail(d) : null;
+}
+
 /** Where an exhibit came from, in the card's footer. */
 export function provenanceLabel(e: Evidence, sourceExhibit?: number): string {
   if (e.tags.includes("demo") && !e.provenance.toolId) return "Staged";
   const parts: string[] = [];
-  if (e.provenance.toolId) parts.push(TOOL_NAMES[e.provenance.toolId] ?? e.provenance.toolId);
+  if (e.provenance.toolId) parts.push(getTool(e.provenance.toolId)?.name ?? e.provenance.toolId);
   if (e.meta?.source === "local") parts.push("Local analysis");
   if (sourceExhibit) parts.push(`from ${exhibitTag(sourceExhibit)}`);
   if (!parts.length) parts.push(e.meta?.filename ? "Imported file" : "Pinned by hand");
@@ -73,6 +86,7 @@ function EvidenceCardImpl({ data, selected }: NodeProps<CardNode>) {
   const e = data.evidence;
   const thumb = useBlobUrl(e.thumbHash ?? (e.type === "image" ? e.blobHash : undefined));
   const finding = e.type === "finding";
+  const readout = findingReadout(e);
   // zoomed far out, a card is just its stamp and title: body text would be unreadable anyway
   const compact = useFlowStore((s) => s.transform[2] < 0.7);
 
@@ -90,7 +104,7 @@ function EvidenceCardImpl({ data, selected }: NodeProps<CardNode>) {
         </span>
         <span className="card-type">
           <Icon name={TYPE_ICON[e.type]} size={12} />
-          {TYPE_LABEL[e.type]}
+          {typeLabel(e)}
         </span>
         <CardMenu title={e.title} items={data.menu} />
       </header>
@@ -101,6 +115,11 @@ function EvidenceCardImpl({ data, selected }: NodeProps<CardNode>) {
           <Icon name={TYPE_ICON[e.type]} size={20} />
           <span>{e.type === "audio" ? "Audio recording" : "No preview"}</span>
         </div>
+      )}
+      {readout && (
+        <p className="card-readout num" data-testid="finding-readout">
+          {readout}
+        </p>
       )}
       {e.body && <p className="card-body">{e.body}</p>}
       <footer className="card-foot">

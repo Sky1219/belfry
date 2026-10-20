@@ -7,8 +7,11 @@ import type { EvidenceStore } from "../store/store";
 /** What a tool can be pointed at. */
 export type EvidenceInput = "live-camera" | "image" | "video" | "audio";
 
-/** "demo-feed" is a synthetic camera for visitors without one; tools that accept "live-camera" accept it too. */
-export type ToolInput = { kind: "live-camera" } | { kind: "demo-feed" } | { kind: "evidence"; evidence: Evidence };
+/**
+ * "demo" is the tool's own synthetic input (the demo feed, a demo photo) for
+ * visitors without the hardware or a file; every tool has one.
+ */
+export type ToolInput = { kind: "live-camera" } | { kind: "demo" } | { kind: "evidence"; evidence: Evidence };
 
 export interface ToolContext {
   caseId: string;
@@ -17,6 +20,8 @@ export interface ToolContext {
   llm: LlmClient;
   settings: Settings;
   updateSettings(next: Settings): void;
+  /** Reopens this tool on another input (a route input: "live-camera", "demo", "pick" or "ev:<id>"). */
+  openInput(input: string): void;
   close(): void;
 }
 
@@ -33,6 +38,8 @@ export interface ToolManifest {
   /** One-line description shown in menus. */
   blurb?: string;
   accepts: EvidenceInput[];
+  /** The tool's synthetic input, run when the input is `{ kind: "demo" }`. Required: every tool works for a visitor with nothing to point it at. */
+  demo: { label: string };
   load(): Promise<ToolComponent>;
   loadSettingsSection?(): Promise<ComponentType<{ settings: Settings; updateSettings(next: Settings): void }>>;
 }

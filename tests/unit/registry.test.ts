@@ -6,6 +6,7 @@ const tool = (id: string, accepts: ToolManifest["accepts"]): ToolManifest => ({
   id,
   name: id,
   accepts,
+  demo: { label: "Run the demo" },
   load: async () => () => null,
 });
 

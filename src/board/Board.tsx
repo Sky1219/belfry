@@ -41,7 +41,7 @@ interface UndoStep {
 }
 const UNDO_DEPTH = 25;
 
-/** A tool the board can launch on the live camera (or the demo feed). */
+/** A tool the board can launch: on the live camera when it takes one, otherwise on its input picker. */
 export interface BoardTool {
   id: string;
   name: string;

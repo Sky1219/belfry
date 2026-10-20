@@ -4,7 +4,8 @@ import { CaseList } from "../board/CaseList";
 import { stageDemoOnFirstVisit } from "../board/demoCase";
 import { EvidenceStore } from "../store/store";
 import type { Evidence } from "../store/schema";
-import { encodeInput, inputForEvidence, toolsAccepting } from "../tools/registry";
+import { defaultInput } from "../tools/inputs";
+import { encodeInput, inputForEvidence, listTools, toolsAccepting } from "../tools/registry";
 import { ToolHost } from "../tools/ToolHost";
 import { DialogProvider } from "../ui/dialogs";
 import { ToastProvider } from "../ui/toasts";
@@ -121,11 +122,12 @@ function useBoardExtensions(route: Route, navigate: (r: Route) => void): BoardEx
           onSelect: () => open(t.id, encodeInput({ kind: "evidence", id: e.id })),
         }));
       },
-      tools: toolsAccepting("live-camera").map((t) => ({
+      // every tool, not only camera ones: a tool that takes no camera opens on its picker
+      tools: listTools().map((t) => ({
         id: t.id,
         name: t.name,
         blurb: t.blurb,
-        open: () => open(t.id, "live-camera"),
+        open: () => open(t.id, defaultInput(t)),
       })),
     };
   }, [caseId, navigate]);
