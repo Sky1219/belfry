@@ -15,7 +15,7 @@ export interface NodeExtras {
 }
 
 /** Exhibit number of the evidence each piece was derived from. */
-function sourceExhibits(extras: NodeExtras): Map<string, number> {
+export function sourceExhibits(extras: Pick<NodeExtras, "exhibits" | "links">): Map<string, number> {
   const out = new Map<string, number>();
   for (const l of extras.links ?? []) {
     if (l.kind !== "derived-from") continue;

@@ -59,3 +59,9 @@ transformers.js went from 3.8 to 4.3. Automated checks only covered the WASM pat
 - [ ] Tab through the board with a screen reader on: cards read as "Exhibit 3, note: …", links are reached from **Links…** in a card's menu, and every dialog traps focus and returns it on Escape.
 - [ ] On a phone (or a 390px-wide window): the rail shows **Note / Files / Vision / Index / Gauges**, the board opens legibly on the case's next step, and both drawers open and close.
 - [ ] Settings: **Remember key on this device** starts off; with it off, the key is gone after closing the tab.
+## Index as reading surface and No Signal (tool platform pass)
+
+- [ ] Phone width: open the evidence drawer, tap a long note. The row opens to the full text with no clamp, and its actions (Edit, Remove, Link to…) work from the drawer.
+- [ ] Pin an audio file, select it: the open row plays it with the browser's controls.
+- [ ] Open Detective Vision with the camera blocked in a case that has footage: No Signal lists the footage, and "Open a video file" pins the file to the board before the tool opens on it.
+- [ ] Keyboard only: Tab to an index row, press Enter. The row reports itself expanded, and Tab reaches its actions next.

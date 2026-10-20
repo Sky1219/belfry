@@ -1037,7 +1037,7 @@
   overflow: auto;
   flex: 1;
 }
-.sidebar-list button {
+.sidebar-list .sidebar-row {
   width: 100%;
   display: grid;
   grid-template-columns: 14px auto minmax(0, 1fr);
@@ -1051,17 +1051,17 @@
   text-align: left;
   color: var(--ink-dim);
 }
-.sidebar-list button.type-finding {
+.sidebar-list .sidebar-row.type-finding {
   color: var(--amber);
 }
-.sidebar-list button:hover {
+.sidebar-list .sidebar-row:hover {
   background: var(--ink-faint);
 }
-.sidebar-list button.lit {
+.sidebar-list .sidebar-row.lit {
   background: rgba(255, 68, 51, 0.16);
 }
-.sidebar-list button.lit .sidebar-stamp,
-.sidebar-list button.lit .icon {
+.sidebar-list .sidebar-row.lit .sidebar-stamp,
+.sidebar-list .sidebar-row.lit .icon {
   color: var(--signal);
 }
 .sidebar-stamp {
@@ -1520,7 +1520,7 @@
     width: 44px;
     height: 44px;
   }
-  .sidebar-list button,
+  .sidebar-list .sidebar-row,
   .card-menu button,
   .rack-row {
     min-height: 44px;
@@ -1558,6 +1558,84 @@
 .sidebar-list li > button:first-child {
   flex: 1;
   min-width: 0;
+}
+
+/* the open row: the full exhibit, read in the index (the wall is the map) */
+.sidebar-list li {
+  flex-wrap: wrap;
+}
+.sidebar-list li.open {
+  background: var(--ink-faint);
+  border-block: 1px solid var(--line);
+}
+.sidebar-detail {
+  flex-basis: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 12px 12px 33px;
+  animation: pane-in 0.2s var(--ease-out) both;
+}
+.detail-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.sidebar-detail.type-finding .detail-type {
+  color: var(--amber);
+}
+.detail-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.detail-picture {
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  background: #000;
+  border: 1px solid var(--line);
+}
+.detail-audio {
+  width: 100%;
+}
+.detail-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.detail-foot {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-detail {
+    animation: none;
+  }
 }
 .row-send {
   flex: none;

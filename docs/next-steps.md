@@ -48,9 +48,9 @@ These are P2/P3 items deliberately left for later. Each is small enough for one 
 - [x] **Undo beyond deletes:** edits and moves, with a small history per board session.
 - [x] **Teach drag-to-link:** a one-time hint on the first hover of a connector stud, and "Link to…" mentioned in the empty state.
 - [x] **Perf panel:** keep it, but tuck it behind `?perf` or a Settings toggle so visitors don't see it by default.
-- [ ] **Open questions from the critique** (decide, then build):
-  - Should the board be the map and the index the reading surface (index rows expand to the full card), or keep the board as the reading surface?
-  - Do the four OFFLINE roadmap tools belong on every board, or only on the case list's System screen?
+- [x] **Open questions from the critique** (decided 2026-10-19):
+  - The board is the map and the index is the reading surface. The selected exhibit's index row opens to the full exhibit: full text, preview, playable audio, finding readout, provenance and every card action.
+  - The four OFFLINE roadmap tools stay where they are, for now.
 - [x] **Detective Vision console density:** about 28 controls are visible at once. Group presets and overlays behind one disclosure on phones.
 
 - [x] **Upgrade `@huggingface/transformers` 3.8 → 4.x:** done (4.3.1). `npm audit --omit=dev` is clean. The worker API was unchanged, and ONNX Runtime now sits in its own worker chunk (`vendor-ort`) so no chunk is over 500 kB. Real-model WASM depth was smoke-tested in headless Chromium. Still to do: the WebGPU path and a real camera ("Depth after the transformers upgrade" in the manual checklist).
@@ -59,17 +59,30 @@ These are P2/P3 items deliberately left for later. Each is small enough for one 
 
 ## 2. Platform work every later tool needs
 
-Do these in or before sub-project 2. They unblock everything below.
+Do these in or before sub-project 2. They unblock everything below. Spec: [`2026-10-19-tool-platform-design.md`](superpowers/specs/2026-10-19-tool-platform-design.md).
 
-- [ ] **Tool inputs:** `ToolInput` covers live camera, the demo feed and evidence. Image and audio tools need `image` and `audio` evidence inputs plus a "tool picks a file" path, as Detective Vision's No Signal does. Generalize that into the tool interface.
-- [ ] **Synthetic inputs per tool:** every tool ships a demo input, like the demo feed, so visitors without the hardware or files can still see it work. Make "has a demo" part of the tool manifest.
-- [ ] **Evidence types:**
-  - Decide whether `finding` stays one type or gains subtypes (measurement, location, decode).
-  - Keep `meta` typed per tool (as `meta.track` is now).
-- [ ] **Workers:** a shared worker pool for heavy maths (FFT, FEM, super-resolution), so tools never block the board.
-- [ ] **LLM client:** generalize beyond `describeImage`: text, tool-use, streaming. Every LLM feature keeps a non-LLM fallback (PRODUCT.md).
+- [x] **Tool inputs:** done.
+  - `src/tools/inputs.ts` parses route inputs (`live-camera`, `demo`, `pick`, `ev:<id>`; the old `demo-feed` still parses).
+  - The shared No Signal screen (`src/tools/NoSignal.tsx`) lists the case's evidence the tool accepts, opens a file (pinned to the case first) or runs the demo. Detective Vision's camera-error screen is now that component.
+  - The rack lists every tool; a tool without a camera opens on `pick`.
+  - `ctx.openInput` replaces hand-built routes.
+- [x] **Synthetic inputs per tool:** `demo: { label }` is a required manifest field, so a tool can't register without a demo. The input kind is `{ kind: "demo" }`.
+- [x] **Evidence types:** `finding` stays one type.
+  - A finding can carry a typed `meta.finding`: a measurement (± uncertainty), a location (± radius) or a decode.
+  - It is validated on read, so a malformed import shows no readout instead of breaking.
+  - Cards and index rows show it as an amber readout, and the label reads "Finding · Measurement". The demo case's finding has one.
+- [x] **Workers:** done.
+  - `src/platform/workers/` holds `WorkerPool`: lazy, at most min(4, cores − 1) workers, a FIFO queue, transferables, abort, crash recovery.
+  - The op table, the compute worker and the typed `compute.fft` live there too.
+  - The FFT moved to `src/platform/math/fft.ts` and gained an inverse; `rppg.ts` uses it.
+  - Not yet run in a real browser: nothing calls the pool until the first tool needs it.
+- [x] **LLM client:** done.
+  - New calls: `message()` (any content, tools), `text()`, `stream()` (SSE, with an idle timeout) and `toolLoop()`. In `toolLoop()`, an unknown tool or a handler that throws goes back to the model as an error, and the loop stops at a turn limit.
+  - `describeImage` is a thin wrapper, and there is a new `aborted` error kind.
+  - Every LLM feature still keeps a non-LLM fallback (PRODUCT.md).
+  - The stream parsing is checked against fakes only. Run it against the real API with a key before the Butler relies on it.
 - [ ] **Design system for tools:** every tool screen follows The Monitor Rule (DESIGN.md). Run `/impeccable shape <tool>` before building each tool's UI.
-- [ ] **Testing pattern:** mock mode plus deterministic synthetic inputs per tool, unit tests for the maths, and one Playwright flow per tool that ends with evidence on the board.
+- [ ] **Testing pattern:** mock mode plus deterministic synthetic inputs per tool, unit tests for the maths, and one Playwright flow per tool that ends with evidence on the board. (Written into the spec; it applies from the first new tool.)
 
 ## 3. Roadmap sub-projects
 

@@ -1,8 +1,18 @@
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useBlobUrl } from "../app/storeContext";
 import type { Evidence, EvidenceType } from "../store/schema";
 import { HudButton, Lamp } from "../ui/components";
 import { Icon } from "../ui/icons";
-import { exhibitSpoken, exhibitTag, TYPE_ICON } from "./EvidenceCard";
+import {
+  exhibitSpoken,
+  exhibitTag,
+  findingReadout,
+  provenanceLabel,
+  TYPE_ICON,
+  typeLabel,
+  when,
+  type CardMenuItem,
+} from "./EvidenceCard";
 
 const TYPES: Array<{ value: EvidenceType | "all"; label: string }> = [
   { value: "all", label: "All types" },
@@ -35,6 +45,12 @@ export function Sidebar(props: {
   onFilter?: (matches: Set<string> | null) => void;
   /** A one-click action on a row, e.g. "Send to Detective Vision" for footage. */
   rowAction?: (e: Evidence) => { label: string; onSelect: () => void } | null | undefined;
+  /** The exhibit whose row is open to its full content (the single selection on the wall). */
+  expandedId?: string;
+  /** Every action the exhibit's card menu offers, shown in its open row. */
+  actionsFor?: (e: Evidence) => CardMenuItem[];
+  /** Exhibit number each piece was derived from, for the open row's provenance. */
+  sourceExhibits?: Map<string, number>;
 }) {
   const [q, setQ] = useState("");
   const [type, setType] = useState<EvidenceType | "all">("all");
@@ -106,13 +122,15 @@ export function Sidebar(props: {
         {list.length > 0 && (
         <ul className="sidebar-list">
           {list.map((e) => (
-            <li key={e.id}>
+            <IndexRow key={e.id} expanded={e.id === props.expandedId}>
               <button
                 type="button"
                 data-testid="sidebar-item"
                 onClick={() => props.onPick(e)}
-                className={`type-${e.type} ${e.id === props.selectedId ? "lit" : ""}`}
+                className={`sidebar-row type-${e.type} ${e.id === props.selectedId ? "lit" : ""}`}
                 aria-current={e.id === props.selectedId ? "true" : undefined}
+                aria-expanded={e.id === props.expandedId}
+                aria-controls={e.id === props.expandedId ? `exhibit-detail-${e.id}` : undefined}
                 aria-label={`${exhibitSpoken(props.exhibits.get(e.id))}, ${e.title}`}
               >
                 <Icon name={TYPE_ICON[e.type]} size={14} />
@@ -127,7 +145,10 @@ export function Sidebar(props: {
                   </button>
                 ) : null;
               })()}
-            </li>
+              {e.id === props.expandedId && (
+                <RowDetail e={e} sourceExhibit={props.sourceExhibits?.get(e.id)} actions={props.actionsFor?.(e) ?? []} />
+              )}
+            </IndexRow>
           ))}
         </ul>
         )}
@@ -170,5 +191,65 @@ export function Sidebar(props: {
         </div>
       </aside>
     </>
+  );
+}
+
+/** An index row; when it opens, it scrolls into view (selecting on the wall opens it too). */
+function IndexRow(props: { expanded: boolean; children: React.ReactNode }) {
+  const ref = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (props.expanded) ref.current?.scrollIntoView?.({ block: "nearest" });
+  }, [props.expanded]);
+  return (
+    <li ref={ref} className={props.expanded ? "open" : ""}>
+      {props.children}
+    </li>
+  );
+}
+
+/**
+ * The full exhibit, read in the index: the wall is the map and this is the
+ * page. Text is never clamped here, audio plays, and every card action is one
+ * press away.
+ */
+function RowDetail(props: { e: Evidence; sourceExhibit?: number; actions: CardMenuItem[] }) {
+  const { e } = props;
+  const picture = useBlobUrl(e.type === "image" ? (e.blobHash ?? e.thumbHash) : e.type === "video" ? e.thumbHash : undefined);
+  const audio = useBlobUrl(e.type === "audio" ? e.blobHash : undefined);
+  const readout = findingReadout(e);
+  return (
+    <section className={`sidebar-detail type-${e.type}`} id={`exhibit-detail-${e.id}`} aria-label={`${e.title}, full exhibit`} data-testid="sidebar-detail">
+      <span className="detail-type">
+        <Icon name={TYPE_ICON[e.type]} size={12} />
+        {typeLabel(e)}
+      </span>
+      <h3 className="detail-title">{e.title}</h3>
+      {picture && <img className="detail-picture" src={picture} alt="" draggable={false} />}
+      {audio && <audio className="detail-audio" controls src={audio} aria-label={`Play ${e.title}`} />}
+      {readout && <p className="card-readout num">{readout}</p>}
+      {e.body && <p className="detail-body">{e.body}</p>}
+      {e.tags.length > 0 && (
+        <div className="card-tags">
+          {e.tags.map((t) => (
+            <span key={t} className="card-tag">
+              #{t}
+            </span>
+          ))}
+        </div>
+      )}
+      <p className="detail-foot">
+        <span className="num">{when(e.provenance.createdAt || e.createdAt)}</span>
+        <span>{provenanceLabel(e, props.sourceExhibit)}</span>
+      </p>
+      {props.actions.length > 0 && (
+        <div className="detail-actions" role="group" aria-label={`Actions for ${e.title}`}>
+          {props.actions.map((m) => (
+            <HudButton key={m.label} small danger={m.danger} data-testid={m.testId ? `index-${m.testId}` : undefined} onClick={m.onSelect}>
+              {m.label}
+            </HudButton>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

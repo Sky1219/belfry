@@ -26,7 +26,7 @@ import { modalOpen } from "../ui/Modal";
 import { useToast } from "../ui/toasts";
 import { addEvidenceFiles, EVIDENCE_FILE_ACCEPT } from "./addFiles";
 import { EvidenceCard, exhibitTag, type CardMenuItem, type CardNode } from "./EvidenceCard";
-import { mergeNodes } from "./nodes";
+import { mergeNodes, sourceExhibits } from "./nodes";
 import { takeDemoTour, toolEverUsed } from "./demoCase";
 import { FeedsScreen, ReadoutsScreen, ToolsScreen } from "./Instruments";
 import { nextPosition, wallGeometry } from "./placement";
@@ -528,6 +528,7 @@ function BoardInner({
   );
 
   const selectedId = nodes.find((n) => n.selected)?.id;
+  const sources = sourceExhibits({ exhibits, links });
   const selectedIds = nodes.filter((n) => n.selected).map((n) => n.id);
   const clearSelection = () => setNodes((ns) => ns.map((n) => ({ ...n, selected: false })));
 
@@ -673,6 +674,9 @@ function BoardInner({
           searchRef={searchRef}
           onFilter={setMatches}
           rowAction={(e) => ext?.cardMenu?.(e)[0]}
+          expandedId={selectedIds.length === 1 ? selectedId : undefined}
+          actionsFor={menuFor}
+          sourceExhibits={sources}
           onPick={pick}
         />
         <Bezel

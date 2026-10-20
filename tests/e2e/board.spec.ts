@@ -208,6 +208,41 @@ test("first visit opens the staged demo case", async ({ page }) => {
   expect(errors()).toEqual([]);
 });
 
+test("the index is the reading surface: the selected exhibit's row opens to the full exhibit", async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto("./");
+  await expect(page.locator(".case-name")).toHaveText("The Silent Bell");
+
+  // a finding with a measurement shows its readout on the card
+  const finding = page.locator(".react-flow__node", { hasText: "Pulley runs off true" });
+  await expect(finding.getByTestId("finding-readout")).toHaveText("3 ± 1° off axis");
+  await expect(finding).toContainText("Finding · Measurement");
+
+  // picking the row opens it: full text, readout, provenance and the card's actions
+  const row = page.getByTestId("sidebar-item").filter({ hasText: "Pulley runs off true" });
+  await row.click();
+  await expect(row).toHaveAttribute("aria-expanded", "true");
+  const detail = page.getByTestId("sidebar-detail");
+  await expect(detail).toHaveCount(1);
+  await expect(detail).toContainText("Check the east bracket.");
+  await expect(detail).toContainText("3 ± 1° off axis");
+  await expect(detail.getByTestId("index-menu-edit")).toBeVisible();
+
+  // picking it again closes it
+  await row.click();
+  await expect(page.getByTestId("sidebar-detail")).toHaveCount(0);
+
+  // selecting a card on the wall opens its row too
+  await page.locator(".react-flow__node", { hasText: "Your move" }).click();
+  await expect(page.getByTestId("sidebar-detail")).toContainText("Open Detective Vision");
+
+  // an action from the row works like the card menu's
+  await page.getByTestId("sidebar-detail").getByTestId("index-menu-edit").click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  expect(errors()).toEqual([]);
+});
+
 test("a tool opened with no input shows the No Signal picker", async ({ page }) => {
   const errors = collectErrors(page);
   await page.goto("./");
