@@ -9,6 +9,15 @@ The automated tests run with a fake camera and mock models, because the developm
 - [ ] Switch to the Interrogation preset (key `2`): `FACE` and `POSE` reach **READY**.
 - [ ] Open **Perf**: every active model shows a cost in ms and an interval; nothing says offline.
 
+## Depth after the transformers upgrade
+
+transformers.js went from 3.8 to 4.3. Automated checks only covered the WASM path, in headless Chromium with a synthetic image. Check both runtimes on a real camera:
+
+- [ ] Chrome or Edge with WebGPU: turn depth fog on. `DEPTH` reaches **READY** and fog thickens with distance (your hand close to the lens stays clear; the far wall fogs). In DevTools → Network, the model file is `model_fp16.onnx`.
+- [ ] In a browser without WebGPU (`'gpu' in navigator` is `false` in the console), with depth enabled in Settings: the same check. Network should show `model_quantized.onnx` and `ort-wasm-simd-threaded.asyncify.wasm` loading from jsdelivr.
+- [ ] Reload: the second load comes from cache (no model download in Network) and reaches READY within a few seconds.
+- [ ] Wave a hand for 30 s with depth on: video stays smooth and the Perf panel shows depth at its own interval, with no console errors from `depth.worker`.
+
 ## Vitals
 
 - [ ] Sit still facing the camera in good light for 30 s with Vitals on. A heart-rate reading appears (after ~10 s) and is within ~5 BPM of your pulse counted manually for 30 s × 2.

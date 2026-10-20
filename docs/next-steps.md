@@ -53,7 +53,9 @@ These are P2/P3 items deliberately left for later. Each is small enough for one 
   - Do the four OFFLINE roadmap tools belong on every board, or only on the case list's System screen?
 - [x] **Detective Vision console density:** about 28 controls are visible at once. Group presets and overlays behind one disclosure on phones.
 
-- [ ] **Upgrade `@huggingface/transformers` 3.8 → 4.x:** clears the production audit findings (`sharp`, `onnxruntime-node`). Check the depth worker's API against the new version, then verify depth with real model downloads on a real camera (manual checklist).
+- [x] **Upgrade `@huggingface/transformers` 3.8 → 4.x:** done (4.3.1). `npm audit --omit=dev` is clean. The worker API was unchanged, and ONNX Runtime now sits in its own worker chunk (`vendor-ort`) so no chunk is over 500 kB. Real-model WASM depth was smoke-tested in headless Chromium. Still to do: the WebGPU path and a real camera ("Depth after the transformers upgrade" in the manual checklist).
+- [ ] **Depth on WebGPU without fp16:** `depth.ts` asks for fp16 whenever `navigator.gpu` exists, but transformers.js (3.x and 4.x alike) throws "does not support fp16" on adapters without `shader-f16`, and depth never loads. Check the adapter's features first, or fall back to fp32 or WASM q8 when that load fails.
+- [ ] **26 MB unused WASM in `dist/`:** ONNX Runtime's bundle makes Vite emit `ort-wasm-simd-threaded.asyncify.wasm`, but transformers.js loads the runtime from jsdelivr (3.x emitted a 21 MB `jsep.wasm` the same way). Either self-host it (point `env.backends.onnx.wasm.wasmPaths` at our copy, like MediaPipe's) or stop emitting it.
 
 ## 2. Platform work every later tool needs
 

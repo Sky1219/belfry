@@ -5,7 +5,18 @@ export default defineConfig({
   // Relative base so the build works from a GitHub Pages sub-path.
   base: "./",
   plugins: [react()],
-  worker: { format: "es" },
+  worker: {
+    format: "es",
+    rollupOptions: {
+      output: {
+        // The depth worker would be one ~560 kB file; ONNX Runtime goes in its own chunk to keep both under 500 kB.
+        manualChunks(id) {
+          if (id.includes("onnxruntime-")) return "vendor-ort";
+          return undefined;
+        },
+      },
+    },
+  },
   build: {
     rollupOptions: {
       output: {
