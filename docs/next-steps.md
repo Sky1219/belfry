@@ -100,9 +100,10 @@ Each sub-project below is a scaffold for its spec:
 - [x] **Fingerprint lab** (shipped: `src/tools/fingerprint`, with a seeded demo pair; real prints are on the manual checklist)
   - **Core:** ridge enhancement (Gabor bank), orientation field, minutiae extraction (crossing number), minutiae matching.
   - **Board loop:** two fingerprint photos in; a match score with an overlay out.
-- **Steganography lab**
+- [x] **Steganography lab** (shipped: `src/tools/stego`, with a seeded demo image carrying a message; real photos and the JPEG re-save are on the manual checklist)
   - **Core:** LSB embed/extract, plus chi-square and RS steganalysis to detect hidden payloads.
-  - **Board loop:** an image in; the extracted payload, or a "likely clean" verdict with its statistic, out.
+  - **Board loop:** an image in; the extracted payload as a decode, or the verdict with the RS estimate, out. Embed pins a PNG derived from the source, which reads back in the lab.
+  - **Still to do:** RS reads flat two-level graphics (text, logos) close to its 0.10 line, so check real screenshots and logos before trusting a "consistent" there.
 - **Shadow geolocation**
   - **Core:** solar position (NOAA/SPA algorithm), so shadow azimuth and length plus a date and time constrain latitude and longitude.
   - **Board loop:** a photo plus user-marked shadow lines in; a location curve out (later plotted on the patrol map).

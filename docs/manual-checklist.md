@@ -92,3 +92,16 @@ Take two phone photos of the pad of your own index finger (close up, good light,
 - [ ] **Focus after the notice:** acknowledge it with the keyboard (Tab, then Enter); focus lands on print B's panel (its first row, **Open a photo file**, or **Compare another print**), not the top of the page.
 - [ ] Pin the match: a comparison image linked to print A, and a finding linked to the comparison and to print B. The finding card reads `0.nn match score` when it has a score (a score of 0.70 reads `0.70`, as on the panel).
 - [ ] Watch the network panel while comparing: no request carries the prints anywhere.
+
+## Steganography lab
+
+Pin a photo from your phone (a JPEG) and a PNG screenshot to a case, then pick **Send to Steganography lab** from the photo's card menu.
+
+- [ ] **A clean photo:** Analyse reads "Hidden data: no sign of sequential LSB embedding" (or "inconclusive"), the ten chi-square bars are steel, and the body ends with "Only detects sequential LSB embedding. Absence of a signal isn't proof of a clean image."
+- [ ] **Embed:** switch to **Embed**. The panel says "Saved as PNG: a JPEG save would erase the message." Type a message with an accent or an emoji; the line under it counts bytes, not characters. **Hide and pin** adds "<photo title> — with hidden message" linked to the photo, and the finding "Message hidden (LSB, N bytes)" linked to the image.
+- [ ] **Download the PNG and re-add it:** select the new image, and in the evidence index's open row right-click the full picture and save it (that is the PNG itself; the card's thumbnail is a JPEG preview and carries no message). Drop the saved PNG back onto the board as a new file and send it to the lab: Analyse reads "Hidden data: LSB payload found" and shows your message exactly, accents and emoji included.
+- [ ] **Re-save it as JPEG:** open the PNG in an image editor, save it as JPEG, add that file and send it to the lab: the message is gone (no "payload found").
+- [ ] **A message too long for the image:** type past the capacity on a small image; the byte line turns red, "That message needs N bytes; this image holds M." shows, and the key stays off.
+- [ ] **A transparent PNG (a logo or sticker):** embed and read back work; only the opaque pixels count towards the capacity.
+- [ ] **A screenshot or a logo:** note what Analyse reads. RS can read flat graphics near its line; it should not read "consistent" on a screenshot you haven't touched.
+- [ ] **A large photo (20 MP or more):** the page stays responsive while Analyse works (the lamp pulses), and switching to Embed and back doesn't start it over.

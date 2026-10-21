@@ -2,10 +2,14 @@ import { fft } from "../math/fft";
 import { comparePrints, type MatchInput, type PrintMatch } from "../../tools/fingerprint/match";
 import { analysePrint, type PrintAnalysis } from "../../tools/fingerprint/pipeline";
 import { displayHeatmap } from "../../tools/imagekit/heatmap";
+import type { Pixels } from "../../tools/imagekit/pixels";
 import { detectCopyMove, type CopyMoveResult } from "../../tools/photo/copyMove";
 import { dqScore } from "../../tools/photo/doubleQuant";
 import { elaMap } from "../../tools/photo/ela";
 import { noiseAnalysis } from "../../tools/photo/noise";
+import { extract } from "../../tools/stego/lsb";
+import { rsAnalysis } from "../../tools/stego/rs";
+import { chiSquareAttack } from "../../tools/stego/stats";
 import type { Reply, Request } from "./pool";
 
 /**
@@ -45,6 +49,10 @@ export const ops = {
   /** Scale-normalised, rotation-invariant match of two analysed prints (Rulings P2-R10, P2-R11). */
   fingerprintMatch(p: { a: MatchInput; b: MatchInput }): PrintMatch {
     return comparePrints(p.a, p.b);
+  },
+  /** The Steganography lab's analysis of a full-size RGBA image: the LSB payload, if any, and both detectors (Ruling P3-R3). */
+  stegoAnalyse(p: Pixels): { payload: string | null; chi: Array<{ fraction: number; p: number }>; rs: { rate: number | null } } {
+    return { payload: extract(p), chi: chiSquareAttack(p), rs: rsAnalysis(p) };
   },
 };
 

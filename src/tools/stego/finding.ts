@@ -18,7 +18,7 @@ export type StegoVerdict = Verdict | "payload";
 const RANK: Record<Verdict, number> = { "no-sign": 0, inconclusive: 1, consistent: 2 };
 
 /** Rounds to the 2 places the readout shows, so a shown number can never contradict its band. */
-const round2 = (x: number): number => Math.round(x * 100) / 100;
+export const round2 = (x: number): number => Math.round(x * 100) / 100;
 
 /**
  * The Steganography lab's finding from a decoded payload (or none), the
