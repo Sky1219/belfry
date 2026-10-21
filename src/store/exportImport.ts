@@ -223,6 +223,29 @@ function isLink(l: unknown): l is Link {
   );
 }
 
+/**
+ * The evidence ids a record names in its meta (the Fingerprint lab's `pairWith`
+ * and `prints`), moved to the copy's ids; any that aren't in the file are
+ * dropped, so a copy never points back into the case it came from.
+ */
+function remapMeta(meta: Record<string, unknown>, idMap: Map<string, string>): Record<string, unknown> {
+  const out = { ...meta };
+  if ("pairWith" in out) {
+    const to = typeof out.pairWith === "string" ? idMap.get(out.pairWith) : undefined;
+    if (to) out.pairWith = to;
+    else delete out.pairWith;
+  }
+  if ("prints" in out) {
+    out.prints = Array.isArray(out.prints)
+      ? out.prints.flatMap((id) => {
+          const to = typeof id === "string" ? idMap.get(id) : undefined;
+          return to ? [to] : [];
+        })
+      : [];
+  }
+  return out;
+}
+
 function remap(c: Case, evidence: Evidence[], links: Link[]) {
   const idMap = new Map<string, string>();
   const newCaseId = ulid();
@@ -234,6 +257,7 @@ function remap(c: Case, evidence: Evidence[], links: Link[]) {
       ...e,
       id: idMap.get(e.id)!,
       caseId: newCaseId,
+      meta: remapMeta(e.meta, idMap),
       provenance: {
         ...e.provenance,
         sourceEvidenceId: e.provenance.sourceEvidenceId && idMap.get(e.provenance.sourceEvidenceId),

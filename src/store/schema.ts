@@ -82,7 +82,14 @@ export interface ChangeEntry {
  * carries its uncertainty when the tool can measure one.
  */
 export type FindingDetail =
-  | { kind: "measurement"; value: number | null; unit: string; uncertainty?: number }
+  | {
+      kind: "measurement";
+      value: number | null;
+      unit: string;
+      uncertainty?: number;
+      /** Fixed decimals for a value with no uncertainty, 0-6: 0.7 at 2 reads "0.70" (Ruling P2-R12). */
+      decimals?: number;
+    }
   | { kind: "location"; lat: number; lon: number; radiusM?: number }
   | { kind: "decode"; scheme: string; text: string };
 
@@ -99,10 +106,13 @@ export function readFindingDetail(meta: Record<string, unknown> | undefined): Fi
   const d = meta?.finding as Record<string, unknown> | undefined;
   if (!d || typeof d !== "object") return null;
   switch (d.kind) {
-    case "measurement":
-      return typeof d.unit === "string" && (finite(d.value) || d.value === null) && optFinite(d.uncertainty)
-        ? (d as FindingDetail)
-        : null;
+    case "measurement": {
+      if (typeof d.unit !== "string" || !(finite(d.value) || d.value === null) || !optFinite(d.uncertainty)) return null;
+      // decimals are optional: anything but a whole number from 0 to 6 is dropped, not fatal
+      const { decimals, ...rest } = d;
+      const ok = Number.isInteger(decimals) && (decimals as number) >= 0 && (decimals as number) <= 6;
+      return (ok ? d : rest) as FindingDetail;
+    }
     case "location":
       return finite(d.lat) && Math.abs(d.lat) <= 90 && finite(d.lon) && Math.abs(d.lon) <= 180 && optFinite(d.radiusM)
         ? (d as FindingDetail)
@@ -121,9 +131,12 @@ export const FINDING_KIND_LABEL: Record<FindingKind, string> = {
   decode: "Decode",
 };
 
-/** Significant figures that match the uncertainty: 12.34 ± 0.4 → "12.3 ± 0.4". */
-function withUncertainty(value: number, uncertainty: number | undefined): string {
-  if (!uncertainty) return String(Number(value.toPrecision(6)));
+/**
+ * Significant figures that match the uncertainty: 12.34 ± 0.4 → "12.3 ± 0.4".
+ * With no uncertainty, `decimals` fixes the places when given (0.7 → "0.70").
+ */
+function withUncertainty(value: number, uncertainty: number | undefined, fixed?: number): string {
+  if (!uncertainty) return fixed !== undefined ? value.toFixed(fixed) : String(Number(value.toPrecision(6)));
   const decimals = Math.max(0, -Math.floor(Math.log10(uncertainty)));
   return `${value.toFixed(decimals)} ± ${uncertainty.toFixed(decimals)}`;
 }
@@ -135,7 +148,7 @@ export function formatFindingDetail(d: FindingDetail): string {
   switch (d.kind) {
     case "measurement":
       // an unknown reading shows "--", never NaN; degrees and percent sit tight against the number
-      return `${finite(d.value) ? withUncertainty(d.value, d.uncertainty) : "--"}${/^[°%]/.test(d.unit) ? "" : " "}${d.unit}`.trim();
+      return `${finite(d.value) ? withUncertainty(d.value, d.uncertainty, d.decimals) : "--"}${/^[°%]/.test(d.unit) ? "" : " "}${d.unit}`.trim();
     case "location": {
       const at = `${hemi(d.lat, "N", "S")}, ${hemi(d.lon, "E", "W")}`;
       return d.radiusM ? `${at} ± ${Math.round(d.radiusM)} m` : at;
