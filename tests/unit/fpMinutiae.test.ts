@@ -110,3 +110,55 @@ describe("the fingerprint op", () => {
     expect(reply.ok).toBe(true);
   });
 });
+
+/** Pixel-exact turn of a w x h image by 90 deg clockwise (screen axes) or 180 deg. */
+function turn(gray: Float32Array, w: number, h: number, deg: 90 | 180): { gray: Float32Array; w: number; h: number } {
+  const ow = deg === 90 ? h : w;
+  const oh = deg === 90 ? w : h;
+  const out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const [nx, ny] = deg === 90 ? [h - 1 - y, x] : [w - 1 - x, h - 1 - y];
+      out[ny * ow + nx] = gray[y * w + x];
+    }
+  }
+  return { gray: out, w: ow, h: oh };
+}
+
+describe("analysePrint under rotation", () => {
+  const share = (hits: number, of: number) => (of === 0 ? 1 : hits / of);
+
+  for (const seed of [1, 3, 5]) {
+    for (const deg of [90, 180] as const) {
+      it(`turns the minutiae of seed ${seed} with the print (${deg} deg)`, () => {
+        const p = synthPrint({ seed });
+        const a = analysePrint(p.gray, p.width, p.height);
+        const t = turn(p.gray, p.width, p.height, deg);
+        const b = analysePrint(t.gray, t.w, t.h);
+        const shift = (deg * Math.PI) / 180;
+
+        const paired = { ending: 0, bifurcation: 0 };
+        const turned = { ending: 0, bifurcation: 0 };
+        let kindsAgree = 0;
+        let total = 0;
+        for (const m of a.minutiae) {
+          const [mx, my] = deg === 90 ? [p.height - 1 - m.y, m.x] : [p.width - 1 - m.x, p.height - 1 - m.y];
+          const near = b.minutiae
+            .filter((q) => Math.hypot(q.x - mx, q.y - my) <= 3)
+            .sort((q1, q2) => Math.hypot(q1.x - mx, q1.y - my) - Math.hypot(q2.x - mx, q2.y - my))[0];
+          if (!near) continue;
+          total++;
+          if (near.kind !== m.kind) continue;
+          kindsAgree++;
+          paired[m.kind]++;
+          if (angleGap(near.angle, m.angle + shift) <= 20) turned[m.kind]++;
+        }
+        expect(total).toBeGreaterThanOrEqual(0.75 * a.minutiae.length);
+        expect(kindsAgree).toBeGreaterThanOrEqual(0.95 * total); // thinning is not symmetric, so a pixel-level kind can flip
+        expect(share(turned.ending, paired.ending)).toBeGreaterThanOrEqual(0.95);
+        expect(paired.bifurcation).toBeGreaterThanOrEqual(5);
+        expect(share(turned.bifurcation, paired.bifurcation)).toBeGreaterThanOrEqual(0.95);
+      });
+    }
+  }
+});
