@@ -7,6 +7,8 @@ export interface SynthPrint {
   height: number;
   /** Ridge direction at an output pixel, in radians in [0, pi). */
   orientationAt(x: number, y: number): number;
+  /** Local ridge frequency |grad psi| / 2pi at an output pixel, in px^-1. */
+  frequencyAt(x: number, y: number): number;
   /** One phase dislocation (one minutia) each, in output coordinates. */
   defects: Array<{ x: number; y: number }>;
 }
@@ -146,5 +148,12 @@ export function synthPrint(o: SynthOptions): SynthPrint {
     return t < 0 ? t + Math.PI : t;
   };
 
-  return { gray, width, height, orientationAt, defects };
+  const frequencyAt = (x: number, y: number): number => {
+    const [sx, sy] = toSource(x, y);
+    const g = field(sx, sy);
+    // Rotation leaves the gradient's length alone.
+    return Math.hypot(g.gx, g.gy) / (2 * Math.PI);
+  };
+
+  return { gray, width, height, orientationAt, frequencyAt, defects };
 }

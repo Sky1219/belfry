@@ -105,6 +105,38 @@ describe("synthPrint", () => {
   });
 });
 
+describe("synthPrint frequencyAt", () => {
+  it("agrees with the peak spacing measured along the gradient", () => {
+    const p = synthPrint({ seed: 5, noise: 0 });
+    const bilinear = (x: number, y: number) => {
+      const x0 = Math.floor(x);
+      const y0 = Math.floor(y);
+      const fx = x - x0;
+      const fy = y - y0;
+      const g = (i: number, j: number) => p.gray[j * p.width + i];
+      return (
+        g(x0, y0) * (1 - fx) * (1 - fy) + g(x0 + 1, y0) * fx * (1 - fy) + g(x0, y0 + 1) * (1 - fx) * fy + g(x0 + 1, y0 + 1) * fx * fy
+      );
+    };
+    for (const [x, y] of [[240, 200], [160, 320], [90, 110]]) {
+      const dir = p.orientationAt(x, y) + Math.PI / 2; // across the ridges
+      const peaks: number[] = [];
+      let prev = bilinear(x - 24 * Math.cos(dir), y - 24 * Math.sin(dir));
+      let cur = bilinear(x - 23.75 * Math.cos(dir), y - 23.75 * Math.sin(dir));
+      for (let t = -23.5; t <= 24; t += 0.25) {
+        const next = bilinear(x + t * Math.cos(dir), y + t * Math.sin(dir));
+        if (cur > 127 && cur >= prev && cur > next) peaks.push(t - 0.25);
+        prev = cur;
+        cur = next;
+      }
+      expect(peaks.length).toBeGreaterThanOrEqual(3);
+      const spacing = (peaks[peaks.length - 1] - peaks[0]) / (peaks.length - 1);
+      const f = p.frequencyAt(x, y);
+      expect(Math.abs(1 / spacing - f) / f).toBeLessThan(0.1);
+    }
+  });
+});
+
 describe("normalize", () => {
   it("gives mean 0 and variance 1", () => {
     const n = normalize(synthPrint({ seed: 3 }).gray);
