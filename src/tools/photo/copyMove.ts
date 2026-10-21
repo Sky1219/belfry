@@ -1,5 +1,6 @@
 import type { FindingDetail } from "../../store/schema";
 import { ZIGZAG } from "../../platform/math/dct8";
+import { makePixels, type Pixels } from "../imagekit/pixels";
 import { verdictFor, verdictTitle } from "../imagekit/verdict";
 
 export interface CopyMoveResult {
@@ -137,6 +138,29 @@ export function detectCopyMove(gray: Float32Array, w: number, h: number): CopyMo
     paint(pos[to]);
   });
   return { width: w, height: h, shift, blocks, considered: n, mask };
+}
+
+const AMBER = [255, 167, 51] as const; // #ffa733
+
+/**
+ * The photo with the copy-move mask (mw x mh, any scale) laid over it: matched
+ * pixels washed amber, the rest dimmed, so the cloned regions read on the board.
+ * The mask is sampled nearest-neighbour at the photo's own size.
+ */
+export function markRegions(photo: Pixels, mask: Uint8Array, mw: number, mh: number): Pixels {
+  const { width: w, height: h } = photo;
+  const out = makePixels(w, h);
+  for (let y = 0; y < h; y++) {
+    const my = Math.min(mh - 1, Math.floor((y * mh) / h));
+    for (let x = 0; x < w; x++) {
+      const mx = Math.min(mw - 1, Math.floor((x * mw) / w));
+      const i = (y * w + x) * 4;
+      const on = mask[my * mw + mx] === 1;
+      for (let c = 0; c < 3; c++) out.data[i + c] = on ? photo.data[i + c] * 0.45 + AMBER[c] * 0.55 : photo.data[i + c] * 0.4;
+      out.data[i + 3] = 255;
+    }
+  }
+  return out;
 }
 
 const THRESHOLDS = { inconclusiveAt: 15, consistentAt: 40 };

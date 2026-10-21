@@ -94,7 +94,7 @@ Each sub-project below is a scaffold for its spec:
 
 ### Sub-project 2: Image forensics
 
-- **Photo forensics**
+- [x] **Photo forensics** (shipped: `src/tools/photo`, with a seeded demo photo; real photos are on the manual checklist)
   - **Core:** error level analysis; JPEG quantization-table and double-compression checks; EXIF/XMP read-out; noise-residual maps; copy-move detection (block matching or keypoints).
   - **Board loop:** image evidence in; a heat-map image and a finding back, linked derived-from.
 - **Fingerprint lab**

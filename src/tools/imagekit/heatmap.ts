@@ -1,7 +1,19 @@
-import { type Pixels, makePixels } from "./pixels";
+import { type Pixels, downscaleValues, makePixels } from "./pixels";
 import { percentile } from "./rng";
 
 const AMBER = [255, 167, 51] as const; // #ffa733
+
+/** Longest side of a map as shown and pinned; the values behind it are computed at full resolution. */
+export const MAP_SIDE = 1600;
+
+/**
+ * A full-resolution score map, box-downscaled to long side `maxSide` and then
+ * coloured, so the percentile clip reads the map as it will be seen.
+ */
+export function displayHeatmap(values: Float32Array, w: number, h: number, maxSide = MAP_SIDE): Pixels {
+  const small = downscaleValues(values, w, h, maxSide);
+  return heatmapPixels(small.values, small.width, small.height);
+}
 
 /**
  * Colours a per-pixel score map: black through amber (#ffa733) to white.

@@ -1,3 +1,5 @@
+import type { FindingDetail } from "../../store/schema";
+
 const BLOCK = 16;
 
 /** 3x3 median of `gray` with replicated edges. */
@@ -88,8 +90,17 @@ export function noiseInconsistency(sigma: Float32Array): number | null {
  * blocks or the median sigma is 0.
  */
 export function noiseMap(gray: Float32Array, w: number, h: number): Float32Array {
+  return mapFromSigma(blockSigma(noiseResidual(gray, w, h), w, h), w, h);
+}
+
+/** The noise map and the inconsistency score from one pass over the residual. */
+export function noiseAnalysis(gray: Float32Array, w: number, h: number): { map: Float32Array; inconsistency: number | null } {
+  const blocks = blockSigma(noiseResidual(gray, w, h), w, h);
+  return { map: mapFromSigma(blocks, w, h), inconsistency: noiseInconsistency(blocks.sigma) };
+}
+
+function mapFromSigma({ sigma, bw, bh }: { sigma: Float32Array; bw: number; bh: number }, w: number, h: number): Float32Array {
   const out = new Float32Array(w * h);
-  const { sigma, bw, bh } = blockSigma(noiseResidual(gray, w, h), w, h);
   const vals: number[] = [];
   for (let i = 0; i < sigma.length; i++) if (Number.isFinite(sigma[i])) vals.push(sigma[i]);
   if (vals.length === 0) return out;
@@ -102,4 +113,23 @@ export function noiseMap(gray: Float32Array, w: number, h: number): Float32Array
     }
   }
   return out;
+}
+
+const LIMIT = "Pasted regions often carry different sensor noise. Smooth areas, blur and heavy compression also lower noise.";
+
+/** The noise map's finding: a reading guide and the σ spread as a measurement, never a verdict. */
+export function noiseFinding(inconsistency: number | null): { title: string; body: string; detail: FindingDetail } {
+  const guide = `The map shows each ${BLOCK} px block's noise relative to the image's median; brighter blocks are noisier.`;
+  if (inconsistency === null || !Number.isFinite(inconsistency)) {
+    return {
+      title: "Noise residual: map",
+      body: `${guide} There is too little image to measure the spread: fewer than four whole blocks, or no noise at all. ${LIMIT}`,
+      detail: { kind: "measurement", value: null, unit: "σ spread" },
+    };
+  }
+  return {
+    title: "Noise residual: map",
+    body: `${guide} σ spread ${inconsistency.toFixed(2)}: the coefficient of variation of the block noise levels. ${LIMIT}`,
+    detail: { kind: "measurement", value: Math.round(inconsistency * 100) / 100, unit: "σ spread" },
+  };
 }

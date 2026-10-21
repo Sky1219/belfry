@@ -24,3 +24,14 @@ export function elaMap(original: Pixels, resaved: Pixels): Float32Array {
   }
   return out;
 }
+
+const LIMIT =
+  "Regions much brighter than similar texture nearby were compressed differently. Resaving, resizing and filters also change error levels, so read the map, don't count it.";
+
+/** The error level map's finding: a reading guide, never a verdict. */
+export function elaFinding(): { title: string; body: string } {
+  return {
+    title: "Error levels: map",
+    body: `The photo was re-saved as JPEG at quality ${Math.round(ELA_QUALITY * 100)} and compared pixel by pixel; brightness is the largest colour change ×${ELA_GAIN}, scaled from the 1st to the 99th percentile. ${LIMIT}`,
+  };
+}

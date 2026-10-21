@@ -1,5 +1,9 @@
 import { fft } from "../math/fft";
+import { displayHeatmap } from "../../tools/imagekit/heatmap";
 import { detectCopyMove, type CopyMoveResult } from "../../tools/photo/copyMove";
+import { dqScore } from "../../tools/photo/doubleQuant";
+import { elaMap } from "../../tools/photo/ela";
+import { noiseAnalysis } from "../../tools/photo/noise";
 import type { Reply, Request } from "./pool";
 
 /**
@@ -18,7 +22,33 @@ export const ops = {
   copyMove(p: { gray: Float32Array; width: number; height: number }): CopyMoveResult {
     return detectCopyMove(p.gray, p.width, p.height);
   },
+  /** Error level map of a photo (RGBA) against its re-saved copy, coloured at display size. */
+  ela(p: { original: Uint8ClampedArray; resaved: Uint8ClampedArray; width: number; height: number }): HeatMap {
+    const { width, height } = p;
+    return heatMap(elaMap({ width, height, data: p.original }, { width, height, data: p.resaved }), width, height);
+  },
+  /** Noise residual map, coloured at display size, and the block σ inconsistency (null when unmeasurable). */
+  noise(p: { gray: Float32Array; width: number; height: number }): HeatMap & { inconsistency: number | null } {
+    const { map, inconsistency } = noiseAnalysis(p.gray, p.width, p.height);
+    return { ...heatMap(map, p.width, p.height), inconsistency };
+  },
+  /** Double-quantization score of a grayscale image against its luminance table (natural order). */
+  dq(p: { gray: Float32Array; width: number; height: number; luma: Uint16Array }): number | null {
+    return dqScore(p.gray, p.width, p.height, p.luma);
+  },
 };
+
+/** A coloured map, long side at most MAP_SIDE; `rgba` is flat so it transfers back without a copy. */
+export interface HeatMap {
+  width: number;
+  height: number;
+  rgba: Uint8ClampedArray;
+}
+
+function heatMap(values: Float32Array, w: number, h: number): HeatMap {
+  const p = displayHeatmap(values, w, h);
+  return { width: p.width, height: p.height, rgba: p.data };
+}
 
 export type ComputeOps = typeof ops;
 export type OpName = keyof ComputeOps;

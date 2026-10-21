@@ -65,3 +65,13 @@ transformers.js went from 3.8 to 4.3. Automated checks only covered the WASM pat
 - [ ] Pin an audio file, select it: the open row plays it with the browser's controls.
 - [ ] Open Detective Vision with the camera blocked in a case that has footage: No Signal lists the footage, and "Open a video file" pins the file to the board before the tool opens on it.
 - [ ] Keyboard only: Tab to an index row, press Enter. The row reports itself expanded, and Tab reaches its actions next.
+
+## Photo forensics
+
+Open a case → **Photo forensics** in the rail → **Open a photo file**. Each panel finishes on its own, and every pin lands beside the photo, linked derived-from.
+
+- [ ] **A real phone JPEG** (straight off the phone, not sent through a messaging app): Metadata lists the make, model, date taken and, if location was on, a position (the pinned finding's detail is a location). JPEG reads a quality, or "non-standard tables" for phones that use their own. A portrait photo shows upright, and the error level and noise maps line up with it.
+- [ ] **A screenshot (PNG):** the JPEG panel says "Not a JPEG: quantization tests don't apply." with no quality number and no pin; nothing on the screen reads NaN.
+- [ ] **A Photoshop-edited JPEG** (open a photo, clone-stamp an area, save as JPEG): Metadata's Software line names Photoshop; double quantization reads "consistent with two JPEG saves" or "inconclusive"; a large clone-stamped area shows as amber marks on the photo with "Copy-move: consistent with cloned regions".
+- [ ] Pin every panel: JPEG adds two findings; Error levels, Noise residual and Copy-move each add a map and a finding. No card claims the photo is fake or authentic.
+- [ ] A photo over 40 megapixels is refused with "This photo is over 40 megapixels; Belfry can't analyse it in the browser." and the board stays responsive; a 12 MP photo finishes every panel without freezing the page.

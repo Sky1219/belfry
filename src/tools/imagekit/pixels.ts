@@ -63,3 +63,34 @@ export function downscale(p: Pixels, maxSide: number): Pixels {
   }
   return out;
 }
+
+/**
+ * Box-filter a per-pixel value map (w x h) so its long side is at most
+ * `maxSide`, as `downscale` does for pixels. Returns `values` itself when it
+ * already fits.
+ */
+export function downscaleValues(
+  values: Float32Array,
+  w: number,
+  h: number,
+  maxSide: number,
+): { values: Float32Array; width: number; height: number } {
+  const long = Math.max(w, h);
+  if (long <= maxSide) return { values, width: w, height: h };
+  const scale = maxSide / long;
+  const ow = Math.max(1, Math.round(w * scale));
+  const oh = Math.max(1, Math.round(h * scale));
+  const out = new Float32Array(ow * oh);
+  for (let y = 0; y < oh; y++) {
+    const y0 = Math.floor((y * h) / oh);
+    const y1 = Math.max(y0 + 1, Math.floor(((y + 1) * h) / oh));
+    for (let x = 0; x < ow; x++) {
+      const x0 = Math.floor((x * w) / ow);
+      const x1 = Math.max(x0 + 1, Math.floor(((x + 1) * w) / ow));
+      let sum = 0;
+      for (let sy = y0; sy < y1; sy++) for (let sx = x0; sx < x1; sx++) sum += values[sy * w + sx];
+      out[y * ow + x] = sum / ((y1 - y0) * (x1 - x0));
+    }
+  }
+  return { values: out, width: ow, height: oh };
+}
