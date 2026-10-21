@@ -1,4 +1,5 @@
 import { fft } from "../math/fft";
+import { analysePrint, type PrintAnalysis } from "../../tools/fingerprint/pipeline";
 import { displayHeatmap } from "../../tools/imagekit/heatmap";
 import { detectCopyMove, type CopyMoveResult } from "../../tools/photo/copyMove";
 import { dqScore } from "../../tools/photo/doubleQuant";
@@ -35,6 +36,10 @@ export const ops = {
   /** Double-quantization score of a grayscale image against its luminance table (natural order). */
   dq(p: { gray: Float32Array; width: number; height: number; luma: Uint16Array }): number | null {
     return dqScore(p.gray, p.width, p.height, p.luma);
+  },
+  /** Minutiae and ridge skeleton of a grayscale print (the caller scales it to 640 px or less). */
+  fingerprint(p: { gray: Float32Array; width: number; height: number }): PrintAnalysis {
+    return analysePrint(p.gray, p.width, p.height);
   },
 };
 
