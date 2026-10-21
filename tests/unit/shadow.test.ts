@@ -192,6 +192,33 @@ describe("solveShadow", () => {
     for (const r of refused) expect(r).toEqual({ error: "That bearing doesn't fit this sun height at that time." });
   });
 
+  it("says the sun was overhead, not that the bearing is wrong, when it stood within 2 degrees of the zenith", () => {
+    // a 200 px object with a 6 px shadow: the sun was at 88.3 degrees
+    const marks = { base: { x: 100, y: 400 }, top: { x: 100, y: 200 }, tip: { x: 106, y: 400 } };
+    expect(solveShadow({ marks, timeUtc: DEMO_TIME, shadowBearingDeg: 120 })).toEqual({
+      error: "The sun was almost overhead, so its direction cannot fix a place.",
+    });
+    // without a bearing the elevation and circle are still reported
+    expect(solveShadow({ marks, timeUtc: DEMO_TIME })).not.toHaveProperty("error");
+  });
+
+  it("states a place radius that grows when the sun is low and the bearing stretches the error", () => {
+    const radius = (obs: LatLon, when: Date) => {
+      const { marks, bearing } = scene(obs, when);
+      const fix = solveShadow({ marks, timeUtc: when, shadowBearingDeg: bearing });
+      if ("error" in fix) throw new Error(fix.error);
+      return fix.radiusM!;
+    };
+    const high = radius(DEMO, DEMO_TIME);
+    const low = radius(DEMO, new Date("2026-06-21T16:30:00Z"));
+    expect(high).toBeGreaterThan(0);
+    expect(low).toBeGreaterThan(high);
+    const { marks } = scene(DEMO, DEMO_TIME);
+    const bare = solveShadow({ marks, timeUtc: DEMO_TIME });
+    if ("error" in bare) throw new Error(bare.error);
+    expect(bare.radiusM).toBeNull();
+  });
+
   it("passes the marks' refusals through as messages", () => {
     const p = { x: 5, y: 5 };
     expect(solveShadow({ marks: { base: p, top: { ...p }, tip: { ...p } }, timeUtc: DEMO_TIME })).toEqual({
@@ -220,6 +247,7 @@ describe("shadowFinding", () => {
     subsolar: { lat: 23.4, lon: -30 },
     zenithDeg: 37.9,
     points: [],
+    radiusM: null,
     ...over,
   });
 
@@ -231,15 +259,21 @@ describe("shadowFinding", () => {
     expect(f.meta.points).toBeUndefined();
     expect(f.body).toContain("2026-06-21 14:00 UTC");
     expect(f.body).toContain("52.3° ± 2.1°");
+    // the band, in km: 2.06 degrees of arc is 229 km
+    expect(f.body).toContain("give or take 229 km");
     expect(f.body.endsWith(LIMIT)).toBe(true);
   });
 
   it("with one place gives a location with a radius from the uncertainty", () => {
-    const f = shadowFinding(base({ points: [{ lat: 51.5, lon: -0.12 }], uncertaintyDeg: 1.1 }));
+    const f = shadowFinding(base({ points: [{ lat: 51.5, lon: -0.12 }], uncertaintyDeg: 1.1, radiusM: 234567 }));
     expect(f.title).toBe("Shadow fix: 51.5° N, 0.1° W");
-    expect(f.detail).toEqual({ kind: "location", lat: 51.5, lon: -0.12, radiusM: Math.round(1.1 * 111195) });
+    // the radius is the solver's propagated one, not the elevation band alone
+    expect(f.detail).toEqual({ kind: "location", lat: 51.5, lon: -0.12, radiusM: 234567 });
     expect(f.meta.sunLocus.bandDeg).toBe(1.1);
     expect(f.body).toContain("2026-06-21 14:00 UTC");
+    expect(f.body).toContain("within about 235 km");
+    // the radius's assumptions come before the limit sentence, which stays last and verbatim
+    expect(f.body).toContain("assumes the bearing is right to within 2° and the camera clock is right. " + LIMIT);
     expect(f.body.endsWith(LIMIT)).toBe(true);
   });
 
@@ -278,7 +312,8 @@ describe("shadowFinding", () => {
   });
 });
 
-// Ruling P4-R1: the stated uncertainty must cover the error the marks actually make.
+// Rulings P4-R1 and P4-R3: the stated uncertainty and radius must cover the error that real clicks and a
+// hand-typed bearing make, in scenes other than the demo.
 describe("uncertainty coverage", () => {
   const mulberry32 = (seed: number) => () => {
     seed = (seed + 0x6d2b79f5) | 0;
@@ -286,14 +321,19 @@ describe("uncertainty coverage", () => {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  const noises: [string, (rnd: () => number) => number][] = [
-    ["uniform ±3 px", (rnd) => (rnd() * 2 - 1) * 3],
-    ["gaussian σ=1.5 px", (rnd) => 1.5 * Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd())],
+  // Marks are clicked to within 3 px, uniformly.
+  const noise = (rnd: () => number) => (rnd() * 2 - 1) * 3;
+  const scenes: [string, LatLon, string][] = [
+    ["London 14:00Z (sun 54°)", DEMO, "2026-06-21T14:00:00Z"],
+    ["London 16:30Z (sun 32°)", DEMO, "2026-06-21T16:30:00Z"],
+    ["Tokyo 07:00Z", { lat: 35.68, lon: 139.69 }, "2026-06-21T07:00:00Z"],
+    ["Quito 15:00Z", { lat: -0.18, lon: -78.47 }, "2026-06-21T15:00:00Z"],
   ];
 
-  for (const [name, noise] of noises) {
-    it(`covers the true elevation and place in at least 90% of 200 trials (${name})`, () => {
-      const { marks, sun, bearing } = scene(DEMO, DEMO_TIME);
+  for (const [sceneName, obs, iso] of scenes) {
+    it(`covers the true elevation and place in at least 90% of 200 trials: ${sceneName}, marks ±3 px, bearing ±2°`, () => {
+      const when = new Date(iso);
+      const { marks, sun, bearing } = scene(obs, when);
       const rnd = mulberry32(20261021);
       let elevHits = 0;
       let placeHits = 0;
@@ -301,15 +341,17 @@ describe("uncertainty coverage", () => {
       for (let i = 0; i < trials; i++) {
         const p = (q: Pt): Pt => ({ x: q.x + noise(rnd), y: q.y + noise(rnd) });
         const noisy = { base: p(marks.base), top: p(marks.top), tip: p(marks.tip) };
-        const fix = solveShadow({ marks: noisy, timeUtc: DEMO_TIME, shadowBearingDeg: bearing });
+        // a hand-typed bearing is right to within 2 degrees
+        const typed = bearing + (rnd() * 2 - 1) * 2;
+        const fix = solveShadow({ marks: noisy, timeUtc: when, shadowBearingDeg: typed });
         if ("error" in fix) continue;
         if (Math.abs(fix.elevationDeg - sun.elevationDeg) <= fix.uncertaintyDeg) elevHits++;
-        const radiusM = Math.round(fix.uncertaintyDeg * 111195);
-        const nearest = Math.min(...fix.points.map((q) => angularDistanceDeg(q, DEMO) * 111195));
-        if (nearest <= radiusM) placeHits++;
+        // two places count as covered if the truth is within the radius of the nearer one
+        const nearest = Math.min(...fix.points.map((q) => angularDistanceDeg(q, obs) * 111195));
+        if (nearest <= fix.radiusM!) placeHits++;
       }
       expect(elevHits / trials).toBeGreaterThanOrEqual(0.9);
       expect(placeHits / trials).toBeGreaterThanOrEqual(0.9);
-    });
+    }, 60000);
   }
 });

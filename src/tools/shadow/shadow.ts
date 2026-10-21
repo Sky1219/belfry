@@ -2,7 +2,7 @@
 
 import type { FindingDetail } from "../../store/schema";
 import type { PhotoMetadata } from "../photo/metadata";
-import { fixesFromAzimuth } from "./geo";
+import { angularDistanceDeg, fixesFromAzimuth } from "./geo";
 import { apparentToGeometric, subsolarPoint, type LatLon } from "./solar";
 
 export interface Pt {
@@ -19,16 +19,21 @@ const METRES_PER_DEG = 111195;
 const MIN_PX = 5;
 const MIN_ELEVATION_DEG = 5;
 /**
- * The root sum of squares of six +-pxSigma steps is a one-sigma figure, and measured against marks
- * moved by up to 3 px it covered the true elevation only about 90% of the time and the true place
- * about 87% (the bearing constraint stretches the error along the circle). Times 1.5 it covers
- * about 99% of both for the demo scene, so the stated plus-or-minus and the place radius hold up.
+ * The root sum of squares of six +-pxSigma steps is a one-sigma figure: against marks moved by up to
+ * 3 px it covered the true elevation only 90 to 94% of the time, too thin for a stated plus-or-minus.
+ * Times 1.5 it covers 99% or more across the test scenes. (The place radius is propagated separately
+ * and does not need it, but inherits it through the elevation band, at 13 to 30% wider radii.)
  */
 const COVERAGE_FACTOR = 1.5;
+/** How far a hand-typed shadow bearing may be off, in degrees; the place radius allows for it. */
+export const BEARING_TOLERANCE_DEG = 2;
+/** Below this zenith angle the sun's azimuth is too ill-defined to fix a place (geo's own limit). */
+const MIN_ZENITH_DEG = 2;
 
 const MSG_DEGENERATE = "Mark the object's base, its top and the tip of its shadow.";
 const MSG_TOO_LOW = "The sun is too low for a reliable fix.";
 const MSG_BEARING = "That bearing doesn't fit this sun height at that time.";
+const MSG_OVERHEAD = "The sun was almost overhead, so its direction cannot fix a place.";
 const MSG_TIME = "Enter the date and time the photo was taken.";
 const LIMIT =
   "Assumes a vertical object on level ground, seen without strong perspective. Any place on this circle saw the sun at this height at that moment.";
@@ -117,6 +122,34 @@ export interface ShadowFix {
   zenithDeg: number;
   /** Places that fit the shadow's bearing as well: none without a bearing, otherwise one or two. */
   points: LatLon[];
+  /**
+   * Metres: the largest a place moves when the elevation is off by its uncertainty and the bearing
+   * by BEARING_TOLERANCE_DEG. Null when there are no points.
+   */
+  radiusM: number | null;
+}
+
+/** Places that fit a zenith angle and sun azimuth, for an elevation (apparent) and shadow bearing. */
+const placesFor = (subsolar: LatLon, apparentElevationDeg: number, shadowBearingDeg: number) =>
+  fixesFromAzimuth(subsolar, 90 - apparentToGeometric(apparentElevationDeg), normalizeBearing(shadowBearingDeg) + 180);
+
+/**
+ * How far the answer can move. Re-solve at the elevation +/- its uncertainty and the bearing +/-
+ * the tolerance (the corners and edge midpoints of that box) and take, for each fix, the distance
+ * to the nearest re-solved place, largest over the box. The bearing pins the place along the circle,
+ * so on a low sun a small error stretches into a long one; the elevation band alone understates it.
+ */
+function propagatedRadiusM(subsolar: LatLon, elevationDeg: number, uncertaintyDeg: number, bearingDeg: number, points: LatLon[]) {
+  let worstDeg = 0;
+  for (const de of [-1, 0, 1]) {
+    for (const db of [-1, 0, 1]) {
+      if (de === 0 && db === 0) continue;
+      const moved = placesFor(subsolar, elevationDeg + de * uncertaintyDeg, bearingDeg + db * BEARING_TOLERANCE_DEG);
+      if (moved.length === 0) continue;
+      for (const p of points) worstDeg = Math.max(worstDeg, Math.min(...moved.map((q) => angularDistanceDeg(p, q))));
+    }
+  }
+  return Math.round(worstDeg * METRES_PER_DEG);
 }
 
 /** Marks, photo time and optionally the shadow's compass bearing, resolved to a sun height and the places that fit it. */
@@ -128,13 +161,15 @@ export function solveShadow(input: { marks: Marks; timeUtc: Date; shadowBearingD
   const subsolar = subsolarPoint(input.timeUtc);
   // The measured elevation is what the eye sees, refraction included; the geometry wants the true one.
   const zenithDeg = 90 - apparentToGeometric(el.elevationDeg);
-  const fix: ShadowFix = { timeUtc: input.timeUtc, ...el, subsolar, zenithDeg, points: [] };
-  if (input.shadowBearingDeg === undefined) return fix;
+  const fix: ShadowFix = { timeUtc: input.timeUtc, ...el, subsolar, zenithDeg, points: [], radiusM: null };
+  const bearing = input.shadowBearingDeg;
+  if (bearing === undefined) return fix;
+  if (zenithDeg < MIN_ZENITH_DEG) return { error: MSG_OVERHEAD };
 
   // The shadow points away from the sun.
-  const points = fixesFromAzimuth(subsolar, zenithDeg, normalizeBearing(input.shadowBearingDeg) + 180);
+  const points = placesFor(subsolar, el.elevationDeg, bearing);
   if (points.length === 0) return { error: MSG_BEARING };
-  return { ...fix, points };
+  return { ...fix, points, radiusM: propagatedRadiusM(subsolar, el.elevationDeg, el.uncertaintyDeg, bearing, points) };
 }
 
 const formatUtc = (d: Date) => `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
@@ -169,10 +204,10 @@ export function shadowFinding(fix: ShadowFix): {
 
   if (fix.points.length === 1) {
     const [p] = fix.points;
-    const radiusM = Math.round(fix.uncertaintyDeg * METRES_PER_DEG);
+    const radiusM = fix.radiusM ?? 0;
     return {
       title: `Shadow fix: ${formatPlace(p)}`,
-      body: `At ${when} the sun stood ${height} above the horizon. With the shadow's bearing that puts the photo at ${formatPlace(p)}, within about ${Math.round(radiusM / 1000)} km. ${LIMIT}`,
+      body: `At ${when} the sun stood ${height} above the horizon. With the shadow's bearing that puts the photo at ${formatPlace(p)}, within about ${Math.round(radiusM / 1000)} km. That radius assumes the bearing is right to within ${BEARING_TOLERANCE_DEG}° and the camera clock is right. ${LIMIT}`,
       detail: { kind: "location", lat: p.lat, lon: p.lon, radiusM },
       meta: { sunLocus },
     };
@@ -187,7 +222,7 @@ export function shadowFinding(fix: ShadowFix): {
   }
   return {
     title: `Sun elevation: ${height}`,
-    body: `At ${when} the sun stood ${height} above the horizon. It was directly overhead at ${formatPlace(fix.subsolar)}, so the photo lies on a circle of radius ${Math.round((fix.zenithDeg * METRES_PER_DEG) / 1000)} km around that point. ${LIMIT}`,
+    body: `At ${when} the sun stood ${height} above the horizon. It was directly overhead at ${formatPlace(fix.subsolar)}, so the photo lies on a circle of radius ${Math.round((fix.zenithDeg * METRES_PER_DEG) / 1000)} km around that point, give or take ${Math.round((fix.uncertaintyDeg * METRES_PER_DEG) / 1000)} km. ${LIMIT}`,
     detail: elevation,
     meta: { sunLocus },
   };
