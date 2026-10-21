@@ -8,6 +8,7 @@ import {
   extract,
   randomEmbed,
   syntheticCover,
+  verifyEmbedded,
 } from "../../src/tools/stego/lsb";
 import { makePixels, type Pixels } from "../../src/tools/imagekit/pixels";
 import { mulberry32 } from "../../src/tools/imagekit/rng";
@@ -170,6 +171,96 @@ describe("extract", () => {
     const img = noiseImage(16, 16, 12);
     writeLsbs(img, [0x42, 0x4c, 0x46, 0x59, 0, 0, 0, 2, 0x68, 0x69]);
     expect(extract(img)).toBe("hi");
+  });
+});
+
+/** The first `n` bytes of an all-opaque image's LSB stream, MSB-first. */
+function lsbBytes(p: Pixels, n: number): Uint8Array {
+  const out = new Uint8Array(n);
+  for (let bit = 0; bit < n * 8; bit++) out[bit >> 3] |= (p.data[Math.floor(bit / 3) * 4 + (bit % 3)] & 1) << (7 - (bit & 7));
+  return out;
+}
+
+describe("large payloads (Ruling P3-R9)", () => {
+  it("extract streams the bits: a 2000 x 2000 image with a 1 MB payload allocates no index array", () => {
+    const img = makePixels(2000, 2000, [120, 130, 140, 255]);
+    const msg = "The bell was stopped at 04:10. ".repeat(33_000); // 1 023 000 bytes
+    const stego = embed(img, msg);
+
+    const Real = Int32Array;
+    let largest = 0;
+    globalThis.Int32Array = new Proxy(Real, {
+      construct(target, args) {
+        const a = Reflect.construct(target, args) as Int32Array;
+        largest = Math.max(largest, a.length);
+        return a;
+      },
+    });
+    let out: string | null;
+    try {
+      out = extract(stego);
+    } finally {
+      globalThis.Int32Array = Real;
+    }
+    expect(largest).toBe(0);
+    expect(out).toBe(msg);
+  });
+});
+
+describe("re-embedding (Ruling P3-R12)", () => {
+  it("wipes the old message first, so its tail can't be read past the new one's end", () => {
+    const cover = syntheticCover(8, 128, 128);
+    const old = "The east bracket holds the ledger; the courier left at 04:10. ".repeat(20);
+    const first = embed(cover, old);
+    const second = embed(first, "short");
+    expect(extract(second)).toBe("short");
+
+    const oldBytes = lsbBytes(first, 8 + old.length);
+    const after = lsbBytes(second, 8 + old.length);
+    let same = 0;
+    for (let i = 8 + 5; i < oldBytes.length; i++) if (after[i] === oldBytes[i]) same++;
+    // random bits match a given byte about 1 time in 256
+    expect(same / (oldBytes.length - 13)).toBeLessThan(0.05);
+    expect(new TextDecoder().decode(after.subarray(13))).not.toContain("east bracket");
+  });
+
+  it("leaves a clean cover's low bits past the message untouched, so embedding it stays deterministic", () => {
+    const cover = syntheticCover(9, 64, 64);
+    expect(embed(cover, DEMO_MESSAGE).data).toEqual(embed(cover, DEMO_MESSAGE).data);
+  });
+});
+
+describe("verifyEmbedded (Ruling P3-R8)", () => {
+  const stego = embed(syntheticCover(10, 64, 64), DEMO_MESSAGE);
+  const png = Uint8Array.of(0x89, 0x50, 0x4e, 0x47);
+
+  it("is ok when the saved PNG decodes to the same message", async () => {
+    await expect(verifyEmbedded(png, DEMO_MESSAGE, async () => stego)).resolves.toEqual({ ok: true });
+  });
+
+  it("names the problem when the browser changed the pixels while saving", async () => {
+    // canvas-noise defences nudge low bits: flip a few early ones and the header no longer reads
+    const noisy = { ...stego, data: stego.data.slice() };
+    for (let i = 0; i < 40; i += 4) noisy.data[i] ^= 1;
+    await expect(verifyEmbedded(png, DEMO_MESSAGE, async () => noisy)).resolves.toEqual({
+      ok: false,
+      problem:
+        "This browser changed the picture while saving it, so the message did not survive. Try another browser, or turn off fingerprinting protection for this page.",
+    });
+  });
+
+  it("names the problem when a different message reads back", async () => {
+    const other = embed(syntheticCover(10, 64, 64), "another");
+    await expect(verifyEmbedded(png, DEMO_MESSAGE, async () => other)).resolves.toMatchObject({ ok: false });
+  });
+
+  it("hands the decoder the exact PNG bytes", async () => {
+    let seen: Uint8Array | null = null;
+    await verifyEmbedded(png, DEMO_MESSAGE, async (b) => {
+      seen = b;
+      return stego;
+    });
+    expect(seen).toBe(png);
   });
 });
 

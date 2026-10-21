@@ -1,9 +1,10 @@
 import { useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { downloadBytes } from "../../app/storeContext";
 import { runOp } from "../../platform/workers/compute";
 import type { Evidence } from "../../store/schema";
 import { Bezel, HudButton, type LampState } from "../../ui/components";
 import { Icon } from "../../ui/icons";
-import { encodeImage } from "../imagekit/decode";
+import { decodeImage, encodeImage } from "../imagekit/decode";
 import { ImageToolShell, ToolPanel } from "../imagekit/ImageToolShell";
 import { pinResult, type PinDeps, type PinRequest } from "../imagekit/pin";
 import type { Pixels } from "../imagekit/pixels";
@@ -11,28 +12,46 @@ import { useRun, type Run } from "../imagekit/useRun";
 import { useToolImage } from "../imagekit/useToolImage";
 import type { ToolContext } from "../types";
 import { makeStegoDemo } from "./demo";
-import { round2, stegoFinding } from "./finding";
-import { CapacityError, capacityBytes, embed, opaqueChannels } from "./lsb";
+import { embeddedShare, round2, stegoFinding } from "./finding";
+import { CapacityError, capacityBytes, embed, opaqueChannels, verifyEmbedded } from "./lsb";
 import { stegoManifest } from "./manifest";
 import "./stego.css";
 
 const TOO_SMALL = "This image is too small to hold a message.";
-const JPEG_NOTE = "Saved as PNG: a JPEG save would erase the message.";
+/** The lossy sources whose own format would erase a message, and the line each gets. */
+const LOSSY_NOTE = {
+  jpeg: "Saved as PNG: a JPEG save would erase the message.",
+  webp: "Saved as PNG: a lossy WebP save would erase the message.",
+};
+const NOT_ENCRYPTED = "Anyone who knows to look can read it; it isn't encrypted.";
 const SHARE_PNG = "Share the PNG itself; re-saving it as JPEG destroys the message.";
 /** The chart's two guides: the chi-square bands (spec §7). */
 const GUIDES = [0.95, 0.5];
 
 type Mode = "analyse" | "embed";
 type Analysis = { finding: ReturnType<typeof stegoFinding>; chi: Array<{ fraction: number; p: number }> };
+/** The last embed's PNG, for Download PNG, and the message it carries. */
+type Saved = { png: Uint8Array; filename: string; message: string };
+
+/** A problem to show as it is, without the "Couldn't hide that" lead-in. */
+class EmbedProblem extends Error {}
 
 const utf8Bytes = (s: string) => new TextEncoder().encode(s).length;
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "image";
+/** A share of the image's low bits as the key shows it. */
+const pct = (x: number): string => (x < 0.01 ? "under 1%" : `${Math.min(100, Math.round(x * 100))}%`);
 /** What share of the image's opaque channels a message of `bytes` (plus its 8-byte header) takes, for the chart's key. */
-function share(bytes: number, channels: number): string {
-  const pct = channels > 0 ? (((8 + bytes) * 8) / channels) * 100 : 100;
-  return pct < 1 ? "under 1%" : `${Math.min(100, Math.round(pct))}%`;
+const share = (bytes: number, channels: number): string => pct(channels > 0 ? ((8 + bytes) * 8) / channels : 1);
+/**
+ * A JPEG by its type or its first two bytes (FF D8), so a misnamed one still warns; a WebP by its type or
+ * its RIFF....WEBP signature. Lossless WebP exists, but a re-save is usually lossy, so it warns either way.
+ */
+function lossyKind(mime: string, b: Uint8Array): keyof typeof LOSSY_NOTE | null {
+  if (mime === "image/jpeg" || (b[0] === 0xff && b[1] === 0xd8)) return "jpeg";
+  const riff = b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46;
+  if (mime === "image/webp" || (riff && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50)) return "webp";
+  return null;
 }
-/** By its type or, failing that, its first two bytes (FF D8), so a misnamed JPEG still warns. */
-const isJpeg = (mime: string, bytes: Uint8Array) => mime === "image/jpeg" || (bytes[0] === 0xff && bytes[1] === 0xd8);
 
 /** Every pin from either panel waits for the one before, so each is placed clear of it. */
 function usePinQueue(deps: PinDeps) {
@@ -50,7 +69,8 @@ function Working() {
 
 /**
  * The chi-square p for each share of the image read, as ten bars from 0 to 1
- * with the two bands marked. Amber only on a finding (a payload, or "consistent").
+ * with the two bands marked. Amber only on a finding (a payload, or "consistent"),
+ * and then only on the bars that read embedded (p 0.95 or more); the rest stay steel.
  */
 function ChiChart(props: { chi: Array<{ fraction: number; p: number }>; lit: boolean; children?: ReactNode }) {
   return (
@@ -70,7 +90,7 @@ function ChiChart(props: { chi: Array<{ fraction: number; p: number }>; lit: boo
             const p = round2(e.p);
             const k = `${Math.round(e.fraction * 100)}%`;
             return (
-              <li key={e.fraction} className="sg-col">
+              <li key={e.fraction} className={`sg-col ${p >= GUIDES[0] ? "hot" : ""}`}>
                 <span className="sg-value num" aria-hidden data-testid="chi-value">
                   {p.toFixed(2)}
                 </span>
@@ -99,8 +119,17 @@ function AnalysePanel(props: { run: Run<Analysis>; channels: number; onPin(): Pr
   const lamp: LampState = run.state === "working" ? "pulse" : run.state === "failed" || lit ? "amber" : "off";
 
   let readout = "RS --";
-  if (f?.detail?.kind === "decode") readout = `${utf8Bytes(f.detail.text)} bytes`;
+  if (f?.bytes !== undefined) readout = `${f.bytes} bytes`;
   else if (f?.detail?.kind === "measurement" && f.detail.value !== null) readout = `RS ${f.detail.value.toFixed(2)}`;
+  // the key says how much reads embedded and, for a message, how little of that it is; only on a
+  // finding, so a clean verdict's chart never says "embedded" (a flat gradient's first bars can read high)
+  const reads = result && lit ? embeddedShare(result.chi) : 0;
+  const filled = f?.bytes !== undefined ? share(f.bytes, props.channels) : null;
+  const embedded = reads >= 1 ? "All of the low bits read embedded" : `The first ${pct(reads)} of the low bits read embedded`;
+  let key = "";
+  if (reads > 0 && filled) key = ` ${embedded}; the message itself fills ${filled}.`;
+  else if (reads > 0) key = ` ${embedded}.`;
+  else if (filled) key = ` The message fills ${filled} of the low bits.`;
 
   return (
     <ToolPanel
@@ -121,7 +150,7 @@ function AnalysePanel(props: { run: Run<Analysis>; channels: number; onPin(): Pr
         <>
           <ChiChart chi={result.chi} lit={lit}>
             Bars near 1: that share&rsquo;s low bits look embedded. Dashed: the 0.50 and 0.95 bands.
-            {f.detail?.kind === "decode" && ` The message fills ${share(utf8Bytes(f.detail.text), props.channels)} of the low bits.`}
+            {key}
           </ChiChart>
           <div className="sg-finding">
             <p className={`sg-verdict ${lit ? "lit" : ""}`}>{f.title}</p>
@@ -143,13 +172,15 @@ function AnalysePanel(props: { run: Run<Analysis>; channels: number; onPin(): Pr
 function EmbedPanel(props: {
   /** Message bytes the image can carry. */
   capacity: number;
-  jpeg: boolean;
+  lossy: keyof typeof LOSSY_NOTE | null;
   message: string;
   onMessage(m: string): void;
   onEmbed(): Promise<void>;
   pinned: number;
+  /** The last pinned PNG, once there is one. */
+  saved: Saved | null;
 }) {
-  const { capacity, message } = props;
+  const { capacity, message, saved } = props;
   const ids = useId();
   const bytes = useMemo(() => utf8Bytes(message), [message]);
   const over = bytes > capacity;
@@ -162,13 +193,15 @@ function EmbedPanel(props: {
     try {
       await props.onEmbed();
     } catch (e) {
-      setProblem(`Couldn't hide that: ${(e as Error).message}`);
+      setProblem(e instanceof EmbedProblem ? e.message : `Couldn't hide that: ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }
   };
 
   const ready = bytes > 0 && !over && !busy;
+  // one lit key (The Next Step Rule): Download PNG while the message is the one just pinned, Hide and pin otherwise
+  const downloadNext = !!saved && saved.message === message && !busy;
   return (
     <ToolPanel id="embed" title="Hide a message" lamp="off">
       {capacity === 0 ? (
@@ -200,12 +233,25 @@ function EmbedPanel(props: {
               {new CapacityError(8 + bytes, 8 + capacity).message}
             </p>
           )}
-          <p className="sg-body">Pins a PNG copy of this photo with the message in its lowest bits.</p>
-          {props.jpeg && <p className="sg-note">{JPEG_NOTE}</p>}
+          <p className="sg-body">
+            Pins a PNG copy of this photo with the message in its lowest bits. {NOT_ENCRYPTED}
+          </p>
+          {props.lossy && <p className="sg-note">{LOSSY_NOTE[props.lossy]}</p>}
           <div className="ik-pin">
-            <HudButton small active={ready} className="with-icon" disabled={!ready} onClick={hide} data-testid="embed-pin">
+            <HudButton small active={ready && !downloadNext} className="with-icon" disabled={!ready} onClick={hide} data-testid="embed-pin">
               <Icon name="stego" size={12} /> Hide and pin
             </HudButton>
+            {saved && (
+              <HudButton
+                small
+                active={downloadNext}
+                className="with-icon"
+                onClick={() => downloadBytes(saved.png, saved.filename, "image/png")}
+                data-testid="embed-download"
+              >
+                <Icon name="export" size={12} /> Download PNG
+              </HudButton>
+            )}
             {!!props.pinned && <span className="plate steel num">{props.pinned > 1 ? `Pinned ×${props.pinned}` : "Pinned"}</span>}
             {problem && (
               <p className="ik-problem" role="alert">
@@ -225,6 +271,7 @@ function Lab(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; mim
   const [mode, setMode] = useState<Mode>("analyse");
   const [message, setMessage] = useState("");
   const [pinned, setPinned] = useState({ analyse: 0, embed: 0 });
+  const [saved, setSaved] = useState<Saved | null>(null);
   const pin = usePinQueue({ store: ctx.store, caseId: ctx.caseId, toolId: ctx.toolId });
   // one linear pass each over the alpha channel, once per photo rather than per mode switch
   const channels = useMemo(() => opaqueChannels(pixels), [pixels]);
@@ -248,21 +295,28 @@ function Lab(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; mim
   const embedAndPin = async () => {
     const text = message;
     const n = utf8Bytes(text);
+    const title = `${source.title} — with hidden message`;
+    const out: { png?: Uint8Array } = {};
     await pin(async () => {
       const stego = embed(pixels, text);
-      const png = await encodeImage(stego, "image/png");
+      const png = (out.png = await encodeImage(stego, "image/png"));
+      // a canvas-noise defence can change pixels on the way out: read the PNG back before pinning it (Ruling P3-R8)
+      const check = await verifyEmbedded(png, text, (b) => decodeImage(new Blob([b as BlobPart], { type: "image/png" })));
+      if (!check.ok) throw new EmbedProblem(check.problem);
       return {
         source,
         image: {
           bytes: png,
           mime: "image/png",
-          title: `${source.title} — with hidden message`,
+          title,
           meta: { stego: "lsb", bytes: n, width: stego.width, height: stego.height },
         },
         finding: { title: `Message hidden (LSB, ${n} bytes)`, body: SHARE_PNG },
       };
     });
     setPinned((p) => ({ ...p, embed: p.embed + 1 }));
+    // the exact bytes that were pinned, for Download PNG (Ruling P3-R7)
+    if (out.png) setSaved({ png: out.png, filename: `${slug(title)}.png`, message: text });
   };
 
   return (
@@ -283,11 +337,12 @@ function Lab(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; mim
       ) : (
         <EmbedPanel
           capacity={capacity}
-          jpeg={isJpeg(props.mime, props.bytes)}
+          lossy={lossyKind(props.mime, props.bytes)}
           message={message}
           onMessage={setMessage}
           onEmbed={embedAndPin}
           pinned={pinned.embed}
+          saved={saved}
         />
       )}
     </>

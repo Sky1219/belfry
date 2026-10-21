@@ -56,7 +56,67 @@ export function channelIndices(p: Pixels, limit: number): Int32Array {
   return out.subarray(0, n);
 }
 
-/** Hides `message` in the LSBs of `p`'s opaque channels. Returns a new image; throws CapacityError if it won't fit. */
+/**
+ * The same stream as `channelIndices`, walked one channel at a time with no
+ * index array, so a full-capacity payload at 24 MP costs no extra 290 MB
+ * (Ruling P3-R9). Each call returns the next index into `data`, or -1 past the end.
+ */
+function channelStream(p: Pixels): () => number {
+  let pos = 0; // start of the current pixel in p.data
+  let ch = 0; // next channel (0-2) within that pixel
+  return () => {
+    if (ch === 0) while (pos < p.data.length && p.data[pos + 3] !== 255) pos += 4;
+    if (pos >= p.data.length) return -1;
+    const i = pos + ch;
+    if (++ch === 3) {
+      ch = 0;
+      pos += 4;
+    }
+    return i;
+  };
+}
+
+/** Reads `n` bytes, MSB-first, from the LSBs of the stream's next n x 8 channels. The caller checks they exist. */
+function readBytes(p: Pixels, next: () => number, n: number): Uint8Array {
+  const out = new Uint8Array(n);
+  for (let bit = 0; bit < n * 8; bit++) out[bit >> 3] |= (p.data[next()] & 1) << (7 - (bit & 7));
+  return out;
+}
+
+/** Writes `bytes`, MSB-first, into the LSBs of `p` along the stream. The caller checks the room. */
+function writeBytes(p: Pixels, bytes: Uint8Array): void {
+  const next = channelStream(p);
+  for (let bit = 0; bit < bytes.length * 8; bit++) {
+    const i = next();
+    p.data[i] = (p.data[i] & 0xfe) | ((bytes[bit >> 3] >> (7 - (bit & 7))) & 1);
+  }
+}
+
+/** `n` bytes from the platform's secure generator, in the 64 KB pieces it allows per call. */
+function randomBytes(n: number): Uint8Array {
+  const out = new Uint8Array(n);
+  for (let at = 0; at < n; at += 65536) crypto.getRandomValues(out.subarray(at, Math.min(n, at + 65536)));
+  return out;
+}
+
+/**
+ * Reads the header along `next`: the payload length when the magic matches and
+ * the length fits the image, else null. `next` is left at the payload's first bit.
+ */
+function readHeader(p: Pixels, next: () => number): number | null {
+  const total = opaqueChannels(p);
+  if (total < HEADER_BYTES * 8) return null;
+  const head = readBytes(p, next, HEADER_BYTES);
+  for (let i = 0; i < MAGIC.length; i++) if (head[i] !== MAGIC[i]) return null;
+  const length = new DataView(head.buffer).getUint32(4);
+  return length > Math.floor(total / 8) - HEADER_BYTES ? null : length;
+}
+
+/**
+ * Hides `message` in the LSBs of `p`'s opaque channels. Returns a new image; throws CapacityError if it won't fit.
+ * When `p` already carries a message, its header and payload bits are first overwritten with random bits,
+ * so a shorter new message can't leave the old one's tail readable (Ruling P3-R12).
+ */
 export function embed(p: Pixels, message: string): Pixels {
   const payload = new TextEncoder().encode(message);
   // both sides count the header, so an image too small for the header alone fails here too
@@ -69,38 +129,40 @@ export function embed(p: Pixels, message: string): Pixels {
   bytes.set(payload, HEADER_BYTES);
 
   const out: Pixels = { width: p.width, height: p.height, data: p.data.slice() };
-  const idx = channelIndices(p, bytes.length * 8);
-  for (let bit = 0; bit < idx.length; bit++) {
-    const b = (bytes[bit >> 3] >> (7 - (bit & 7))) & 1;
-    out.data[idx[bit]] = (out.data[idx[bit]] & 0xfe) | b;
-  }
+  const old = readHeader(p, channelStream(p));
+  if (old !== null) writeBytes(out, randomBytes(HEADER_BYTES + old));
+  writeBytes(out, bytes);
   return out;
 }
 
 /** Reads a Belfry LSB message back, or null when `p` doesn't carry a well-formed one. */
 export function extract(p: Pixels): string | null {
-  const total = opaqueChannels(p);
-  if (total < HEADER_BYTES * 8) return null;
-
-  const readBytes = (idx: Int32Array): Uint8Array => {
-    const bytes = new Uint8Array(idx.length >> 3);
-    for (let bit = 0; bit < bytes.length * 8; bit++) {
-      bytes[bit >> 3] |= (p.data[idx[bit]] & 1) << (7 - (bit & 7));
-    }
-    return bytes;
-  };
-
-  const head = readBytes(channelIndices(p, HEADER_BYTES * 8));
-  for (let i = 0; i < MAGIC.length; i++) if (head[i] !== MAGIC[i]) return null;
-  const length = new DataView(head.buffer).getUint32(4);
-  if (length > Math.floor(total / 8) - HEADER_BYTES) return null;
-
-  const all = readBytes(channelIndices(p, (HEADER_BYTES + length) * 8));
+  const next = channelStream(p);
+  const length = readHeader(p, next);
+  if (length === null) return null;
   try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(all.subarray(HEADER_BYTES));
+    return new TextDecoder("utf-8", { fatal: true }).decode(readBytes(p, next, length));
   } catch {
     return null;
   }
+}
+
+/** Shown, verbatim, when the saved PNG doesn't read back the message (Ruling P3-R8). */
+export const LOST_IN_SAVE =
+  "This browser changed the picture while saving it, so the message did not survive. Try another browser, or turn off fingerprinting protection for this page.";
+
+/**
+ * Decodes the saved PNG and reads its message back. Canvas-noise defences
+ * (Brave, Safari Private, Firefox's fingerprinting resistance) nudge pixels as
+ * they're read out, which silently destroys a message; this catches that
+ * before the PNG is pinned. `decode` is the browser's image decoder.
+ */
+export async function verifyEmbedded(
+  png: Uint8Array,
+  message: string,
+  decode: (png: Uint8Array) => Promise<Pixels>,
+): Promise<{ ok: true } | { ok: false; problem: string }> {
+  return extract(await decode(png)) === message ? { ok: true } : { ok: false, problem: LOST_IN_SAVE };
 }
 
 /** One draw of a standard normal from the seeded generator (Box-Muller). */

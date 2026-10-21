@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { collectErrors, skipDemo } from "./helpers";
 
@@ -21,9 +22,9 @@ async function runDemo(page: Page) {
   await expect(page.getByTestId("panel-analyse")).toContainText("LSB payload found", { timeout: 30_000 });
 }
 
-/** A 64 × 64 noisy JPEG, made in the page: 4096 opaque pixels hold 1528 message bytes. */
-async function noisyJpeg(page: Page): Promise<Buffer> {
-  const b64 = await page.evaluate(() => {
+/** A 64 × 64 noisy JPEG (or WebP), made in the page: 4096 opaque pixels hold 1528 message bytes. */
+async function noisyJpeg(page: Page, type = "image/jpeg"): Promise<Buffer> {
+  const b64 = await page.evaluate((type) => {
     const c = document.createElement("canvas");
     c.width = c.height = 64;
     const g = c.getContext("2d")!;
@@ -33,8 +34,8 @@ async function noisyJpeg(page: Page): Promise<Buffer> {
       img.data.set([v, v + 10, v + 20, 255], i);
     }
     g.putImageData(img, 0, 0);
-    return c.toDataURL("image/jpeg", 0.9).split(",")[1];
-  });
+    return c.toDataURL(type, 0.9).split(",")[1];
+  }, type);
   return Buffer.from(b64, "base64");
 }
 
@@ -65,6 +66,16 @@ test("demo image: the hidden message is found and pinned as a decode", async ({ 
   await expect(analyse.getByTestId("chi-value").first()).toHaveText(/^[01]\.\d\d$/);
   await expect(analyse.getByTestId("chi-chart")).toHaveAttribute("data-lit", "true");
 
+  // the demo's first 60% of low bits are random (Ruling P3-R11): those bars read embedded and burn amber, the rest stay steel
+  for (let i = 0; i < 6; i++) await expect(bars.nth(i)).toHaveAttribute("aria-label", /p (0\.9[5-9]|1\.00)$/);
+  for (let i = 6; i < 10; i++) await expect(bars.nth(i)).toHaveAttribute("aria-label", /p 0\.([0-8]\d|9[0-4])$/);
+  const fill = (i: number) => bars.nth(i).evaluate((el) => getComputedStyle(el).backgroundColor);
+  const amber = await fill(0);
+  expect(await fill(5)).toBe(amber);
+  expect(await fill(6)).not.toBe(amber);
+  expect(await fill(9)).toBe(await fill(6));
+  await expect(analyse.getByTestId("chi-chart")).toContainText("The first 60% of the low bits read embedded; the message itself fills under 1%.");
+
   await page.getByTestId("pin-analyse").click();
   await expect(analyse).toContainText("Pinned");
   await page.getByTestId("tool-close").click();
@@ -75,6 +86,8 @@ test("demo image: the hidden message is found and pinned as a decode", async ({ 
   await expect(page.locator(".react-flow__edge.link-derived-from")).toHaveCount(1);
   const finding = cards.filter({ hasText: "Hidden data: LSB payload found" });
   await expect(finding.getByTestId("finding-readout")).toHaveText(`LSB · ${DEMO_MESSAGE}`);
+  // a long decode can't take over the card: the readout is clamped to 4 lines (Ruling P3-R9)
+  await expect(finding.getByTestId("finding-readout")).toHaveCSS("-webkit-line-clamp", "4");
 
   expect(errors()).toEqual([]);
 });
@@ -93,8 +106,25 @@ test("embedding writes a PNG derived from the source, and it reads back", async 
   await expect(embed).not.toContainText("Saved as PNG");
   await page.getByTestId("embed-message").fill("Meet at the belfry");
   await expect(page.getByTestId("embed-capacity")).toHaveText("18 of 73720 bytes");
+  await expect(embed).toContainText("Anyone who knows to look can read it; it isn't encrypted.");
+  await expect(page.getByTestId("embed-download")).toHaveCount(0);
   await page.getByTestId("embed-pin").click();
   await expect(embed).toContainText("Pinned", { timeout: 20_000 });
+
+  // the PNG's way out: Download PNG is now the lit next step, and saves the exact PNG (Ruling P3-R7)
+  const download = page.getByTestId("embed-download");
+  await expect(download).toHaveText("Download PNG");
+  await expect(download).toHaveClass(/active/);
+  await expect(page.getByTestId("embed-pin")).not.toHaveClass(/active/);
+  const [file] = await Promise.all([page.waitForEvent("download"), download.click()]);
+  expect(file.suggestedFilename()).toBe("demo-image-harbour-with-hidden-message.png");
+  const saved = await readFile((await file.path())!);
+  expect([...saved.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  // editing the message makes hiding it the next step again
+  await page.getByTestId("embed-message").fill("Meet at the belfry at ten");
+  await expect(page.getByTestId("embed-pin")).toHaveClass(/active/);
+  await expect(download).not.toHaveClass(/active/);
+  await page.getByTestId("embed-message").fill("Meet at the belfry");
   await page.getByTestId("tool-close").click();
 
   // the demo, the new image (→ demo) and its finding (→ image)
@@ -185,6 +215,47 @@ test("a JPEG source warns before embedding, and over capacity says so exactly", 
   await page.getByTestId("send-to-stego-lab").click();
   await expect(page.getByTestId("panel-analyse")).toContainText("LSB payload found", { timeout: 30_000 });
   await expect(page.getByTestId("panel-analyse")).toContainText(secret);
+
+  expect(errors()).toEqual([]);
+});
+
+test("a WebP source warns, and a browser that changes the picture while saving refuses to pin", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = collectErrors(page);
+  // a canvas-noise defence, as Brave or Safari Private apply: once armed, every read-out nudges some low bits
+  await page.addInitScript(() => {
+    const read = OffscreenCanvasRenderingContext2D.prototype.getImageData;
+    OffscreenCanvasRenderingContext2D.prototype.getImageData = function (...args: Parameters<typeof read>) {
+      const img = read.apply(this, args);
+      if ((globalThis as { canvasNoise?: boolean }).canvasNoise) for (let i = 0; i < 400; i += 4) img.data[i] ^= 1;
+      return img;
+    };
+  });
+  await openCaseBoard(page, "Sticker Case");
+
+  await page.getByTestId("open-tool-stego-lab").click();
+  await expect(page.getByTestId("no-signal")).toBeVisible();
+  await page.getByTestId("no-signal-file-input").setInputFiles({ name: "sticker.webp", mimeType: "image/webp", buffer: await noisyJpeg(page, "image/webp") });
+  await expect(page.getByTestId("panel-analyse")).toContainText("Hidden data:", { timeout: 30_000 });
+
+  await page.getByTestId("mode-embed").click();
+  const embed = page.getByTestId("panel-embed");
+  await expect(embed).toContainText("Saved as PNG: a lossy WebP save would erase the message.");
+  await expect(embed).not.toContainText("a JPEG save");
+
+  await page.evaluate(() => ((globalThis as { canvasNoise?: boolean }).canvasNoise = true));
+  await page.getByTestId("embed-message").fill("Under the east bracket");
+  await page.getByTestId("embed-pin").click();
+  await expect(embed.getByRole("alert")).toHaveText(
+    "This browser changed the picture while saving it, so the message did not survive. Try another browser, or turn off fingerprinting protection for this page.",
+    { timeout: 20_000 },
+  );
+  await expect(embed).not.toContainText("Pinned");
+  await expect(page.getByTestId("embed-download")).toHaveCount(0);
+  await page.getByTestId("tool-close").click();
+  // only the source is on the board: nothing was pinned
+  await expect(page.getByTestId("board")).toBeVisible();
+  await expect(page.locator(".react-flow__node")).toHaveCount(1);
 
   expect(errors()).toEqual([]);
 });

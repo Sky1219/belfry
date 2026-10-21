@@ -812,7 +812,8 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-/* a finding's measured value, place or decode: an amber readout, mono so digits line up */
+/* a finding's measured value, place or decode: an amber readout, mono so digits line up;
+   a long decoded message is clamped so it can't take over the card (the full text stays in the image) */
 .card-readout {
   margin: 0;
   font-family: var(--font-data);
@@ -820,6 +821,10 @@
   font-weight: 600;
   color: var(--amber);
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .evidence-card.compact .card-readout {
   font-size: 20px;

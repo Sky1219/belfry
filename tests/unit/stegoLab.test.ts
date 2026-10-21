@@ -3,7 +3,7 @@ import { ops } from "../../src/platform/workers/ops";
 import { makePixels } from "../../src/tools/imagekit/pixels";
 import { forensicsDemoPixels } from "../../src/tools/photo/demo";
 import { stegoDemoPixels } from "../../src/tools/stego/demo";
-import { stegoFinding } from "../../src/tools/stego/finding";
+import { embeddedShare, stegoFinding } from "../../src/tools/stego/finding";
 import { DEMO_MESSAGE, embed, syntheticCover } from "../../src/tools/stego/lsb";
 import { stegoManifest } from "../../src/tools/stego/manifest";
 
@@ -35,6 +35,25 @@ describe("stego lab", () => {
     const f = stegoFinding(r);
     expect(f.verdict).toBe("payload");
     expect(f.detail).toEqual({ kind: "decode", scheme: "LSB", text: DEMO_MESSAGE });
+  });
+
+  it("the demo shows both detectors working: the first 60% reads embedded, then the cliff, and RS sees it (Ruling P3-R11)", () => {
+    const r = ops.stegoAnalyse(stegoDemoPixels());
+    for (const e of r.chi) {
+      if (e.fraction <= 0.6 + 1e-9) expect(e.p, `k ${e.fraction}`).toBeGreaterThanOrEqual(0.95);
+      else expect(e.p, `k ${e.fraction}`).toBeLessThan(0.5);
+    }
+    expect(embeddedShare(r.chi)).toBeCloseTo(0.6, 9);
+    expect(r.rs.rate).not.toBeNull();
+    expect(r.rs.rate!).toBeGreaterThanOrEqual(0.3);
+  });
+
+  it("embeddedShare is the leading run of bars that read embedded (rounded p 0.95 or more)", () => {
+    const bars = (ps: number[]) => ps.map((p, i) => ({ fraction: (i + 1) / ps.length, p }));
+    expect(embeddedShare(bars([0.01, 0.99, 1, 1]))).toBe(0);
+    expect(embeddedShare(bars([0.946, 0.99, 0.2, 1]))).toBe(0.5);
+    expect(embeddedShare(bars([1, 1, 1, 1]))).toBe(1);
+    expect(embeddedShare([])).toBe(0);
   });
 
   it("reads a message hidden in a photographic scene, accents and all", () => {

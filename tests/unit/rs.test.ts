@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { forensicsDemoPixels } from "../../src/tools/photo/demo";
-import { makePixels, type Pixels } from "../../src/tools/imagekit/pixels";
+import { downscale, makePixels, type Pixels } from "../../src/tools/imagekit/pixels";
 import { mulberry32 } from "../../src/tools/imagekit/rng";
 import { DEMO_MESSAGE, embed, extract, randomEmbed, syntheticCover } from "../../src/tools/stego/lsb";
 import { rsAnalysis } from "../../src/tools/stego/rs";
@@ -8,6 +8,7 @@ import { stegoFinding } from "../../src/tools/stego/finding";
 import { chiSquareAttack } from "../../src/tools/stego/stats";
 
 const LIMIT = "Only detects sequential LSB embedding. Absence of a signal isn't proof of a clean image.";
+const FLAT = "Text, screenshots, flat graphics and small images can read this high with no hidden message.";
 const CLEAN_CHI = [{ fraction: 1, p: 0.01 }];
 
 describe("rsAnalysis", () => {
@@ -39,6 +40,35 @@ describe("rsAnalysis", () => {
     expect(rsAnalysis(makePixels(0, 0)).rate).toBeNull();
   });
 
+  it("skips groups touching 0, 1, 254 or 255: a saturated image gives no estimate (Ruling P3-R6)", () => {
+    const sat = makePixels(64, 64);
+    const rnd = mulberry32(3);
+    for (let i = 0; i < sat.data.length; i += 4) {
+      for (let c = 0; c < 3; c++) sat.data[i + c] = [0, 1, 254, 255][Math.floor(rnd() * 4)];
+      sat.data[i + 3] = 255;
+    }
+    expect(rsAnalysis(sat).rate).toBeNull();
+  });
+
+  it("averages the channels that have enough unsaturated groups", () => {
+    // red and green are pinned at 255, blue carries the fully embedded cover: only blue may speak
+    const full = randomEmbed(cover, 1, 9);
+    const one: Pixels = { width: full.width, height: full.height, data: full.data.slice() };
+    for (let i = 0; i < one.data.length; i += 4) one.data[i] = one.data[i + 1] = 255;
+    const { rate } = rsAnalysis(one);
+    expect(rate).not.toBeNull();
+    expect(rate!).toBeGreaterThanOrEqual(0.8);
+  });
+
+  it("is null when every channel's equation fails, and the chi-square p still decides (Ruling P3-R4)", () => {
+    const full = randomEmbed(syntheticCover(1), 1, 9);
+    const rs = rsAnalysis(full);
+    expect(rs.rate).toBeNull();
+    const f = stegoFinding({ payload: null, chi: chiSquareAttack(full), rs });
+    expect(f.verdict).toBe("consistent");
+    expect(f.detail).toMatchObject({ kind: "measurement", value: null });
+  });
+
   it("is null or finite, never NaN, for a flat image", () => {
     const { rate } = rsAnalysis(makePixels(64, 64, [90, 90, 90, 255]));
     expect(rate === null || Number.isFinite(rate)).toBe(true);
@@ -68,19 +98,55 @@ describe("stegoFinding", () => {
     expect(f.body.endsWith(LIMIT)).toBe(true);
   });
 
-  it("chi-square p 0.99 at 100% reads consistent, with the rate as a measurement", () => {
+  it("a payload over 4 KB shows its first 4096 bytes, says so, and keeps its full size (Ruling P3-R9)", () => {
+    const long = "é".repeat(3000) + "tail"; // 6004 bytes; byte 4096 falls inside no character (2-byte é)
+    const f = stegoFinding({ payload: long, chi: CLEAN_CHI, rs: { rate: 0 } });
+    expect(f.verdict).toBe("payload");
+    expect(f.bytes).toBe(6004);
+    expect(f.detail).toEqual({ kind: "decode", scheme: "LSB", text: "é".repeat(2048) });
+    expect(f.body).toContain("A Belfry LSB message of 6004 bytes was read from the image. 6004 bytes; showing the first 4 KB.");
+    expect(f.body.endsWith(LIMIT)).toBe(true);
+    // a character split at the cut is left out whole, never shown as U+FFFD
+    const odd = stegoFinding({ payload: "a" + "é".repeat(3000), chi: CLEAN_CHI, rs: { rate: 0 } });
+    expect(odd.detail).toEqual({ kind: "decode", scheme: "LSB", text: "a" + "é".repeat(2047) });
+    // at exactly 4096 bytes nothing is cut and there is no note
+    const exact = stegoFinding({ payload: "x".repeat(4096), chi: CLEAN_CHI, rs: { rate: 0 } });
+    expect(exact.detail).toMatchObject({ text: "x".repeat(4096) });
+    expect(exact.body).not.toContain("showing the first");
+  });
+
+  it("chi-square p 0.99 at 100% reads consistent, with the rate as an estimate and no uncertainty (Ruling P3-R10)", () => {
     const f = stegoFinding({ payload: null, chi: [{ fraction: 1, p: 0.99 }], rs: { rate: 0.4 } });
     expect(f.title).toBe("Hidden data: consistent with sequential LSB embedding");
     expect(f.verdict).toBe("consistent");
-    expect(f.detail).toEqual({ kind: "measurement", value: 0.4, unit: "of capacity", uncertainty: 0.05, decimals: 2 });
-    expect(f.body).toContain("0.99");
+    expect(f.detail).toEqual({ kind: "measurement", value: 0.4, unit: "of capacity (estimate)", decimals: 2 });
+    expect(f.body).toContain("Chi-square p at 100% of the image's low bits: 0.99.");
     expect(f.body).toContain("0.40");
+    expect(f.body).toContain("The RS estimate reads low for sequential embedding.");
+    expect(f.body).not.toContain(FLAT);
     expect(f.body.endsWith(LIMIT)).toBe(true);
   });
 
-  it("an RS estimate of 0.10 or more reads consistent on its own", () => {
+  it("RS alone reaches at most inconclusive, and says flat graphics read high (Ruling P3-R6)", () => {
     const f = stegoFinding({ payload: null, chi: CLEAN_CHI, rs: { rate: 0.3 } });
-    expect(f.verdict).toBe("consistent");
+    expect(f.verdict).toBe("inconclusive");
+    expect(f.title).toBe("Hidden data: inconclusive");
+    expect(f.body.endsWith(`${FLAT} ${LIMIT}`)).toBe(true);
+    expect(stegoFinding({ payload: null, chi: CLEAN_CHI, rs: { rate: 1 } }).verdict).toBe("inconclusive");
+  });
+
+  it("the chi-square p at the first 10% alone doesn't read consistent (k = 10% not adopted)", () => {
+    const chi = [
+      { fraction: 0.1, p: 1 },
+      { fraction: 1, p: 0 },
+    ];
+    expect(stegoFinding({ payload: null, chi, rs: { rate: 0.01 } }).verdict).toBe("no-sign");
+  });
+
+  it("a middle-band chi-square p with a high RS reads inconclusive without the flat-graphics line", () => {
+    const f = stegoFinding({ payload: null, chi: [{ fraction: 1, p: 0.6 }], rs: { rate: 0.2 } });
+    expect(f.verdict).toBe("inconclusive");
+    expect(f.body).not.toContain(FLAT);
   });
 
   it("the middle bands read inconclusive", () => {
@@ -98,11 +164,11 @@ describe("stegoFinding", () => {
     expect(f.body.endsWith(LIMIT)).toBe(true);
   });
 
-  it("bands on the displayed numbers: p-hat 0.096 shows 0.10 and is consistent", () => {
-    const f = stegoFinding({ payload: null, chi: CLEAN_CHI, rs: { rate: 0.096 } });
-    expect(f.verdict).toBe("consistent");
-    expect(f.body).toContain("0.10");
-    expect(f.detail).toMatchObject({ value: 0.1 });
+  it("bands on the displayed numbers: p-hat 0.046 shows 0.05 and is inconclusive", () => {
+    const f = stegoFinding({ payload: null, chi: CLEAN_CHI, rs: { rate: 0.046 } });
+    expect(f.verdict).toBe("inconclusive");
+    expect(f.body).toContain("0.05");
+    expect(f.detail).toMatchObject({ value: 0.05 });
   });
 
   it("bands on the displayed numbers: p-hat 0.044 shows 0.04 and is no sign", () => {
@@ -121,7 +187,7 @@ describe("stegoFinding", () => {
   it("a null rate shows -- and lets the chi-square p decide", () => {
     const clean = stegoFinding({ payload: null, chi: CLEAN_CHI, rs: { rate: null } });
     expect(clean.verdict).toBe("no-sign");
-    expect(clean.detail).toEqual({ kind: "measurement", value: null, unit: "of capacity" });
+    expect(clean.detail).toEqual({ kind: "measurement", value: null, unit: "of capacity (estimate)" });
     expect(clean.body).toContain("--");
     const hit = stegoFinding({ payload: null, chi: [{ fraction: 1, p: 0.99 }], rs: { rate: null } });
     expect(hit.verdict).toBe("consistent");
@@ -138,6 +204,38 @@ describe("stegoFinding", () => {
       rs: { rate: 0 },
     });
     expect(f.verdict).toBe("no-sign");
+  });
+});
+
+/** Black glyph bars on white: lines of text-like strokes in two levels only, like a crisp text render. */
+function textLike(w: number, h: number, seed: number): Pixels {
+  const p = makePixels(w, h, [255, 255, 255, 255]);
+  const rnd = mulberry32(seed);
+  for (let base = 46; base < h - 20; base += 26) {
+    for (let x = 40; x < w - 40; ) {
+      const gw = 1 + Math.floor(rnd() * 3);
+      const gh = 6 + Math.floor(rnd() * 10);
+      for (let y = base - gh; y < base; y++) {
+        for (let xx = x; xx < x + gw; xx++) p.data.fill(0, (y * w + xx) * 4, (y * w + xx) * 4 + 3);
+      }
+      x += gw + 1 + Math.floor(rnd() * 3) + (rnd() < 0.15 ? 5 : 0);
+    }
+  }
+  return p;
+}
+
+describe("embedded covers still read through the chi-square p (Ruling P3-R6)", () => {
+  const read = (p: Pixels) => stegoFinding({ payload: extract(p), chi: chiSquareAttack(p), rs: rsAnalysis(p) });
+
+  it("random embedding at 100% reads consistent", () => {
+    expect(read(randomEmbed(syntheticCover(5), 1, 9)).verdict).toBe("consistent");
+  });
+
+  it("random embedding at 50% reads inconclusive: chi at 100% is low, and RS alone can't reach consistent", () => {
+    // k = 10% would make this consistent, but it read two clean inputs as embedded (see the final-fix report)
+    const f = read(randomEmbed(syntheticCover(5), 0.5, 9));
+    expect(f.verdict).toBe("inconclusive");
+    expect(f.body).toContain(FLAT);
   });
 });
 
@@ -176,6 +274,16 @@ describe("clean inputs read no sign (end to end)", () => {
     }
     const r = analyse(p);
     expect(r, JSON.stringify(r)).toMatchObject({ title: NO_SIGN });
+  });
+
+  it("a 320 px box-downscale of the plan 1 demo photo", () => {
+    const r = analyse(downscale(forensicsDemoPixels().pixels, 320));
+    expect(r, JSON.stringify(r)).toMatchObject({ title: NO_SIGN });
+  });
+
+  it("a two-level text-like graphic (black glyph bars on white, 800 x 600) doesn't read consistent", () => {
+    const r = analyse(textLike(800, 600, 1));
+    expect(r.title, JSON.stringify(r)).not.toBe("Hidden data: consistent with sequential LSB embedding");
   });
 
   it("an image holding the demo message reads as a payload", () => {

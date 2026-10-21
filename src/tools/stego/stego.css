@@ -69,7 +69,8 @@
   background: var(--ink-dim);
   border-radius: 1px 1px 0 0;
 }
-.sg-bars.lit .sg-fill {
+/* and then only on the bars that read embedded: past the payload's end they stay steel */
+.sg-bars.lit .sg-col.hot .sg-fill {
   background: var(--amber);
 }
 /* the guides sit over the tracks only: below the value row, above the share row */
@@ -135,17 +136,15 @@
   max-height: 12em;
   overflow-y: auto;
 }
-.sg-body,
-.sg-note {
+.sg-body {
   margin: 0;
   font-size: 13px;
   line-height: 1.45;
   color: var(--ink-dim);
   overflow-wrap: anywhere;
 }
-.sg-note {
-  color: var(--amber);
-}
+/* a warning before the act (a lossy source) and a problem after it read alike */
+.sg-note,
 .sg-problem {
   margin: 0;
   font-size: 13px;

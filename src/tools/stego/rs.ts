@@ -4,6 +4,12 @@ import type { Pixels } from "../imagekit/pixels";
 const GROUP = 4;
 /** Fewer groups than this per channel and the counts are too thin to trust. */
 const MIN_GROUPS = 64;
+/**
+ * A group touching 0-1 or 254-255 is skipped: at the ends of the range a flip
+ * can't move both ways, so clipped highlights, black text on white and flat
+ * fills skew the counts towards "embedded" (Ruling P3-R6).
+ */
+const saturated = (v: number): boolean => v <= 1 || v >= 254;
 
 /** F1 swaps 2n and 2n+1. */
 const flipUp = (v: number): number => v ^ 1;
@@ -61,9 +67,11 @@ function solve(orig: Int32Array, flipped: Int32Array, groups: number): number | 
 /**
  * RS steganalysis (Fridrich, Goljan & Du): estimates the share of the capacity
  * that sequential LSB embedding has filled. Each of R, G, B is read in
- * row-wise groups of 4 opaque values; the three estimates are averaged.
- * `rate` is null when a channel has fewer than 64 groups, or no channel's
- * equation has a real root.
+ * row-wise groups of 4 opaque values, skipping groups with a saturated value.
+ * A channel with fewer than 64 such groups, or whose equation has no real
+ * root, is left out (Ruling P3-R4) and the rest are averaged; `rate` is null
+ * when every channel is left out. The estimate reads low for sequential
+ * embedding on real photos, so it is never a verdict on its own.
  */
 export function rsAnalysis(p: Pixels): { rate: number | null } {
   const estimates: number[] = [];
@@ -81,13 +89,14 @@ export function rsAnalysis(p: Pixels): { rate: number | null } {
         g[n] = p.data[i + c];
         if (++n < GROUP) continue;
         n = 0;
+        if (saturated(g[0]) || saturated(g[1]) || saturated(g[2]) || saturated(g[3])) continue;
         groups++;
         classify(g[0], g[1], g[2], g[3], orig);
         // the same group with every LSB flipped
         classify(g[0] ^ 1, g[1] ^ 1, g[2] ^ 1, g[3] ^ 1, flipped);
       }
     }
-    if (groups < MIN_GROUPS) return { rate: null };
+    if (groups < MIN_GROUPS) continue;
     const est = solve(orig, flipped, groups);
     if (est !== null) estimates.push(est);
   }
