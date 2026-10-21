@@ -31,7 +31,11 @@ export type IconName =
   | "play"
   | "pause"
   | "instruments"
-  | "gauge";
+  | "gauge"
+  | "forensics"
+  | "fingerprint"
+  | "stego"
+  | "sun";
 
 const PATHS: Record<IconName, string> = {
   // a sheet with a folded corner and two ruled lines
@@ -78,6 +82,14 @@ const PATHS: Record<IconName, string> = {
   // three stacked screens: the instrument column
   // a dial with its needle: the instrument column
   gauge: "M1.75 11.5a6.25 6.25 0 0 1 12.5 0 M8 11.5l3.25-3.75 M3.6 7.4l.9.7 M8 5.25v1.25 M12.4 7.4l-.9.7 M1.75 13.75h12.5",
+  // a magnifier held over a photo frame: forensics
+  forensics: "M1.75 2.25h9v7.5h-9z M10 6.5a3 3 0 1 1 0 6 3 3 0 0 1 0-6z M12.25 11.75l2.5 2.5",
+  // concentric arcs: the ridges of a print
+  fingerprint: "M2.25 12.5V8a5.75 5.75 0 0 1 11.5 0v1 M4.75 13.5V8a3.25 3.25 0 0 1 6.5 0v3 M7.25 14V8a.75.75 0 0 1 1.5 0v4.5",
+  // a frame holding a grid of dots: a message hidden in the pixels
+  stego: "M1.75 1.75h12.5v12.5H1.75z M5 5h.01 M8 5h.01 M11 5h.01 M5 8h.01 M8 8h.01 M11 8h.01 M5 11h.01 M8 11h.01 M11 11h.01",
+  // a disc with eight rays: exposure and light
+  sun: "M8 5.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z M8 1.5v2 M8 12.5v2 M1.5 8h2 M12.5 8h2 M3.4 3.4l1.4 1.4 M11.2 11.2l1.4 1.4 M12.6 3.4l-1.4 1.4 M4.8 11.2l-1.4 1.4",
   instruments: "M2.25 1.75h11.5v3.5H2.25z M2.25 6.25h11.5v3.5H2.25z M2.25 10.75h11.5v3.5H2.25z M4.5 3.5h.01 M4.5 8h.01 M4.5 12.5h.01",
 };
 

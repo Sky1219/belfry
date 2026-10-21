@@ -62,7 +62,7 @@ export function ToolHost(props: { caseId: string; toolId: string; input: string;
 
   const ctx: ToolContext | null =
     state.phase === "ready"
-      ? { caseId: props.caseId, input: state.input, store, llm, settings, updateSettings: update, openInput, close }
+      ? { caseId: props.caseId, toolId: props.toolId, input: state.input, store, llm, settings, updateSettings: update, openInput, close }
       : null;
 
   return (

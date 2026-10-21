@@ -127,6 +127,7 @@ function useBoardExtensions(route: Route, navigate: (r: Route) => void): BoardEx
         id: t.id,
         name: t.name,
         blurb: t.blurb,
+        icon: t.icon,
         open: () => open(t.id, defaultInput(t)),
       })),
     };

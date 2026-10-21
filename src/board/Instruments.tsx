@@ -143,7 +143,7 @@ export function ToolsScreen(props: { tools: BoardTool[] }) {
             <span className="lamp ok" aria-hidden />
             <span className="rack-name">{t.name}</span>
             <HudButton small className="with-icon" onClick={t.open} data-testid={`rack-open-${t.id}`} aria-description={t.blurb}>
-              <Icon name="vision" size={12} /> Open
+              <Icon name={t.icon ?? "vision"} size={12} /> Open
             </HudButton>
           </li>
         ))}

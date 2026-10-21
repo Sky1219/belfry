@@ -3,6 +3,7 @@ import type { Settings } from "../app/settings";
 import type { LlmClient } from "../platform/llm";
 import type { Evidence } from "../store/schema";
 import type { EvidenceStore } from "../store/store";
+import type { IconName } from "../ui/icons";
 
 /** What a tool can be pointed at. */
 export type EvidenceInput = "live-camera" | "image" | "video" | "audio";
@@ -15,6 +16,8 @@ export type ToolInput = { kind: "live-camera" } | { kind: "demo" } | { kind: "ev
 
 export interface ToolContext {
   caseId: string;
+  /** The running tool's manifest id, for provenance on what it pins. */
+  toolId: string;
   input: ToolInput;
   store: EvidenceStore;
   llm: LlmClient;
@@ -37,6 +40,8 @@ export interface ToolManifest {
   name: string;
   /** One-line description shown in menus. */
   blurb?: string;
+  /** The tool's glyph on the board's buttons; "vision" when omitted. */
+  icon?: IconName;
   accepts: EvidenceInput[];
   /** The tool's synthetic input, run when the input is `{ kind: "demo" }`. Required: every tool works for a visitor with nothing to point it at. */
   demo: { label: string };

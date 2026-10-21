@@ -46,6 +46,8 @@ export interface BoardTool {
   id: string;
   name: string;
   blurb?: string;
+  /** The tool's glyph; "vision" when omitted. */
+  icon?: IconName;
   open(): void;
 }
 
@@ -523,7 +525,7 @@ function BoardInner({
       onClick={t.open}
       aria-description={t.blurb}
     >
-      <Icon name="vision" size={14} /> <span className="btn-text">{t.name}</span> <span className="btn-short">{t.name.split(" ").pop()}</span>
+      <Icon name={t.icon ?? "vision"} size={14} /> <span className="btn-text">{t.name}</span> <span className="btn-short">{t.name.split(" ").pop()}</span>
     </HudButton>
   );
 
