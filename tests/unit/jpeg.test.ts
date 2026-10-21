@@ -134,13 +134,53 @@ describe("double quantization score", () => {
     expect(dqScoreFromHistograms([])).toBeNull();
   });
 
-  it("scores pixels: null without a whole block, in range with some", () => {
-    const luma = ijgTable(IJG_LUMA, 75);
-    expect(dqScore(new Float32Array(49), 7, 7, luma)).toBeNull();
-    const rnd = mulberry32(3);
-    const gray = Float32Array.from({ length: 64 * 64 }, () => rnd() * 255);
-    const s = dqScore(gray, 64, 64, luma);
-    expect(s === null || (s >= 0 && s <= 1)).toBe(true);
+  it("scores nothing without a whole 8x8 block", () => {
+    expect(dqScore(new Float32Array(49), 7, 7, ijgTable(IJG_LUMA, 75))).toBeNull();
+  });
+});
+
+/**
+ * A size x size image whose every 8x8 block is the inverse DCT of seeded
+ * Laplacian coefficients (b = 12) pushed through the given quantization steps
+ * in order, plus 128. Pixels stay unrounded so only the quantization is measured.
+ */
+function quantizedImage(size: number, steps: Uint16Array[], seed = 5): Float32Array {
+  const rnd = mulberry32(seed);
+  const gray = new Float32Array(size * size);
+  for (let by = 0; by < size / 8; by++) {
+    for (let bx = 0; bx < size / 8; bx++) {
+      const coeffs = Float64Array.from(laplace(rnd, 64));
+      for (let i = 0; i < 64; i++) for (const q of steps) coeffs[i] = Math.round(coeffs[i] / q[i]) * q[i];
+      const px = idct8x8(coeffs);
+      for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) gray[(by * 8 + y) * size + bx * 8 + x] = px[y * 8 + x] + 128;
+    }
+  }
+  return gray;
+}
+
+const transposeImage = (g: Float32Array, n: number) => Float32Array.from(g, (_, i) => g[(i % n) * n + Math.floor(i / n)]);
+const transposeTable = (t: Uint16Array) => Uint16Array.from(t, (_, i) => t[(i % 8) * 8 + (i >> 3)]);
+
+describe("dqScore on pixels", () => {
+  const q2 = ijgTable(IJG_LUMA, 75);
+  const q1 = ijgTable(IJG_LUMA, 60);
+  const N = 512; // 4096 blocks, enough counts per bin
+
+  it("is low for one quantization and high for two", () => {
+    expect(dqScore(quantizedImage(N, [q2]), N, N, q2)!).toBeLessThan(0.3);
+    expect(dqScore(quantizedImage(N, [q1, q2]), N, N, q2)!).toBeGreaterThan(0.5);
+  });
+
+  it("reads the right coefficient and table entry for each block position", () => {
+    // steps grow down the rows only, so a table and its transpose disagree at zigzag positions 1-9
+    const rows = Uint16Array.from({ length: 64 }, (_, i) => 4 + 3 * (i >> 3));
+    const single = quantizedImage(N, [rows]);
+    expect(dqScore(single, N, N, rows)!).toBeLessThan(0.3);
+    // a transposed image holds the transposed coefficients, so only the transposed table fits it
+    const flipped = transposeImage(single, N);
+    expect(dqScore(flipped, N, N, transposeTable(rows))!).toBeLessThan(0.3);
+    // the unchanged table steps those coefficients with the wrong size, which leaves a comb
+    expect(dqScore(flipped, N, N, rows)!).toBeGreaterThan(0.5);
   });
 });
 
