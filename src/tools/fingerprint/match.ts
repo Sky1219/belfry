@@ -1,5 +1,5 @@
 import type { FindingDetail } from "../../store/schema";
-import { verdictFor, verdictTitle } from "../imagekit/verdict";
+import { verdictFor, verdictTitle, type Verdict } from "../imagekit/verdict";
 import type { Minutia } from "./minutiae";
 
 export interface MatchTolerance {
@@ -126,19 +126,23 @@ export function matchMinutiae(a: Minutia[], b: Minutia[], tol: MatchTolerance = 
 
 /**
  * The fingerprint finding. Too little ridge detail in either print, or a good
- * score on too few matched minutiae, reads inconclusive with no score. The
- * score is rounded before it is banded, so the number shown and the verdict
- * can't disagree at a band edge.
+ * score on too few matched minutiae, reads inconclusive with no score in the
+ * finding. The score is rounded before it is banded, so the number shown and
+ * the verdict can't disagree at a band edge. `verdict` and `score` (the rounded
+ * score, null only when there was too little ridge detail to compute one) are
+ * returned so callers decide on them rather than on the title's wording.
  */
 export function fingerprintFinding(
   a: Minutia[],
   b: Minutia[],
   m: MinutiaeMatch,
-): { title: string; body: string; detail?: FindingDetail } {
+): { title: string; body: string; detail?: FindingDetail; verdict: Verdict; score: number | null } {
   const inconclusive = verdictTitle("Fingerprint match", "inconclusive", "the same finger");
   const counts = `${a.length} and ${b.length} minutiae found in the two prints`;
   if (Math.min(a.length, b.length) < MIN_MINUTIAE) {
     return {
+      verdict: "inconclusive",
+      score: null,
       title: inconclusive,
       body: `There is not enough ridge detail to compare: ${counts}, and at least ${MIN_MINUTIAE} are needed in each. ${LIMIT}`,
     };
@@ -147,11 +151,15 @@ export function fingerprintFinding(
   const verdict = verdictFor(score, THRESHOLDS);
   if (verdict === "consistent" && m.matched < MIN_MINUTIAE) {
     return {
+      verdict: "inconclusive",
+      score,
       title: inconclusive,
       body: `The score is ${score.toFixed(2)}, but only ${m.matched} minutiae matched, too few matched minutiae to rely on (${MIN_MINUTIAE} are needed). ${counts}. ${LIMIT}`,
     };
   }
   return {
+    verdict,
+    score,
     title: verdictTitle("Fingerprint match", verdict, "the same finger"),
     body: `Score ${score.toFixed(2)}: ${m.matched} matched minutiae, with ${counts}. ${BANDS} ${LIMIT}`,
     detail: { kind: "measurement", value: score, unit: "match score" },

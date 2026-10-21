@@ -181,4 +181,14 @@ describe("fingerprintFinding", () => {
       expect(`${title} ${body}`).not.toMatch(/identified|match confirmed|proves/i);
     }
   });
+
+  it("returns the verdict and the rounded score for each branch (P2-R7, P2-R8)", () => {
+    expect(fingerprintFinding(a, b, result(0.523, 18))).toMatchObject({ verdict: "consistent", score: 0.52 });
+    expect(fingerprintFinding(a, b, result(0.3, 11))).toMatchObject({ verdict: "inconclusive", score: 0.3 });
+    expect(fingerprintFinding(a, b, result(0.08, 3))).toMatchObject({ verdict: "no-sign", score: 0.08 });
+    // P2-R2: a good score on too few matched minutiae is inconclusive, but the score is still known
+    expect(fingerprintFinding(row(14), row(14), result(0.5, 7))).toMatchObject({ verdict: "inconclusive", score: 0.5 });
+    // too little ridge detail: no score at all
+    expect(fingerprintFinding(row(8), b, result(0.9, 8))).toMatchObject({ verdict: "inconclusive", score: null });
+  });
 });

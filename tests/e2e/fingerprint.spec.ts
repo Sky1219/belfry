@@ -44,7 +44,19 @@ test("notice once, demo prints match, result pins with an overlay", async ({ pag
   await expect(match).toContainText("Fingerprint match: consistent with the same finger", { timeout: 30_000 });
   await expect(match).toContainText(LIMIT);
   await expect(match).not.toContainText(/identified|match confirmed|proves/i);
-  await expect(match.locator("canvas")).toBeVisible();
+  // a consistent verdict joins the pairs in amber (Ruling P2-R7); the panel's canvas is the image that gets pinned
+  const comparison = match.getByTestId("fp-comparison");
+  await expect(comparison).toBeVisible();
+  await expect(comparison).toHaveAttribute("data-pairs", "amber");
+  await expect(match).toContainText(/\d+ matched pairs joined in amber/);
+  const amberPixels = await comparison.evaluate((c) => {
+    const canvas = c as HTMLCanvasElement;
+    const { data } = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height);
+    let n = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i] > 235 && data[i + 1] > 145 && data[i + 1] < 190 && data[i + 2] < 90) n++;
+    return n;
+  });
+  expect(amberPixels).toBeGreaterThan(200);
 
   await page.getByTestId("pin-match").click();
   await expect(match).toContainText("Pinned");

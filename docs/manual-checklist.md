@@ -83,9 +83,9 @@ Open a case → **Photo forensics** in the rail → **Open a photo file**. Each 
 Take two phone photos of the pad of your own index finger (close up, good light, the ridges sharp), then one of a different finger. Pin them to a case, then pick **Send to Fingerprint lab** from the first one's card menu.
 
 - [ ] **The notice:** the first time in this browser, "Compare your own prints only. Prints are processed on this device and never leave it. This is not an identification." shows before anything is analysed, and print B can't be chosen until **I'm comparing my own prints** is pressed. Reopen the lab: the notice doesn't come back (it does in a private window).
-- [ ] **Two photos of the same finger:** pick the second photo as print B. The Match screen reads "Fingerprint match: consistent with the same finger" or "inconclusive", with a score, and the comparison shows both skeletons with matched minutiae joined in amber. Nothing on the screen or the pinned card says "identified", "match confirmed" or "proves".
+- [ ] **Two photos of the same finger:** pick the second photo as print B. The Match screen reads "Fingerprint match: consistent with the same finger" or "inconclusive", with a score, and the comparison shows both skeletons with the paired minutiae joined in amber (in steel when the verdict isn't "consistent"). Nothing on the screen or the pinned card says "identified", "match confirmed" or "proves".
 - [ ] **Different fingers:** **Compare another print**, then the other finger's photo. The Match screen reads "no sign of the same finger" or "inconclusive", never "consistent".
 - [ ] The print B picker never lists print A itself.
-- [ ] **A photo with no print in it** (a wall, a blank sheet): "Fingerprint match: inconclusive", "not enough ridge detail", and the readout `score --`.
+- [ ] **A photo with no print in it** (a wall, a blank sheet): "Fingerprint match: inconclusive", "not enough ridge detail", the readout `score --`, and a comparison with no pair lines and no matched count.
 - [ ] Pin the match: a comparison image linked to print A, and a finding linked to the comparison and to print B. The finding card reads `0.nn match score` when it has a score.
 - [ ] Watch the network panel while comparing: no request carries the prints anywhere.

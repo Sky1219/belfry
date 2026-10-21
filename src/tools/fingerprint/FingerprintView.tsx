@@ -15,8 +15,8 @@ import { useToolImage } from "../imagekit/useToolImage";
 import type { ToolContext } from "../types";
 import { makeFingerprintDemo } from "./demo";
 import { fingerprintManifest } from "./manifest";
-import { fingerprintFinding, matchMinutiae, type MinutiaeMatch } from "./match";
-import type { PrintAnalysis } from "./pipeline";
+import { drawComparison, pairStyle, type PairStyle, type Print } from "./comparison";
+import { fingerprintFinding, matchMinutiae } from "./match";
 import "./fingerprint.css";
 
 const NOTICE = "Compare your own prints only. Prints are processed on this device and never leave it. This is not an identification.";
@@ -24,13 +24,9 @@ const ACK = "I'm comparing my own prints";
 const NOTICE_DEFAULTS = { fingerprintNoticeSeen: false };
 /** Each print is analysed at this long side at most (spec §1). */
 const ANALYSIS_SIDE = 640;
-// mirrored from the theme for the canvas drawing
+// mirrored from the theme for the Source marks
 const AMBER = "#ffa733";
 const BONE = "#ece6dc";
-const BONE_RGB = [236, 230, 220] as const;
-const GLASS = "#07090c";
-/** Space between the two prints in the comparison image, px. */
-const GUTTER = 16;
 
 type Run<T> = { state: "working" } | { state: "done"; value: T } | { state: "failed"; message: string };
 
@@ -54,12 +50,6 @@ function useRun<T>(key: unknown, run: (signal: AbortSignal) => Promise<T>): Run<
   return result;
 }
 
-/** A print as the lab analysed it: the pipeline's result and the gray it ran on, for drawing. */
-interface Print {
-  analysis: PrintAnalysis;
-  gray: Float32Array;
-}
-
 /** Scales a print to the analysis size and runs the pipeline on the worker pool. */
 async function analyse(pixels: Pixels, signal: AbortSignal): Promise<Print> {
   const small = downscale(pixels, ANALYSIS_SIDE);
@@ -76,60 +66,10 @@ async function demoPair(deps: PinDeps): Promise<PinImage> {
   return { ...a, meta: { pairWith: pinnedB.id } };
 }
 
-/**
- * Both prints side by side on black glass: each one dimmed, its ridge skeleton
- * in dim bone over it, every minutia a small square, and each matched pair joined
- * by an amber line (matched minutiae are amber too).
- */
-function drawComparison(a: Print, b: Print, m: MinutiaeMatch): OffscreenCanvas {
-  const A = a.analysis;
-  const B = b.analysis;
-  const width = A.width + GUTTER + B.width;
-  const height = Math.max(A.height, B.height);
-  const canvas = new OffscreenCanvas(width, height);
-  const g = canvas.getContext("2d")!;
-  g.fillStyle = GLASS;
-  g.fillRect(0, 0, width, height);
-
-  const offsets = [0, A.width + GUTTER];
-  [a, b].forEach((p, k) => {
-    const { width: w, height: h, skeleton } = p.analysis;
-    const data = new Uint8ClampedArray(w * h * 4);
-    for (let i = 0; i < w * h; i++) {
-      // ridges at a little over half strength, so the amber pairs read over them at column width
-      if (skeleton[i]) data.set([BONE_RGB[0] * 0.55, BONE_RGB[1] * 0.55, BONE_RGB[2] * 0.55, 255], i * 4);
-      else {
-        const v = p.gray[i] * 0.2;
-        data.set([v, v, v, 255], i * 4);
-      }
-    }
-    g.putImageData(new ImageData(data, w, h), offsets[k], 0);
-  });
-
-  const matchedA = new Set(m.pairs.map(([i]) => i));
-  const matchedB = new Set(m.pairs.map(([, j]) => j));
-  // 2 px strokes: the panel shows the comparison at about a quarter of its size on a desktop column
-  g.lineWidth = 2;
-  g.strokeStyle = AMBER;
-  g.beginPath();
-  for (const [i, j] of m.pairs) {
-    g.moveTo(A.minutiae[i].x, A.minutiae[i].y);
-    g.lineTo(offsets[1] + B.minutiae[j].x, B.minutiae[j].y);
-  }
-  g.stroke();
-  const square = (x: number, y: number, lit: boolean) => {
-    g.strokeStyle = lit ? AMBER : BONE;
-    g.strokeRect(Math.round(x) - 4, Math.round(y) - 4, 8, 8);
-  };
-  A.minutiae.forEach((q, i) => square(q.x, q.y, matchedA.has(i)));
-  B.minutiae.forEach((q, j) => square(offsets[1] + q.x, q.y, matchedB.has(j)));
-  return canvas;
-}
-
 /** The comparison on the panel's glass, at its own pixel size; CSS fits it to the column. */
-function ComparisonCanvas(props: { image: OffscreenCanvas }) {
+function ComparisonCanvas(props: { image: OffscreenCanvas; style: PairStyle }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const { image } = props;
+  const { image, style } = props;
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
@@ -137,7 +77,16 @@ function ComparisonCanvas(props: { image: OffscreenCanvas }) {
     c.height = image.height;
     c.getContext("2d")!.drawImage(image, 0, 0);
   }, [image]);
-  return <canvas ref={ref} className="fp-compare" role="img" aria-label="Print A and print B side by side, matched minutiae joined in amber" />;
+  return (
+    <canvas
+      ref={ref}
+      className="fp-compare"
+      role="img"
+      aria-label={`Print A and print B side by side. ${style.key}.`}
+      data-testid="fp-comparison"
+      data-pairs={style.lines}
+    />
+  );
 }
 
 /** Print A's minutiae, in the photo's own coordinates, for the Source screen. */
@@ -148,8 +97,6 @@ interface Marks {
   /** Matched minutiae are amber only on a "consistent with" verdict (amber marks a finding). */
   lit: boolean;
 }
-
-const isConsistent = (title: string) => title.includes(": consistent with ");
 
 function Working() {
   return <p className="label fp-working">Working</p>;
@@ -245,15 +192,22 @@ function Match(props: { ctx: ToolContext; source: Evidence; printB: Evidence; a:
   const result = useMemo(() => {
     if (!pa || !pb) return null;
     const m = matchMinutiae(pa.analysis.minutiae, pb.analysis.minutiae);
-    return { m, finding: fingerprintFinding(pa.analysis.minutiae, pb.analysis.minutiae, m), image: drawComparison(pa, pb, m) };
+    const finding = fingerprintFinding(pa.analysis.minutiae, pb.analysis.minutiae, m);
+    const style = pairStyle(finding, m.matched);
+    return { m, finding, style, image: drawComparison(pa, pb, m, style) };
   }, [pa, pb]);
 
-  const consistent = !!result && isConsistent(result.finding.title);
+  const consistent = result?.finding.verdict === "consistent";
   useEffect(() => {
     if (!result || !pa) return onMarks(null);
-    const matched = new Set(result.m.pairs.map(([i]) => i));
-    onMarks({ width: pa.analysis.width, points: pa.analysis.minutiae.map((q, i) => ({ x: q.x, y: q.y, matched: matched.has(i) })), lit: consistent });
-  }, [result, pa, consistent, onMarks]);
+    // with too little ridge detail there are no pairs to mark (Ruling P2-R7)
+    const matched = new Set(result.style.lines === "none" ? [] : result.m.pairs.map(([i]) => i));
+    onMarks({
+      width: pa.analysis.width,
+      points: pa.analysis.minutiae.map((q, i) => ({ x: q.x, y: q.y, matched: matched.has(i) })),
+      lit: result.style.lines === "amber",
+    });
+  }, [result, pa, onMarks]);
   useEffect(() => () => onMarks(null), [onMarks]);
 
   // pins wait for the one before, so each is placed clear of it
@@ -261,7 +215,7 @@ function Match(props: { ctx: ToolContext; source: Evidence; printB: Evidence; a:
   const [pinned, setPinned] = useState(0);
   const pin = async () => {
     if (!result) return;
-    const { finding, image, m } = result;
+    const { finding, image, m, style } = result;
     const prints = [source.id, printB.id];
     const run = queue.current.catch(() => undefined).then(async () => {
       const blob = await image.convertToBlob({ type: "image/png" });
@@ -273,9 +227,9 @@ function Match(props: { ctx: ToolContext; source: Evidence; printB: Evidence; a:
             bytes: new Uint8Array(await blob.arrayBuffer()),
             mime: "image/png",
             title: "Fingerprint comparison",
-            meta: { map: "fingerprint", prints, matched: m.matched, width: image.width, height: image.height },
+            meta: { map: "fingerprint", prints, pairs: style.lines, matched: m.matched, width: image.width, height: image.height },
           },
-          finding: { ...finding, meta: { prints } },
+          finding: { title: finding.title, body: finding.body, detail: finding.detail, meta: { prints } },
         },
       );
       // the finding rests on both prints: print A through the comparison, print B directly
@@ -288,7 +242,8 @@ function Match(props: { ctx: ToolContext; source: Evidence; printB: Evidence; a:
 
   const failed = a.state === "failed" ? a : b.state === "failed" ? b : null;
   const lamp: LampState = failed || consistent ? "amber" : result ? "off" : "pulse";
-  const score = result?.finding.detail?.kind === "measurement" ? result.finding.detail.value : null;
+  // the rounded score whenever one exists, the P2-R2 cell included (Ruling P2-R8)
+  const score = result?.finding.score ?? null;
 
   return (
     <ToolPanel
@@ -303,10 +258,8 @@ function Match(props: { ctx: ToolContext; source: Evidence; printB: Evidence; a:
       {!failed && !result && <Working />}
       {result && (
         <>
-          <ComparisonCanvas image={result.image} />
-          <p className="label fp-key">
-            {`${result.m.matched} matched ${result.m.matched === 1 ? "pair" : "pairs"} joined in amber`}
-          </p>
+          <ComparisonCanvas image={result.image} style={result.style} />
+          <p className="label fp-key">{result.style.key}</p>
           <div className="fp-finding">
             <p className={`fp-verdict ${consistent ? "lit" : ""}`}>{result.finding.title}</p>
             <p className="fp-body">{result.finding.body}</p>
