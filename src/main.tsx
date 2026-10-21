@@ -13,10 +13,12 @@ import "./ui/theme.css";
 import { App } from "./app/App";
 import { registerTool } from "./tools/registry";
 import { detectiveManifest } from "./tools/detective/manifest";
+import { fingerprintManifest } from "./tools/fingerprint/manifest";
 import { photoManifest } from "./tools/photo/manifest";
 
 registerTool(detectiveManifest);
 registerTool(photoManifest);
+registerTool(fingerprintManifest);
 
 const isMock = new URLSearchParams(window.location.search).has("mock");
 const ShaderHarness = lazy(() => import("./tools/detective/dev/ShaderHarness").then((m) => ({ default: m.ShaderHarness })));

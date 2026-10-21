@@ -97,7 +97,7 @@ Each sub-project below is a scaffold for its spec:
 - [x] **Photo forensics** (shipped: `src/tools/photo`, with a seeded demo photo; real photos are on the manual checklist)
   - **Core:** error level analysis; JPEG quantization-table and double-compression checks; EXIF/XMP read-out; noise-residual maps; copy-move detection (block matching or keypoints).
   - **Board loop:** image evidence in; a heat-map image and a finding back, linked derived-from.
-- **Fingerprint lab**
+- [x] **Fingerprint lab** (shipped: `src/tools/fingerprint`, with a seeded demo pair; real prints are on the manual checklist)
   - **Core:** ridge enhancement (Gabor bank), orientation field, minutiae extraction (crossing number), minutiae matching.
   - **Board loop:** two fingerprint photos in; a match score with an overlay out.
 - **Steganography lab**

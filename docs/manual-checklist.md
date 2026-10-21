@@ -77,3 +77,15 @@ Open a case → **Photo forensics** in the rail → **Open a photo file**. Each 
 - [ ] Pin every panel: JPEG adds two findings; Error levels and Noise residual each add a map and a finding; Copy-move adds a regions image and a finding when it reads "consistent", and only the finding otherwise. No card claims the photo is fake or authentic.
 - [ ] A photo over 40 megapixels is refused with "This photo is over 40 megapixels; Belfry can't analyse it in the browser." and the board stays responsive; a 12 MP photo finishes every panel without freezing the page.
 - [ ] **A ~39 MP photo** (just under the limit): every panel finishes, one after another, without the tab crashing or running out of memory (watch the browser's task manager; Ruling R15).
+
+## Fingerprint lab
+
+Take two phone photos of the pad of your own index finger (close up, good light, the ridges sharp), then one of a different finger. Pin them to a case, then pick **Send to Fingerprint lab** from the first one's card menu.
+
+- [ ] **The notice:** the first time in this browser, "Compare your own prints only. Prints are processed on this device and never leave it. This is not an identification." shows before anything is analysed, and print B can't be chosen until **I'm comparing my own prints** is pressed. Reopen the lab: the notice doesn't come back (it does in a private window).
+- [ ] **Two photos of the same finger:** pick the second photo as print B. The Match screen reads "Fingerprint match: consistent with the same finger" or "inconclusive", with a score, and the comparison shows both skeletons with matched minutiae joined in amber. Nothing on the screen or the pinned card says "identified", "match confirmed" or "proves".
+- [ ] **Different fingers:** **Compare another print**, then the other finger's photo. The Match screen reads "no sign of the same finger" or "inconclusive", never "consistent".
+- [ ] The print B picker never lists print A itself.
+- [ ] **A photo with no print in it** (a wall, a blank sheet): "Fingerprint match: inconclusive", "not enough ridge detail", and the readout `score --`.
+- [ ] Pin the match: a comparison image linked to print A, and a finding linked to the comparison and to print B. The finding card reads `0.nn match score` when it has a score.
+- [ ] Watch the network panel while comparing: no request carries the prints anywhere.
