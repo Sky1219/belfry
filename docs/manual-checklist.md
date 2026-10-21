@@ -87,5 +87,8 @@ Take two phone photos of the pad of your own index finger (close up, good light,
 - [ ] **Different fingers:** **Compare another print**, then the other finger's photo. The Match screen reads "no sign of the same finger" or "inconclusive", never "consistent".
 - [ ] The print B picker never lists print A itself.
 - [ ] **A photo with no print in it** (a wall, a blank sheet): "Fingerprint match: inconclusive", "not enough ridge detail", the readout `score --`, and a comparison with no pair lines and no matched count.
-- [ ] Pin the match: a comparison image linked to print A, and a finding linked to the comparison and to print B. The finding card reads `0.nn match score` when it has a score.
+- [ ] **A photo of a blank wall or paper** (evenly lit, so only sensor noise; and a JPEG straight from the phone): reads "not enough ridge detail" or "too noisy", never a score, and the page stays responsive throughout.
+- [ ] **The same finger photographed at a slightly different distance** (hold the phone a little nearer for print B): does not read "no sign of the same finger".
+- [ ] **Focus after the notice:** acknowledge it with the keyboard (Tab, then Enter); focus lands on print B's panel (its first row, **Open a photo file**, or **Compare another print**), not the top of the page.
+- [ ] Pin the match: a comparison image linked to print A, and a finding linked to the comparison and to print B. The finding card reads `0.nn match score` when it has a score (a score of 0.70 reads `0.70`, as on the panel).
 - [ ] Watch the network panel while comparing: no request carries the prints anywhere.

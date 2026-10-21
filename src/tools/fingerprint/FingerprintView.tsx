@@ -11,12 +11,13 @@ import { ExhibitPicker } from "../imagekit/ExhibitPicker";
 import { ImageToolShell, ToolPanel } from "../imagekit/ImageToolShell";
 import { pinDemoInput, pinResult, type PinDeps, type PinImage } from "../imagekit/pin";
 import { downscale, toGray, type Pixels } from "../imagekit/pixels";
+import { useRun, type Run } from "../imagekit/useRun";
 import { useToolImage } from "../imagekit/useToolImage";
 import type { ToolContext } from "../types";
 import { makeFingerprintDemo } from "./demo";
 import { fingerprintManifest } from "./manifest";
 import { drawComparison, pairStyle, type PairStyle, type Print } from "./comparison";
-import { fingerprintFinding, matchMinutiae } from "./match";
+import { fingerprintFinding, type MatchInput } from "./match";
 import "./fingerprint.css";
 
 const NOTICE = "Compare your own prints only. Prints are processed on this device and never leave it. This is not an identification.";
@@ -28,27 +29,16 @@ const ANALYSIS_SIDE = 640;
 const AMBER = "#ffa733";
 const BONE = "#ece6dc";
 
-type Run<T> = { state: "working" } | { state: "done"; value: T } | { state: "failed"; message: string };
-
 /**
- * Runs one job off the render path whenever `key` changes. A newer key or
- * unmounting aborts the old run, and its result is dropped.
+ * When the notice was last acknowledged, until print B's panel takes focus. Kept outside the
+ * view because the demo opens on its own route and then hops to print A's, which remounts the
+ * view; an acknowledgement older than FOCUS_AFTER_ACK_MS no longer moves focus.
  */
-function useRun<T>(key: unknown, run: (signal: AbortSignal) => Promise<T>): Run<T> {
-  const [result, setResult] = useState<Run<T>>({ state: "working" });
-  const latest = useRef(run);
-  latest.current = run;
-  useEffect(() => {
-    const ctl = new AbortController();
-    setResult({ state: "working" });
-    latest.current(ctl.signal).then(
-      (value) => !ctl.signal.aborted && setResult({ state: "done", value }),
-      (e: Error) => !ctl.signal.aborted && setResult({ state: "failed", message: e.message }),
-    );
-    return () => ctl.abort();
-  }, [key]);
-  return result;
-}
+let noticeAckedAt = -Infinity;
+const FOCUS_AFTER_ACK_MS = 30_000;
+
+/** What can take focus inside a panel; the picker's hidden file input is left out. */
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([hidden]):not([type="hidden"]), [tabindex]:not([tabindex="-1"])';
 
 /** Scales a print to the analysis size and runs the pipeline on the worker pool. */
 async function analyse(pixels: Pixels, signal: AbortSignal): Promise<Print> {
@@ -136,9 +126,33 @@ function PrintB(props: {
   picking: boolean;
   onPicking(on: boolean): void;
   onPick(e: Evidence): void;
+  /** Move focus to this panel's first control once it has settled (after the notice is acknowledged). */
+  focus: boolean;
+  onFocused(): void;
 }) {
-  const { ctx, source, print, picking } = props;
+  const { ctx, source, print, picking, focus, onFocused } = props;
   const chosen = print && print !== "looking" ? print : null;
+
+  // The notice that held focus is gone: hand it to the first control here, once print B is
+  // looked up and the picker (if shown) has listed the case's photos, so it lands on the first row.
+  const panel = useRef<HTMLDivElement>(null);
+  const looking = print === "looking";
+  useEffect(() => {
+    const root = panel.current;
+    if (!focus || looking || !root) return;
+    const settle = () => {
+      if (root.querySelector('[aria-busy="true"]')) return false;
+      const target = root.querySelector<HTMLElement>(FOCUSABLE);
+      if (!target) return false;
+      target.focus();
+      onFocused();
+      return true;
+    };
+    if (settle()) return;
+    const watch = new MutationObserver(() => settle() && watch.disconnect());
+    watch.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-busy"] });
+    return () => watch.disconnect();
+  }, [focus, looking, onFocused]);
   const thumb = useBlobUrl(chosen ? (chosen.thumbHash ?? chosen.blobHash) : undefined);
   const [exhibit, setExhibit] = useState<number | undefined>();
   useEffect(() => {
@@ -151,33 +165,39 @@ function PrintB(props: {
   }, [ctx.store, ctx.caseId, chosen]);
 
   return (
-    <ToolPanel id="print-b" title="Print B" lamp="off" readout={chosen && <span className="num">{exhibitTag(exhibit)}</span>}>
-      {print === "looking" && <Working />}
-      {chosen && !picking && (
-        <div className="fp-print-b">
-          {thumb ? <img src={thumb} alt="" draggable={false} /> : <span className="fp-print-blank" aria-hidden />}
-          <span className="fp-print-title">{chosen.title}</span>
-          <HudButton small data-testid="fp-change-b" onClick={() => props.onPicking(true)}>
-            Compare another print
-          </HudButton>
-        </div>
-      )}
-      {(print === null || picking) && (
-        <>
-          <p className="fp-body">Choose the print to compare with this one.</p>
-          <ExhibitPicker caseId={ctx.caseId} store={ctx.store} excludeId={source.id} onPick={props.onPick} />
-          {chosen && (
-            <div>
-              <HudButton small onClick={() => props.onPicking(false)}>
-                Keep {chosen.title}
-              </HudButton>
-            </div>
-          )}
-        </>
-      )}
-    </ToolPanel>
+    // display: contents, so the wrapper (there to find the panel's controls) leaves the layout alone
+    <div ref={panel} className="fp-panel-wrap">
+      <ToolPanel id="print-b" title="Print B" lamp="off" readout={chosen && <span className="num">{exhibitTag(exhibit)}</span>}>
+        {print === "looking" && <Working />}
+        {chosen && !picking && (
+          <div className="fp-print-b">
+            {thumb ? <img src={thumb} alt="" draggable={false} /> : <span className="fp-print-blank" aria-hidden />}
+            <span className="fp-print-title">{chosen.title}</span>
+            <HudButton small data-testid="fp-change-b" onClick={() => props.onPicking(true)}>
+              Compare another print
+            </HudButton>
+          </div>
+        )}
+        {(print === null || picking) && (
+          <>
+            <p className="fp-body">Choose the print to compare with this one.</p>
+            <ExhibitPicker caseId={ctx.caseId} store={ctx.store} excludeId={source.id} onPick={props.onPick} />
+            {chosen && (
+              <div>
+                <HudButton small onClick={() => props.onPicking(false)}>
+                  Keep {chosen.title}
+                </HudButton>
+              </div>
+            )}
+          </>
+        )}
+      </ToolPanel>
+    </div>
   );
 }
+
+/** What the match worker needs from a print: not its skeleton or gray, which stay here for drawing. */
+const matchInput = (p: Print): MatchInput => ({ minutiae: p.analysis.minutiae, medianFrequency: p.analysis.medianFrequency });
 
 /** Print B's analysis, the match, and its finding, comparison and pin. Keyed by print B. */
 function Match(props: { ctx: ToolContext; source: Evidence; printB: Evidence; a: Run<Print>; onMarks(m: Marks | null): void }) {
@@ -189,13 +209,17 @@ function Match(props: { ctx: ToolContext; source: Evidence; printB: Evidence; a:
 
   const pa = a.state === "done" ? a.value : null;
   const pb = b.state === "done" ? b.value : null;
-  const result = useMemo(() => {
-    if (!pa || !pb) return null;
-    const m = matchMinutiae(pa.analysis.minutiae, pb.analysis.minutiae);
+  // matching is a worker op (Ruling P2-R10): a few hundred minutiae would hold the main thread for seconds
+  const pair = useMemo(() => (pa && pb ? { pa, pb } : null), [pa, pb]);
+  const matching = useRun(pair, async (signal) => {
+    if (!pair) return null;
+    const { pa, pb } = pair;
+    const m = await runOp("fingerprintMatch", { a: matchInput(pa), b: matchInput(pb) }, { signal });
     const finding = fingerprintFinding(pa.analysis.minutiae, pb.analysis.minutiae, m);
     const style = pairStyle(finding, m.matched);
     return { m, finding, style, image: drawComparison(pa, pb, m, style) };
-  }, [pa, pb]);
+  });
+  const result = matching.state === "done" ? matching.value : null;
 
   const consistent = result?.finding.verdict === "consistent";
   useEffect(() => {
@@ -240,7 +264,7 @@ function Match(props: { ctx: ToolContext; source: Evidence; printB: Evidence; a:
     setPinned((n) => n + 1);
   };
 
-  const failed = a.state === "failed" ? a : b.state === "failed" ? b : null;
+  const failed = [a, b, matching].find((r): r is Extract<Run<unknown>, { state: "failed" }> => r.state === "failed") ?? null;
   const lamp: LampState = failed || consistent ? "amber" : result ? "off" : "pulse";
   // the rounded score whenever one exists, the P2-R2 cell included (Ruling P2-R8)
   const score = result?.finding.score ?? null;
@@ -271,7 +295,14 @@ function Match(props: { ctx: ToolContext; source: Evidence; printB: Evidence; a:
 }
 
 /** Everything after the notice: print A's analysis, choosing print B, and the match. */
-function Lab(props: { ctx: ToolContext; source: Evidence; pixels: Pixels; onMarks(m: Marks | null): void }) {
+function Lab(props: {
+  ctx: ToolContext;
+  source: Evidence;
+  pixels: Pixels;
+  onMarks(m: Marks | null): void;
+  focusPrintB: boolean;
+  onFocused(): void;
+}) {
   const { ctx, source, pixels, onMarks } = props;
   const pairWith = typeof source.meta?.pairWith === "string" ? source.meta.pairWith : null;
   const [printB, setPrintB] = useState<Evidence | null | "looking">(pairWith ? "looking" : null);
@@ -283,14 +314,15 @@ function Lab(props: { ctx: ToolContext; source: Evidence; pixels: Pixels; onMark
     if (!pairWith) return setPrintB(null);
     setPrintB("looking");
     let alive = true;
+    // only a partner in this case: an older copy-imported case may still name one in the original
     ctx.store.getEvidence(pairWith).then(
-      (e) => alive && setPrintB(e && e.type === "image" && e.id !== source.id ? e : null),
+      (e) => alive && setPrintB(e && e.type === "image" && e.id !== source.id && e.caseId === ctx.caseId ? e : null),
       () => alive && setPrintB(null),
     );
     return () => {
       alive = false;
     };
-  }, [ctx.store, source.id, pairWith]);
+  }, [ctx.store, ctx.caseId, source.id, pairWith]);
 
   const a = useRun(pixels, (signal) => analyse(pixels, signal));
   const chosen = printB && printB !== "looking" ? printB : null;
@@ -307,6 +339,8 @@ function Lab(props: { ctx: ToolContext; source: Evidence; pixels: Pixels; onMark
           setPrintB(e);
           setPicking(false);
         }}
+        focus={props.focusPrintB}
+        onFocused={props.onFocused}
       />
       {chosen && <Match key={chosen.id} ctx={ctx} source={source} printB={chosen} a={a} onMarks={onMarks} />}
     </>
@@ -328,7 +362,18 @@ export function FingerprintView({ ctx }: { ctx: ToolContext }) {
   const pixels = ready?.pixels;
 
   const notice = getToolSettings(ctx.settings, ctx.toolId, NOTICE_DEFAULTS);
-  const acknowledge = () => ctx.updateSettings(setToolSettings(ctx.settings, ctx.toolId, { ...notice, fingerprintNoticeSeen: true }));
+  // the acknowledge key unmounts with the notice, so focus moves on to print B's panel, even
+  // when the acknowledgement came during the demo's hop to print A (which remounts this view)
+  const [focusPrintB, setFocusPrintB] = useState(() => performance.now() - noticeAckedAt < FOCUS_AFTER_ACK_MS);
+  const focused = useCallback(() => {
+    noticeAckedAt = -Infinity;
+    setFocusPrintB(false);
+  }, []);
+  const acknowledge = () => {
+    noticeAckedAt = performance.now();
+    setFocusPrintB(true);
+    ctx.updateSettings(setToolSettings(ctx.settings, ctx.toolId, { ...notice, fingerprintNoticeSeen: true }));
+  };
 
   const drawOverlay = useCallback(
     (g: CanvasRenderingContext2D) => {
@@ -349,7 +394,17 @@ export function FingerprintView({ ctx }: { ctx: ToolContext }) {
   return (
     <ImageToolShell tool={fingerprintManifest} ctx={ctx} source={ready?.source} pixels={pixels} drawOverlay={marks ? drawOverlay : undefined}>
       {image.phase !== "error" && !notice.fingerprintNoticeSeen && <Notice onAck={acknowledge} />}
-      {ready && notice.fingerprintNoticeSeen && <Lab key={ready.source.id} ctx={ctx} source={ready.source} pixels={ready.pixels} onMarks={setMarks} />}
+      {ready && notice.fingerprintNoticeSeen && (
+        <Lab
+          key={ready.source.id}
+          ctx={ctx}
+          source={ready.source}
+          pixels={ready.pixels}
+          onMarks={setMarks}
+          focusPrintB={focusPrintB}
+          onFocused={focused}
+        />
+      )}
       {image.phase === "error" && (
         <ToolPanel id="print" title="No print" lamp="amber">
           <p className="fp-problem" role="alert">

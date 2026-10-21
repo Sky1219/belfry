@@ -86,3 +86,8 @@
   font-size: 13px;
   color: var(--amber);
 }
+
+/* wraps the Print B panel so its controls can be found for focus; adds no box */
+.fp-panel-wrap {
+  display: contents;
+}

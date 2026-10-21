@@ -8,6 +8,7 @@ import { MAP_SIDE } from "../imagekit/heatmap";
 import { ImageToolShell, ToolPanel } from "../imagekit/ImageToolShell";
 import { pinResult, type PinDeps, type PinRequest } from "../imagekit/pin";
 import { downscale, toGray, undoOrientation, type Pixels } from "../imagekit/pixels";
+import { useRun, type Run } from "../imagekit/useRun";
 import { useToolImage } from "../imagekit/useToolImage";
 import type { ToolContext } from "../types";
 import { copyMoveFinding, markRegions, type CopyMoveResult } from "./copyMove";
@@ -27,27 +28,6 @@ const AMBER = [255, 167, 51] as const; // #ffa733, mirrored from the theme for t
 const NOT_JPEG = "Not a JPEG: quantization tests don't apply.";
 
 type Finding = PinRequest["finding"];
-type Run<T> = { state: "working" } | { state: "done"; value: T } | { state: "failed"; message: string };
-
-/**
- * Runs one test off the render path whenever `key` changes. A newer key or
- * unmounting aborts the old run, and its result is dropped.
- */
-function useRun<T>(key: unknown, run: (signal: AbortSignal) => Promise<T>): Run<T> {
-  const [result, setResult] = useState<Run<T>>({ state: "working" });
-  const latest = useRef(run);
-  latest.current = run;
-  useEffect(() => {
-    const ctl = new AbortController();
-    setResult({ state: "working" });
-    latest.current(ctl.signal).then(
-      (value) => !ctl.signal.aborted && setResult({ state: "done", value }),
-      (e: Error) => !ctl.signal.aborted && setResult({ state: "failed", message: e.message }),
-    );
-    return () => ctl.abort();
-  }, [key]);
-  return result;
-}
 
 /**
  * Starts each analysis at once, or, with `oneAtATime`, each after the one

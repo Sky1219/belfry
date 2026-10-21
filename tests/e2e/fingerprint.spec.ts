@@ -40,6 +40,11 @@ test("notice once, demo prints match, result pins with an overlay", async ({ pag
 
   // print B comes from the demo's pairing, without asking
   await expect(page.getByTestId("panel-print-b")).toContainText("Demo print B");
+  // the acknowledge key is gone, so focus moves on into print B's panel rather than dropping to the page
+  await expect
+    .poll(() => page.evaluate(() => !!document.activeElement?.closest('[data-testid="panel-print-b"]')), { timeout: 10_000 })
+    .toBe(true);
+  await expect(page.getByTestId("fp-change-b")).toBeFocused();
   const match = page.getByTestId("panel-match");
   await expect(match).toContainText("Fingerprint match: consistent with the same finger", { timeout: 30_000 });
   await expect(match).toContainText(LIMIT);

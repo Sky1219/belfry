@@ -63,7 +63,7 @@ export function ExhibitPicker(props: { caseId: string; store: EvidenceStore; exc
   };
 
   return (
-    <div className="ik-picker col" data-testid="exhibit-picker">
+    <div className="ik-picker col" data-testid="exhibit-picker" aria-busy={items === null}>
       {items && items.length > 0 ? (
         <ul className="ik-pick-list">
           {items.map((e) => (
