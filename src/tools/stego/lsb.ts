@@ -10,10 +10,15 @@ export const MAGIC = Uint8Array.of(0x42, 0x4c, 0x46, 0x59);
 /** Magic plus the uint32 big-endian payload length. */
 const HEADER_BYTES = 8;
 
-/** The message needs more room than the image has. Sizes are in bytes, header included in `needed`. */
+/**
+ * The message needs more room than the image has. Both sizes are in bytes with
+ * the 8-byte header counted, so they share units (Ruling P3-R5).
+ */
 export class CapacityError extends Error {
   constructor(
+    /** Header plus payload bytes. */
     public needed: number,
+    /** The image's total bytes, header included: opaque channels / 8, floored. */
     public capacity: number,
   ) {
     super(`That message needs ${needed} bytes; this image holds ${capacity}.`);
@@ -27,9 +32,14 @@ export function opaqueChannels(p: Pixels): number {
   return opaque * 3;
 }
 
+/** Every byte the image's opaque channels can carry, the 8-byte header included. */
+export function totalBytes(p: Pixels): number {
+  return Math.floor(opaqueChannels(p) / 8);
+}
+
 /** Payload bytes the image can carry after the 8-byte header; 0 when it can't hold even that. */
 export function capacityBytes(p: Pixels): number {
-  return Math.max(0, Math.floor(opaqueChannels(p) / 8) - HEADER_BYTES);
+  return Math.max(0, totalBytes(p) - HEADER_BYTES);
 }
 
 /**
@@ -49,10 +59,9 @@ export function channelIndices(p: Pixels, limit: number): Int32Array {
 /** Hides `message` in the LSBs of `p`'s opaque channels. Returns a new image; throws CapacityError if it won't fit. */
 export function embed(p: Pixels, message: string): Pixels {
   const payload = new TextEncoder().encode(message);
-  const capacity = capacityBytes(p);
-  // capacity is floored at 0, so an image too small for even the header needs its own check
-  const headerFits = opaqueChannels(p) >= HEADER_BYTES * 8;
-  if (!headerFits || payload.length > capacity) throw new CapacityError(HEADER_BYTES + payload.length, capacity);
+  // both sides count the header, so an image too small for the header alone fails here too
+  const total = totalBytes(p);
+  if (HEADER_BYTES + payload.length > total) throw new CapacityError(HEADER_BYTES + payload.length, total);
 
   const bytes = new Uint8Array(HEADER_BYTES + payload.length);
   bytes.set(MAGIC, 0);

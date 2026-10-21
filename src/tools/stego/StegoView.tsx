@@ -196,7 +196,8 @@ function EmbedPanel(props: {
           </div>
           {over && (
             <p className="sg-problem" role="alert">
-              {new CapacityError(8 + bytes, capacity).message}
+              {/* both sides count the 8-byte header (Ruling P3-R5) */}
+              {new CapacityError(8 + bytes, 8 + capacity).message}
             </p>
           )}
           <p className="sg-body">Pins a PNG copy of this photo with the message in its lowest bits.</p>

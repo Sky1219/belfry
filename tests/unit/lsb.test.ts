@@ -119,20 +119,22 @@ describe("capacity", () => {
       err = e;
     }
     expect(err).toBeInstanceOf(CapacityError);
-    expect((err as CapacityError).message).toBe("That message needs 97 bytes; this image holds 88.");
+    expect((err as CapacityError).message).toBe("That message needs 97 bytes; this image holds 96.");
     expect((err as CapacityError).needed).toBe(97);
-    expect((err as CapacityError).capacity).toBe(88);
+    expect((err as CapacityError).capacity).toBe(96);
   });
 
   it("counts UTF-8 bytes, not characters", () => {
     const img = makePixels(16, 16, [120, 130, 140, 255]);
     expect(extract(embed(img, "é".repeat(44)))).toBe("é".repeat(44)); // 88 bytes
-    expect(() => embed(img, "é".repeat(45))).toThrow("That message needs 98 bytes; this image holds 88.");
-    expect(() => embed(img, "🔔".repeat(23))).toThrow("That message needs 100 bytes; this image holds 88.");
+    expect(() => embed(img, "é".repeat(45))).toThrow("That message needs 98 bytes; this image holds 96.");
+    expect(() => embed(img, "🔔".repeat(23))).toThrow("That message needs 100 bytes; this image holds 96.");
   });
 
   it("refuses an image too small for the header", () => {
     expect(() => embed(makePixels(2, 2, [1, 2, 3, 255]), "")).toThrow(CapacityError);
+    // 12 channels hold 1 byte, and the header alone needs 8: both counted with the header (Ruling P3-R5)
+    expect(() => embed(makePixels(2, 2, [1, 2, 3, 255]), "")).toThrow("That message needs 8 bytes; this image holds 1.");
   });
 });
 

@@ -137,14 +137,54 @@ test("a JPEG source warns before embedding, and over capacity says so exactly", 
   await page.getByTestId("embed-message").fill("x".repeat(1529));
   await expect(page.getByTestId("embed-capacity")).toHaveText("1529 of 1528 bytes");
   await expect(page.getByTestId("embed-capacity")).toHaveClass(/over/);
-  await expect(embed.getByRole("alert")).toHaveText("That message needs 1537 bytes; this image holds 1528.");
+  // both sides count the 8-byte header, so the error's overage matches the counter's (Ruling P3-R5)
+  await expect(embed.getByRole("alert")).toHaveText("That message needs 1537 bytes; this image holds 1536.");
   await expect(page.getByTestId("embed-pin")).toBeDisabled();
 
-  // switching modes keeps the message and doesn't re-run the analysis
+  // switching modes keeps the typed message
   await page.getByTestId("mode-analyse").click();
   await expect(page.getByTestId("panel-analyse")).toContainText("Hidden data:");
   await page.getByTestId("mode-embed").click();
   await expect(page.getByTestId("embed-message")).toHaveValue("x".repeat(1529));
+
+  // embed from the JPEG for real: decoded JPEG → embed → canvas PNG → stored → decoded again (Review Focus 2)
+  const secret = "Under the east bracket, café 23:00";
+  await page.getByTestId("embed-message").fill(secret);
+  await page.getByTestId("embed-pin").click();
+  await expect(embed).toContainText("Pinned", { timeout: 20_000 });
+  await page.getByTestId("tool-close").click();
+  await expect(page.getByTestId("board")).toBeVisible();
+  const image = page.locator(".react-flow__node").filter({ hasText: "— with hidden message" });
+  await expect(image).toHaveCount(1);
+
+  // the stored exhibit is a PNG, by its recorded type and by its own signature bytes
+  const stored = await page.evaluate(
+    () =>
+      new Promise<{ mime: string; signature: number[] } | null>((resolve, reject) => {
+        const open = indexedDB.open("belfry");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const tx = open.result.transaction(["evidence", "blobs"], "readonly");
+          const all = tx.objectStore("evidence").getAll();
+          all.onsuccess = () => {
+            const ev = (all.result as Array<{ title: string; blobHash?: string }>).find((e) => e.title.endsWith("— with hidden message"));
+            if (!ev?.blobHash) return resolve(null);
+            const blob = tx.objectStore("blobs").get(ev.blobHash);
+            blob.onsuccess = () => {
+              const b = blob.result as { mime: string; bytes: Uint8Array };
+              resolve({ mime: b.mime, signature: Array.from(b.bytes.slice(0, 8)) });
+            };
+          };
+        };
+      }),
+  );
+  expect(stored).toEqual({ mime: "image/png", signature: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] });
+
+  // and the lab reads the message back from the new card
+  await image.getByTestId("card-menu").click();
+  await page.getByTestId("send-to-stego-lab").click();
+  await expect(page.getByTestId("panel-analyse")).toContainText("LSB payload found", { timeout: 30_000 });
+  await expect(page.getByTestId("panel-analyse")).toContainText(secret);
 
   expect(errors()).toEqual([]);
 });
