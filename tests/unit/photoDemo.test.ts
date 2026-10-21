@@ -11,10 +11,15 @@ describe("forensicsDemoPixels", () => {
     expect(forensicsDemoPixels().pixels.data).toEqual(forensicsDemoPixels().pixels.data);
   });
 
-  it("is 512x384 with the clone shifted by (96, 40)", () => {
+  it("is 512x384 and the clone destination equals its source, byte for byte", () => {
     const { pixels, cloned } = forensicsDemoPixels();
     expect([pixels.width, pixels.height]).toEqual([512, 384]);
     expect([cloned.dx, cloned.dy]).toEqual([96, 40]);
+    for (let y = 0; y < cloned.h; y++) {
+      const src = ((cloned.y + y) * 512 + cloned.x) * 4;
+      const dst = ((cloned.y + cloned.dy + y) * 512 + cloned.x + cloned.dx) * 4;
+      expect(pixels.data.subarray(dst, dst + cloned.w * 4)).toEqual(pixels.data.subarray(src, src + cloned.w * 4));
+    }
   });
 
   it("holds a clone that copy-move finds", () => {

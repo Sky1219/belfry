@@ -111,19 +111,30 @@ export function forensicsDemoPixels(seed = 7): {
   return { pixels, cloned: { ...CLONE }, pasted: { ...PASTE } };
 }
 
+/** Saves `p` as a JPEG at `quality` and decodes it again (browser only). */
+async function jpegRoundTrip(p: Pixels, quality: number): Promise<Pixels> {
+  return decodeImage(new Blob([(await encodeImage(p, "image/jpeg", quality)) as BlobPart], { type: "image/jpeg" }));
+}
+
 /**
- * The demo photo as JPEG bytes (browser only). The pasted rectangle is first
- * saved at quality 0.6 on its own, so it carries a different compression
- * history from the rest; the whole image is then saved at 0.9.
+ * The demo photo as JPEG bytes (browser only), saved three times:
+ * - The whole scene at 0.7 first, so the final file is a second compression
+ *   on the same 8x8 grid and the double-quantization panel fires.
+ * - The pasted rectangle, cut from the original scene and saved on its own at
+ *   0.6, then written back at (40, 60). That is off the 8x8 grid (60 mod 8 = 4),
+ *   so it shows up in error level analysis.
+ * - The whole image at 0.9. The clone is grid-aligned (every offset is a
+ *   multiple of 8), so copy-move still finds it after both saves.
  */
 export async function makeForensicsDemo(): Promise<{ bytes: Uint8Array; mime: "image/jpeg"; title: "Demo photo — bell tower" }> {
-  const { pixels, pasted } = forensicsDemoPixels();
+  const { pixels: scene, pasted } = forensicsDemoPixels();
+  const pixels = await jpegRoundTrip(scene, 0.7);
   const crop = makePixels(pasted.w, pasted.h);
   for (let y = 0; y < pasted.h; y++) {
     const s = ((pasted.y + y) * W + pasted.x) * 4;
-    crop.data.set(pixels.data.subarray(s, s + pasted.w * 4), y * pasted.w * 4);
+    crop.data.set(scene.data.subarray(s, s + pasted.w * 4), y * pasted.w * 4);
   }
-  const low = await decodeImage(new Blob([(await encodeImage(crop, "image/jpeg", 0.6)) as BlobPart], { type: "image/jpeg" }));
+  const low = await jpegRoundTrip(crop, 0.6);
   for (let y = 0; y < pasted.h; y++) {
     pixels.data.set(low.data.subarray(y * pasted.w * 4, (y + 1) * pasted.w * 4), ((pasted.y + y) * W + pasted.x) * 4);
   }
