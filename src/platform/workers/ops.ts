@@ -1,4 +1,5 @@
 import { fft } from "../math/fft";
+import { detectCopyMove, type CopyMoveResult } from "../../tools/photo/copyMove";
 import type { Reply, Request } from "./pool";
 
 /**
@@ -12,6 +13,10 @@ export const ops = {
     const im = p.im ?? new Float64Array(re.length);
     fft(re, im, p.inverse);
     return { re, im };
+  },
+  /** Copy-move detection on a grayscale image (the caller scales it to 512 px or less). */
+  copyMove(p: { gray: Float32Array; width: number; height: number }): CopyMoveResult {
+    return detectCopyMove(p.gray, p.width, p.height);
   },
 };
 
