@@ -56,13 +56,19 @@ export function drawComparison(a: Print, b: Print, m: MinutiaeMatch, style: Pair
   [a, b].forEach((p, k) => {
     const { width: w, height: h, skeleton } = p.analysis;
     const data = new Uint8ClampedArray(w * h * 4);
-    for (let i = 0; i < w * h; i++) {
+    for (let i = 0, o = 0; i < w * h; i++, o += 4) {
       // ridges at a little over half strength, so the pairs read over them at column width
-      if (skeleton[i]) data.set([BONE_RGB[0] * 0.55, BONE_RGB[1] * 0.55, BONE_RGB[2] * 0.55, 255], i * 4);
-      else {
+      if (skeleton[i]) {
+        data[o] = BONE_RGB[0] * 0.55;
+        data[o + 1] = BONE_RGB[1] * 0.55;
+        data[o + 2] = BONE_RGB[2] * 0.55;
+      } else {
         const v = p.gray[i] * 0.2;
-        data.set([v, v, v, 255], i * 4);
+        data[o] = v;
+        data[o + 1] = v;
+        data[o + 2] = v;
       }
+      data[o + 3] = 255;
     }
     g.putImageData(new ImageData(data, w, h), offsets[k], 0);
   });

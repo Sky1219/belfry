@@ -18,6 +18,11 @@ export function normalize(gray: Float32Array): Float32Array {
  * Marks each full `block` x `block` square whose variance is at least `minVar`
  * (on the normalised image) as print. Partial blocks at the right and bottom
  * edges are left out, so the grid is bw x bh, row-major.
+ *
+ * With `coherence` (per block, from orientationField on the same grid), a block
+ * must also have coherence of at least `minCoherence`: normalising a blank,
+ * evenly lit photo scales its sensor noise up to full variance, but noise has
+ * no ridge direction (median coherence 0.09, against 0.87 on a print; Ruling P2-R9).
  */
 export function segmentMask(
   norm: Float32Array,
@@ -25,6 +30,8 @@ export function segmentMask(
   h: number,
   block = 16,
   minVar = 0.1,
+  coherence?: Float32Array,
+  minCoherence = 0.35,
 ): { mask: Uint8Array; bw: number; bh: number } {
   const bw = Math.floor(w / block);
   const bh = Math.floor(h / block);
@@ -42,7 +49,8 @@ export function segmentMask(
         }
       }
       const mean = sum / area;
-      mask[by * bw + bx] = sumSq / area - mean * mean >= minVar ? 1 : 0;
+      const i = by * bw + bx;
+      mask[i] = sumSq / area - mean * mean >= minVar && (!coherence || coherence[i] >= minCoherence) ? 1 : 0;
     }
   }
   return { mask, bw, bh };

@@ -1,4 +1,5 @@
 import { fft } from "../math/fft";
+import { comparePrints, type MatchInput, type PrintMatch } from "../../tools/fingerprint/match";
 import { analysePrint, type PrintAnalysis } from "../../tools/fingerprint/pipeline";
 import { displayHeatmap } from "../../tools/imagekit/heatmap";
 import { detectCopyMove, type CopyMoveResult } from "../../tools/photo/copyMove";
@@ -40,6 +41,10 @@ export const ops = {
   /** Minutiae and ridge skeleton of a grayscale print (the caller scales it to 640 px or less). */
   fingerprint(p: { gray: Float32Array; width: number; height: number }): PrintAnalysis {
     return analysePrint(p.gray, p.width, p.height);
+  },
+  /** Scale-normalised, rotation-invariant match of two analysed prints (Rulings P2-R10, P2-R11). */
+  fingerprintMatch(p: { a: MatchInput; b: MatchInput }): PrintMatch {
+    return comparePrints(p.a, p.b);
   },
 };
 

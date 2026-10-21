@@ -88,8 +88,8 @@ export function ridgeFrequency(
   return freq;
 }
 
-/** The median of the positive entries, or 0 when there are none. */
-function medianKnown(freq: Float32Array): number {
+/** The median of the positive entries (the known blocks' frequencies), or 0 when there are none. */
+export function medianKnown(freq: Float32Array): number {
   const known = Array.from(freq).filter((f) => f > 0).sort((a, b) => a - b);
   return known.length > 0 ? known[Math.floor(known.length / 2)] : 0;
 }

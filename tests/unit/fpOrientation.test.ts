@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { synthPrint } from "../../src/tools/fingerprint/synth";
 import { normalize, orientationField, segmentMask } from "../../src/tools/fingerprint/orientation";
+import { mulberry32 } from "../../src/tools/imagekit/rng";
 
 /** Angular distance between two directions, mod pi, in degrees. */
 function angErr(a: number, b: number): number {
@@ -184,6 +185,25 @@ describe("segmentMask", () => {
       }
     }
     expect(kept / interior).toBeGreaterThanOrEqual(0.9);
+  });
+
+  it("with coherence, masks out a blank photo's noise but keeps the print (Ruling P2-R9)", () => {
+    const rand = mulberry32(9);
+    const noise = Float32Array.from({ length: 320 * 400 }, () => {
+      const u = 1 - rand();
+      return 128 + 3 * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rand());
+    });
+    const n = normalize(noise);
+    const sum = (m: Uint8Array) => m.reduce((s, v) => s + v, 0);
+    // variance alone keeps every block: normalising scales the noise up to full variance
+    expect(sum(segmentMask(n, 320, 400).mask)).toBe(500);
+    expect(sum(segmentMask(n, 320, 400, 16, 0.1, orientationField(n, 320, 400).coherence).mask)).toBe(0);
+
+    const p = bordered(3, 32);
+    const norm = normalize(p.gray);
+    const gated = segmentMask(norm, p.width, p.height, 16, 0.1, orientationField(norm, p.width, p.height).coherence);
+    const plain = segmentMask(norm, p.width, p.height);
+    expect(sum(gated.mask)).toBeGreaterThanOrEqual(0.9 * sum(plain.mask));
   });
 
   it("leaves out partial blocks at the right and bottom", () => {

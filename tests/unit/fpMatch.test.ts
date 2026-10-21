@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { formatFindingDetail, readFindingDetail } from "../../src/store/schema";
 import { fingerprintFinding, matchMinutiae } from "../../src/tools/fingerprint/match";
 import { analysePrint, type Minutia } from "../../src/tools/fingerprint/pipeline";
 import { synthPrint } from "../../src/tools/fingerprint/synth";
 import { mulberry32 } from "../../src/tools/imagekit/rng";
 
 const LIMIT = "Hobby-grade matching of two photos. This is not an identification.";
+const CAVEAT =
+  "Photos taken at different distances or in different light can score low for the same finger; a low score is not evidence of a different finger.";
 
 /** n minutiae scattered over a 300 x 300 field with random directions. */
 function scatter(seed: number, n = 40): Minutia[] {
@@ -80,6 +83,26 @@ describe("matchMinutiae", () => {
     expect(m.matched).toBe(0);
   });
 
+  it("matches 150 against 150 minutiae within 500 ms (Ruling P2-R10)", () => {
+    const a150 = scatter(21, 150);
+    const b150 = scatter(22, 150);
+    matchMinutiae(a150, b150); // warm the JIT
+    const t = performance.now();
+    matchMinutiae(a150, b150);
+    expect(performance.now() - t).toBeLessThanOrEqual(500);
+    const t2 = performance.now();
+    matchMinutiae(a150, moved(a150, 30, 15, -10));
+    expect(performance.now() - t2).toBeLessThanOrEqual(500);
+  });
+
+  it("only aligns on pairs of the same kind (Ruling P2-R10)", () => {
+    // one minutia each, of different kinds: no alignment is proposed, so nothing pairs
+    const ending = [{ x: 50, y: 50, angle: 0, kind: "ending" as const }];
+    const fork = [{ x: 80, y: 60, angle: 1, kind: "bifurcation" as const }];
+    expect(matchMinutiae(ending, fork).matched).toBe(0);
+    expect(matchMinutiae(ending, [{ ...fork[0], kind: "ending" }]).matched).toBe(1);
+  });
+
   it("honours a tighter tolerance", () => {
     // Every other minutia is 6 px off: inside 10 px, outside 3 px, and no single shift fixes both halves.
     const b = a.map((q, i) => (i % 2 ? { ...q, x: q.x + 6 } : q));
@@ -119,11 +142,20 @@ describe("fingerprintFinding", () => {
   it("calls a strong match consistent, with the score as the detail", () => {
     const f = fingerprintFinding(a, b, result(0.52, 18));
     expect(f.title).toBe("Fingerprint match: consistent with the same finger");
-    expect(f.detail).toEqual({ kind: "measurement", value: 0.52, unit: "match score" });
+    expect(f.detail).toEqual({ kind: "measurement", value: 0.52, unit: "match score", decimals: 2 });
     expect(f.body.endsWith(LIMIT)).toBe(true);
+    // a consistent reading needs no caveat about a low score
+    expect(f.body).not.toContain(CAVEAT);
     expect(f.body).toContain("0.52");
     expect(f.body).toContain("18");
     expect(f.body).toContain("35");
+  });
+
+  it("reads on the card as on the panel, with two decimals (Ruling P2-R12)", () => {
+    const card = (s: number) => formatFindingDetail(readFindingDetail({ finding: fingerprintFinding(a, b, result(s, 30)).detail })!);
+    expect(card(0.7)).toBe("0.70 match score");
+    expect(card(1)).toBe("1.00 match score");
+    expect(card(0.3)).toBe("0.30 match score");
   });
 
   it("keeps the same title for identical inputs", () => {
@@ -142,14 +174,15 @@ describe("fingerprintFinding", () => {
   it("reads the middle band as inconclusive, with the score", () => {
     const f = fingerprintFinding(a, b, result(0.3, 11));
     expect(f.title).toBe("Fingerprint match: inconclusive");
-    expect(f.detail).toEqual({ kind: "measurement", value: 0.3, unit: "match score" });
+    expect(f.detail).toEqual({ kind: "measurement", value: 0.3, unit: "match score", decimals: 2 });
+    expect(f.body.endsWith(`${CAVEAT} ${LIMIT}`)).toBe(true);
   });
 
   it("reads a low score as no sign of the same finger", () => {
     const f = fingerprintFinding(a, b, result(0.08, 3));
     expect(f.title).toBe("Fingerprint match: no sign of the same finger");
-    expect(f.detail).toMatchObject({ value: 0.08 });
-    expect(f.body.endsWith(LIMIT)).toBe(true);
+    expect(f.detail).toMatchObject({ value: 0.08, decimals: 2 });
+    expect(f.body.endsWith(`${CAVEAT} ${LIMIT}`)).toBe(true);
   });
 
   it("reads too few minutiae in either print as inconclusive, with no score", () => {
@@ -158,6 +191,8 @@ describe("fingerprintFinding", () => {
     expect(f.body).toContain("not enough ridge detail");
     expect(f.detail).toBeUndefined();
     expect(f.body.endsWith(LIMIT)).toBe(true);
+    // no score, so no caveat about a low one
+    expect(f.body).not.toContain(CAVEAT);
     expect(fingerprintFinding(a, row(11), result(0.9, 8)).detail).toBeUndefined();
   });
 
@@ -165,8 +200,21 @@ describe("fingerprintFinding", () => {
     const f = fingerprintFinding(row(14), row(14), result(0.5, 7));
     expect(f.title).toBe("Fingerprint match: inconclusive");
     expect(f.body).toContain("too few matched minutiae");
+    expect(f.body).toContain("The two prints have 14 and 14 minutiae, but only 7 matched; too few matched minutiae to rely on this score");
     expect(f.detail).toBeUndefined();
-    expect(f.body.endsWith(LIMIT)).toBe(true);
+    expect(f.body.endsWith(`${CAVEAT} ${LIMIT}`)).toBe(true);
+  });
+
+  it("reads more than 150 minutiae in either print as too noisy, with no score (Ruling P2-R9)", () => {
+    for (const [na, nb] of [[151, 35], [35, 400]]) {
+      const f = fingerprintFinding(row(na), row(nb), result(0.9, 30));
+      expect(f).toMatchObject({ verdict: "inconclusive", score: null, title: "Fingerprint match: inconclusive" });
+      expect(f.body).toContain("too noisy to read reliably");
+      expect(f.detail).toBeUndefined();
+      expect(f.body.endsWith(LIMIT)).toBe(true);
+      expect(f.body).not.toContain(CAVEAT);
+    }
+    expect(fingerprintFinding(row(150), row(150), result(0.6, 90)).verdict).toBe("consistent");
   });
 
   it("accepts exactly 12 matched minutiae", () => {
