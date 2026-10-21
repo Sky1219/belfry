@@ -69,12 +69,8 @@ describe("chiSquareAttack", () => {
 });
 
 describe("chiSquareAttack on a realistic photo", () => {
-  it("measures the demo scene at 100%", () => {
+  it("reads the demo scene as clean: p < 0.5 at 100%", () => {
     const r = chiSquareAttack(forensicsDemoPixels().pixels);
-    const p = r[r.length - 1].p;
-    console.info(`forensicsDemoPixels chi-square p at 1.0 = ${p}`);
-    expect(Number.isFinite(p)).toBe(true);
-    expect(p).toBeGreaterThanOrEqual(0);
-    expect(p).toBeLessThanOrEqual(1);
+    expect(r[r.length - 1].p).toBeLessThan(0.5);
   });
 });
