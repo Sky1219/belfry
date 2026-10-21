@@ -21,7 +21,7 @@ export class CapacityError extends Error {
   }
 }
 
-function opaqueChannels(p: Pixels): number {
+export function opaqueChannels(p: Pixels): number {
   let opaque = 0;
   for (let i = 3; i < p.data.length; i += 4) if (p.data[i] === 255) opaque++;
   return opaque * 3;
@@ -36,7 +36,7 @@ export function capacityBytes(p: Pixels): number {
  * Index into `data` of each opaque R, G, B channel in stream order (row-major,
  * alpha skipped, pixels with alpha < 255 skipped), limited to the first `limit`.
  */
-function channelIndices(p: Pixels, limit: number): Int32Array {
+export function channelIndices(p: Pixels, limit: number): Int32Array {
   const out = new Int32Array(limit);
   let n = 0;
   for (let i = 0; i < p.data.length && n < limit; i += 4) {
