@@ -520,7 +520,8 @@ function BoardInner({
   const toolButton = (t: BoardTool, extra?: { primary?: boolean; testId?: string }) => (
     <HudButton
       key={t.id}
-      className={`with-icon ${extra?.primary ? "primary" : ""} ${!extra?.primary && !toolUsed ? "active" : ""}`}
+      // until a tool has been opened, the first tool is the one lit next step (The Next Step Rule)
+      className={`with-icon ${extra?.primary ? "primary" : ""} ${!extra?.primary && !toolUsed && t.id === tools[0]?.id ? "active" : ""}`}
       data-testid={extra?.testId ?? `open-tool-${t.id}`}
       onClick={t.open}
       aria-description={t.blurb}

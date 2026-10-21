@@ -20,6 +20,11 @@ test("demo photo: every panel reads out, and pinned results link back to the pho
   const errors = collectErrors(page);
   await openCaseBoard(page, "Bell Tower Case");
 
+  // with no tool opened yet, one tool key is the next step, not every one (The Next Step Rule)
+  const toolKeys = page.getByRole("group", { name: "Tools" }).locator(".hud-btn");
+  await expect(toolKeys).toHaveCount(2);
+  await expect(toolKeys.and(page.locator(".active"))).toHaveCount(1);
+
   await page.getByTestId("open-tool-photo-forensics").click();
   await expect(page.getByTestId("no-signal")).toBeVisible();
   await page.getByTestId("run-demo").click();

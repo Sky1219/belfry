@@ -7,7 +7,7 @@ import { decodeImage, encodeImage } from "../imagekit/decode";
 import { MAP_SIDE } from "../imagekit/heatmap";
 import { ImageToolShell, ToolPanel } from "../imagekit/ImageToolShell";
 import { pinResult, type PinDeps, type PinRequest } from "../imagekit/pin";
-import { downscale, toGray, type Pixels } from "../imagekit/pixels";
+import { downscale, toGray, undoOrientation, type Pixels } from "../imagekit/pixels";
 import { useToolImage } from "../imagekit/useToolImage";
 import type { ToolContext } from "../types";
 import { copyMoveFinding, markRegions, type CopyMoveResult } from "./copyMove";
@@ -126,7 +126,8 @@ function Panels(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; 
   const { ctx, source, bytes, pixels, onOverlay } = props;
   const { pinned, pin } = usePins({ store: ctx.store, caseId: ctx.caseId, toolId: ctx.toolId });
 
-  const metadata = useMemo(() => metadataFinding(readMetadata(bytes)), [bytes]);
+  const meta = useMemo(() => readMetadata(bytes), [bytes]);
+  const metadata = useMemo(() => metadataFinding(meta), [meta]);
   const jpegInfo = useMemo(() => readJpeg(bytes), [bytes]);
   const gray = useMemo(() => toGray(pixels), [pixels]);
   const { width, height } = pixels;
@@ -134,8 +135,15 @@ function Panels(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; 
   const jpeg = useRun(pixels, async (signal) => {
     if (!jpegInfo) return null;
     const luma = jpegInfo.tables.get(0);
-    const g = gray.slice();
-    const dq = luma ? await runOp("dq", { gray: g, width, height, luma }, { signal, transfer: [g.buffer] }) : null;
+    // the DQ score reads the file's own 8x8 grid, so the display orientation is undone first;
+    // the reader keeps only orientations 1-8, and anything else can't be lined up (inconclusive)
+    const orientation = meta.orientation ?? 1;
+    const lined = luma && orientation >= 1 && orientation <= 8;
+    const stored = lined ? undoOrientation(gray, width, height, orientation) : null;
+    const dq =
+      luma && stored
+        ? await runOp("dq", { gray: stored.gray, width: stored.width, height: stored.height, luma }, { signal, transfer: [stored.gray.buffer] })
+        : null;
     return jpegFinding(jpegInfo, dq);
   });
 

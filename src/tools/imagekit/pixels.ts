@@ -65,6 +65,42 @@ export function downscale(p: Pixels, maxSide: number): Pixels {
 }
 
 /**
+ * Maps a displayed image (w x h, EXIF orientation already applied, as
+ * `decodeImage` returns it) back to the layout stored in the file, for tests
+ * that depend on the stored 8x8 grid. Always returns a new array. Throws a
+ * RangeError for an orientation outside 1-8.
+ */
+export function undoOrientation(
+  gray: Float32Array,
+  w: number,
+  h: number,
+  orientation: number,
+): { gray: Float32Array; width: number; height: number } {
+  if (!Number.isInteger(orientation) || orientation < 1 || orientation > 8) {
+    throw new RangeError(`EXIF orientation ${orientation} is not 1-8`);
+  }
+  const swapped = orientation >= 5;
+  const sw = swapped ? h : w;
+  const sh = swapped ? w : h;
+  // displayed pixel (x, y) shows stored pixel (sx, sy) = (ax x + bx y + cx, ay x + by y + cy)
+  const [ax, bx, cx, ay, by, cy] = {
+    1: [1, 0, 0, 0, 1, 0],
+    2: [-1, 0, sw - 1, 0, 1, 0], // mirrored
+    3: [-1, 0, sw - 1, 0, -1, sh - 1], // rotated 180°
+    4: [1, 0, 0, 0, -1, sh - 1], // flipped
+    5: [0, 1, 0, 1, 0, 0], // transposed
+    6: [0, 1, 0, -1, 0, sh - 1], // rotated 90° clockwise
+    7: [0, -1, sw - 1, -1, 0, sh - 1], // transversed
+    8: [0, -1, sw - 1, 1, 0, 0], // rotated 90° anticlockwise
+  }[orientation]!;
+  const out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) out[(ay * x + by * y + cy) * sw + ax * x + bx * y + cx] = gray[y * w + x];
+  }
+  return { gray: out, width: sw, height: sh };
+}
+
+/**
  * Box-filter a per-pixel value map (w x h) so its long side is at most
  * `maxSide`, as `downscale` does for pixels. Returns `values` itself when it
  * already fits.
