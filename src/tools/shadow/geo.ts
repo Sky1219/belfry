@@ -113,9 +113,10 @@ export function fixesFromAzimuth(subsolar: LatLon, zenithDeg: number, sunAzimuth
 }
 
 /**
- * The single best place from `fixesFromAzimuth`: when the circle is crossed twice, the one
- * whose bearing from the subsolar point is nearest the opposite of the sun's azimuth (the
- * answer on a flat map). Null when there is no fix.
+ * One of the places from `fixesFromAzimuth`, chosen arbitrarily when the circle is crossed twice
+ * (the one whose bearing from the subsolar point is nearest the opposite of the sun's azimuth, a
+ * flat-map heuristic that picks the wrong place in most ambiguous cases). Null when there is no
+ * fix. Callers that need the right answer must use `fixesFromAzimuth` and handle both places.
  */
 export function fixFromAzimuth(subsolar: LatLon, zenithDeg: number, sunAzimuthDeg: number): LatLon | null {
   const fixes = fixesFromAzimuth(subsolar, zenithDeg, sunAzimuthDeg);
