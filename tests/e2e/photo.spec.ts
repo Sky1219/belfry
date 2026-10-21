@@ -15,6 +15,20 @@ async function openCaseBoard(page: Page, title: string) {
 const canvasSize = (panel: Locator) =>
   panel.locator("canvas").evaluate((c) => ({ w: (c as HTMLCanvasElement).width, h: (c as HTMLCanvasElement).height }));
 
+type Rect = { x: number; y: number; w: number; h: number };
+
+/** The mean brightness (average of R, G, B) of the panel's map canvas inside each rectangle. */
+const mapMeans = (panel: Locator, rects: Rect[]) =>
+  panel.locator("canvas").evaluate((c, rs: Rect[]) => {
+    const g = (c as HTMLCanvasElement).getContext("2d")!;
+    return rs.map((r) => {
+      const { data } = g.getImageData(r.x, r.y, r.w, r.h);
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 4) sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
+      return sum / (r.w * r.h);
+    });
+  }, rects);
+
 test("demo photo: every panel reads out, and pinned results link back to the photo", async ({ page }) => {
   test.setTimeout(120_000);
   const errors = collectErrors(page);
@@ -22,7 +36,9 @@ test("demo photo: every panel reads out, and pinned results link back to the pho
 
   // with no tool opened yet, one tool key is the next step, not every one (The Next Step Rule)
   const toolKeys = page.getByRole("group", { name: "Tools" }).locator(".hud-btn");
-  await expect(toolKeys).toHaveCount(2);
+  // later tools add keys; whatever the count, exactly one is lit
+  await expect(toolKeys.nth(1)).toBeVisible();
+  expect(await toolKeys.count()).toBeGreaterThanOrEqual(2);
   await expect(toolKeys.and(page.locator(".active"))).toHaveCount(1);
 
   await page.getByTestId("open-tool-photo-forensics").click();
@@ -30,9 +46,13 @@ test("demo photo: every panel reads out, and pinned results link back to the pho
   await page.getByTestId("run-demo").click();
 
   await expect(page.getByTestId("panel-copy-move")).toContainText("consistent with cloned regions", { timeout: 20_000 });
+  await expect(page.getByTestId("panel-copy-move")).toContainText("(96, 40) px");
+  // each panel's result is a polite live region, so a screen reader hears the test finish
+  await expect(page.getByTestId("result-copy-move")).toHaveAttribute("aria-live", "polite");
+  await expect(page.getByTestId("result-copy-move")).toContainText("Copy-move: consistent with cloned regions");
   const jpeg = page.getByTestId("panel-jpeg");
-  await expect(jpeg).toContainText(/about (89|90|91)/);
-  // the demo is saved twice on the same grid (Ruling R8)
+  await expect(jpeg).toContainText(/about (74|75|76)/);
+  // the demo is saved at 50 then 75 on the same grid (Rulings R8, R14)
   await expect(jpeg).toContainText("consistent with two JPEG saves");
 
   // maps line up with the photo as decoded (Review Focus 2)
@@ -41,6 +61,16 @@ test("demo photo: every panel reads out, and pinned results link back to the pho
     await expect(panel.locator("canvas")).toBeVisible();
     expect(await canvasSize(panel)).toEqual({ w: 512, h: 384 });
   }
+
+  // the pasted patch (20, 284, 72×72 in demo.ts) glows on the error level map against the wall beside it (Ruling R14)
+  const heat = await mapMeans(page.getByTestId("panel-ela"), [
+    { x: 20, y: 284, w: 72, h: 72 },
+    { x: 100, y: 284, w: 72, h: 72 },
+    { x: 20, y: 204, w: 72, h: 72 },
+  ]);
+  const [patch, right, above] = heat;
+  expect(patch, `patch ${patch}, right ${right}, above ${above}`).toBeGreaterThan(2 * right);
+  expect(patch, `patch ${patch}, right ${right}, above ${above}`).toBeGreaterThan(2 * above);
 
   await page.getByTestId("pin-copy-move").click();
   await expect(page.getByTestId("panel-copy-move")).toContainText("Pinned");
@@ -52,6 +82,29 @@ test("demo photo: every panel reads out, and pinned results link back to the pho
   await expect(page.getByTestId("board")).toBeVisible();
   await expect(page.locator(".react-flow__node")).toHaveCount(5);
   await expect(page.locator(".react-flow__edge.link-derived-from")).toHaveCount(4);
+
+  expect(errors()).toEqual([]);
+});
+
+test("Back after the demo does not pin another demo photo", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = collectErrors(page);
+  await openCaseBoard(page, "Back Button Case");
+
+  await page.getByTestId("open-tool-photo-forensics").click();
+  await page.getByTestId("run-demo").click();
+  await expect(page).toHaveURL(/\/tool\/photo-forensics\/ev%3A/);
+  await expect(page.getByTestId("panel-copy-move")).toContainText("Copy-move:", { timeout: 20_000 });
+
+  // the demo hop replaced its history entry, so Back skips ".../demo" and never re-runs it
+  await page.goBack();
+  await expect(page).toHaveURL(/\/tool\/photo-forensics\/pick$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/case\/[^/]+$/);
+  await expect(page.getByTestId("board")).toBeVisible();
+  const cards = page.locator(".react-flow__node");
+  await expect(cards).toHaveCount(1);
+  await expect(cards.filter({ hasText: "Demo photo — bell tower" })).toHaveCount(1);
 
   expect(errors()).toEqual([]);
 });

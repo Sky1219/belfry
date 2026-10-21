@@ -1,7 +1,7 @@
 import type { FindingDetail } from "../../store/schema";
 import { ZIGZAG } from "../../platform/math/dct8";
 import { makePixels, type Pixels } from "../imagekit/pixels";
-import { verdictFor, verdictTitle } from "../imagekit/verdict";
+import { verdictFor, verdictTitle, type Verdict } from "../imagekit/verdict";
 
 export interface CopyMoveResult {
   width: number;
@@ -166,17 +166,24 @@ export function markRegions(photo: Pixels, mask: Uint8Array, mw: number, mh: num
 const THRESHOLDS = { inconclusiveAt: 15, consistentAt: 40 };
 const LIMIT = "Repeating textures (brick, tiles, foliage) can match themselves.";
 
-/** The copy-move finding. Too few textured blocks to compare reads inconclusive, whatever the match count. */
-export function copyMoveFinding(r: CopyMoveResult): { title: string; body: string; detail?: FindingDetail } {
+/**
+ * The copy-move finding. Too few textured blocks to compare reads inconclusive,
+ * whatever the match count. `verdict` is returned so callers decide on it (only
+ * "consistent" marks the photo) instead of reading the title.
+ */
+export function copyMoveFinding(r: CopyMoveResult): { title: string; body: string; detail?: FindingDetail; verdict: Verdict } {
   if (r.considered < MIN_CONSIDERED) {
     return {
       title: verdictTitle("Copy-move", "inconclusive", "cloned regions"),
       body: `The image has too little texture to compare: only ${r.considered} 8×8 blocks varied enough. ${LIMIT}`,
+      verdict: "inconclusive",
     };
   }
   const at = r.shift ? ` The most common displacement is (${r.shift.dx}, ${r.shift.dy}) px.` : "";
+  const verdict = verdictFor(r.blocks, THRESHOLDS);
   return {
-    title: verdictTitle("Copy-move", verdictFor(r.blocks, THRESHOLDS), "cloned regions"),
+    verdict,
+    title: verdictTitle("Copy-move", verdict, "cloned regions"),
     body: `${r.blocks} matching 8×8 blocks.${at} Consistent at 40 or more, inconclusive from 15 to 39. ${LIMIT}`,
     detail: { kind: "measurement", value: r.blocks, unit: "matching blocks" },
   };

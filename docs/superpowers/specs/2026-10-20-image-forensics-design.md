@@ -47,7 +47,7 @@ Each tool has its own plan in `docs/superpowers/plans/2026-10-20-image-forensics
 | Noise residual | The image minus its 3×3 median. Local σ in 16 px blocks, each block normalised by the image's median σ. | A heat map, and the inconsistency score (block σ coefficient of variation) as a `measurement`. |
 | Copy-move | 8×8 blocks with stride 1 at long side ≤512 px. The features are 9 low-frequency DCT coefficients, quantized by 2.5. Sort them lexicographically and compare neighbours within 10 rows. Keep pairs whose shift is ≥ 16 px, then count blocks per shift vector. | An overlay map of the cloned regions, plus the verdict. |
 
-The demo is a seeded synthetic scene with one region cloned (shift (+96, +40)) and one patch pasted from a copy compressed at a different quality. The whole image is then saved as JPEG at quality 90.
+The demo is a seeded synthetic scene with one region cloned (shift (+96, +40)). The whole background is first saved as JPEG at quality 50. One patch of the textured stone wall, clear of the clone, is then pasted off the 8-px grid from a copy compressed at quality 60. The whole image is then saved as JPEG at quality 75, so double quantization, copy-move and ELA (re-saved at 90) each have something to show (amended by Ruling R14).
 
 ## 4. Fingerprint lab (`fingerprint-lab`)
 

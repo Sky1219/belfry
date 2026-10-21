@@ -350,7 +350,10 @@ function readXmp(xml: string, m: PhotoMetadata): void {
   const packet = xml.length > MAX_XMP_CHARS ? xml.slice(0, MAX_XMP_CHARS) : xml;
   const creatorTool = xmpValues(packet, "xmp:CreatorTool", 1)[0];
   const modifyDate = xmpValues(packet, "xmp:ModifyDate", 1)[0];
-  const history = xmpValues(packet, "stEvt:softwareAgent", MAX_HISTORY);
+  // the agents from xmpMM:History, then Photoshop's own free-text log
+  const agents = xmpValues(packet, "stEvt:softwareAgent", MAX_HISTORY);
+  const log = agents.length < MAX_HISTORY ? xmpValues(packet, "photoshop:History", MAX_HISTORY - agents.length) : [];
+  const history = [...agents, ...log];
   if (creatorTool || modifyDate || history.length) m.xmp = { creatorTool, modifyDate, history };
 }
 
@@ -392,8 +395,11 @@ export function metadataFinding(m: PhotoMetadata): { title: string; body: string
   // the PNG Software keyword joins the software line below instead of repeating it
   for (const [key, value] of Object.entries(m.text)) if (key !== "Software") add(shorten(key), value);
   // EXIF Software may be camera firmware, so the line states what the file says without calling it an edit
-  const tools = [...new Set([m.software, m.text.Software, m.xmp?.creatorTool, ...(m.xmp?.history ?? [])].filter((s): s is string => !!s))];
+  const tools = [...new Set([m.software, m.text.Software, m.xmp?.creatorTool].filter((s): s is string => !!s))];
   if (tools.length) add("Software", tools.join(", "));
+  // the history holds agent names and Photoshop's free-text log, so it gets its own line rather than "Software"
+  const history = [...new Set(m.xmp?.history ?? [])];
+  if (history.length) add("XMP history", history.join("; "));
 
   const notes = m.warnings.length ? `\nCould not read part of the metadata: ${m.warnings.join("; ")}.` : "";
   if (!lines.length) {

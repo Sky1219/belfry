@@ -27,15 +27,24 @@ export function parseRoute(hash: string): Route {
   return { name: "cases" };
 }
 
-export function useRoute(): [Route, (r: Route) => void] {
+export interface NavigateOptions {
+  /** Replace the current history entry instead of pushing one, so Back skips the route being left. */
+  replace?: boolean;
+}
+
+export type Navigate = (r: Route, opts?: NavigateOptions) => void;
+
+export function useRoute(): [Route, Navigate] {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
   useEffect(() => {
     const onHash = () => setRoute(parseRoute(window.location.hash));
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
-  const navigate = useCallback((r: Route) => {
-    window.location.hash = formatRoute(r);
+  const navigate = useCallback<Navigate>((r, opts) => {
+    // a hash-only replace still fires hashchange, so the route updates either way
+    if (opts?.replace) window.location.replace(formatRoute(r));
+    else window.location.hash = formatRoute(r);
   }, []);
   return [route, navigate];
 }

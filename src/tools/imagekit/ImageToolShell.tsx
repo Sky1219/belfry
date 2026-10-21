@@ -15,6 +15,7 @@ function SourceScreen(props: { pixels?: Pixels; drawOverlay?: (g: CanvasRenderin
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
+  const [drawFailed, setDrawFailed] = useState(false);
 
   useEffect(() => {
     const el = boxRef.current;
@@ -29,13 +30,18 @@ function SourceScreen(props: { pixels?: Pixels; drawOverlay?: (g: CanvasRenderin
   // decoded once per photo; resizing only redraws from this bitmap
   useEffect(() => {
     setBitmap(null);
+    setDrawFailed(false);
     if (!pixels) return;
     let alive = true;
     let made: ImageBitmap | undefined;
-    createImageBitmap(new ImageData(pixels.data as Uint8ClampedArray<ArrayBuffer>, pixels.width, pixels.height)).then((b) => {
-      if (alive) setBitmap((made = b));
-      else b.close();
-    });
+    createImageBitmap(new ImageData(pixels.data as Uint8ClampedArray<ArrayBuffer>, pixels.width, pixels.height)).then(
+      (b) => {
+        if (alive) setBitmap((made = b));
+        else b.close();
+      },
+      // out of memory, say: the screen says so instead of staying blank
+      () => alive && setDrawFailed(true),
+    );
     return () => {
       alive = false;
       made?.close();
@@ -73,7 +79,11 @@ function SourceScreen(props: { pixels?: Pixels; drawOverlay?: (g: CanvasRenderin
 
   return (
     <div className="ik-stage" ref={boxRef}>
-      {pixels ? (
+      {pixels && drawFailed ? (
+        <p className="ik-problem" role="alert" data-testid="source-draw-failed">
+          This photo couldn&rsquo;t be drawn.
+        </p>
+      ) : pixels ? (
         <div className="ik-photo" style={{ width: cssW, height: cssH }}>
           <canvas ref={photoRef} className="ik-canvas" data-testid="source-canvas" role="img" aria-label="The photo under analysis" />
           <canvas ref={overlayRef} className="ik-canvas ik-overlay" aria-hidden />
@@ -174,7 +184,10 @@ export function ToolPanel(props: {
     <div className="ik-panel" data-testid={`panel-${props.id}`}>
       <Bezel title={props.title} titleId={`ik-panel-${props.id}`} lamp={props.lamp} meta={props.readout}>
         <div className="panel-body col">
-          {props.children}
+          {/* a live region from the start, so a screen reader hears the result replace "Working" */}
+          <div className="col ik-result" aria-live="polite" data-testid={`result-${props.id}`}>
+            {props.children}
+          </div>
           {props.onPin && (
             <div className="ik-pin">
               <HudButton small className="with-icon" disabled={busy} onClick={pin} data-testid={`pin-${props.id}`}>

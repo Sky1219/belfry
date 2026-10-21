@@ -148,6 +148,13 @@ describe("copyMoveFinding", () => {
     expect(copyMoveFinding(result(0, 64, null)).title).toBe("Copy-move: no sign of cloned regions");
   });
 
+  it("returns its verdict, so only a consistent result marks the photo (Ruling R16)", () => {
+    expect(copyMoveFinding(result(52)).verdict).toBe("consistent");
+    expect(copyMoveFinding(result(20)).verdict).toBe("inconclusive");
+    expect(copyMoveFinding(result(52, 63)).verdict).toBe("inconclusive");
+    expect(copyMoveFinding(result(3)).verdict).toBe("no-sign");
+  });
+
   it("reads the flat 64x64 and 8x8 images as inconclusive", () => {
     for (const n of [64, 8]) {
       const r = detectCopyMove(new Float32Array(n * n).fill(90), n, n);

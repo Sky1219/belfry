@@ -190,6 +190,8 @@ describe("jpegFinding", () => {
   it("names an IJG quality with ±1", () => {
     const f = jpegFinding(info(ijgTable(IJG_LUMA, 87)), null).quality;
     expect(f.title).toBe("JPEG quality: about 87");
+    expect(f.body).toContain("is close to the standard IJG scaling");
+    expect(f.body).not.toContain("to within 1");
     expect(f.detail).toEqual({ kind: "measurement", value: 87, unit: "quality", uncertainty: 1 });
   });
 
@@ -208,6 +210,25 @@ describe("jpegFinding", () => {
     expect(dq.detail).toEqual({ kind: "measurement", value: 0.62, unit: "DQ score" });
     expect(jpegFinding(t, 0.1).dq.title).toBe("Double quantization: no sign of two JPEG saves");
     expect(jpegFinding(t, 0.4).dq.title).toBe("Double quantization: inconclusive");
+  });
+
+  it("bands the score as it is shown, rounded to 2 dp", () => {
+    const t = info(ijgTable(IJG_LUMA, 80));
+    const near = jpegFinding(t, 0.496).dq;
+    expect(near.title).toBe("Double quantization: consistent with two JPEG saves");
+    expect(near.body).toContain("Periodicity score 0.50 ");
+    expect(near.detail).toEqual({ kind: "measurement", value: 0.5, unit: "DQ score" });
+    const low = jpegFinding(t, 0.2996).dq;
+    expect(low.title).toBe("Double quantization: inconclusive");
+    expect(low.body).toContain("Periodicity score 0.30 ");
+    expect(low.detail).toEqual({ kind: "measurement", value: 0.3, unit: "DQ score" });
+  });
+
+  it("says why there is no score when the file has no luminance table", () => {
+    const dq = jpegFinding(readJpeg(jpeg())!, null).dq;
+    expect(dq.title).toBe("Double quantization: inconclusive");
+    expect(dq.body).toContain("no luminance quantization table");
+    expect(dq.body).not.toContain("8×8 block");
   });
 
   it("reads inconclusive with no detail when there is no score", () => {

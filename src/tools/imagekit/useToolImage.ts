@@ -35,7 +35,8 @@ export function useToolImage(ctx: ToolContext, makeDemo: () => Promise<PinImage>
           const demo = await latest.current.makeDemo();
           if (!alive) return;
           const pinned = await pinDemoInput({ store, caseId, toolId }, demo);
-          if (alive) latest.current.openInput(`ev:${pinned.id}`);
+          // replace, not push: Back from the exhibit must not land on ".../demo" and pin another demo
+          if (alive) latest.current.openInput(`ev:${pinned.id}`, { replace: true });
           return;
         }
         const blob = await readEvidenceBlob(store, input.evidence);

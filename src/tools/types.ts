@@ -23,8 +23,12 @@ export interface ToolContext {
   llm: LlmClient;
   settings: Settings;
   updateSettings(next: Settings): void;
-  /** Reopens this tool on another input (a route input: "live-camera", "demo", "pick" or "ev:<id>"). */
-  openInput(input: string): void;
+  /**
+   * Reopens this tool on another input (a route input: "live-camera", "demo", "pick" or "ev:<id>").
+   * `replace` swaps the current history entry, for a hop the visitor didn't ask for (the demo
+   * reopening on its pinned exhibit), so Back doesn't land on it and run it again.
+   */
+  openInput(input: string, opts?: { replace?: boolean }): void;
   close(): void;
 }
 

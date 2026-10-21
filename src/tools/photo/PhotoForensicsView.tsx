@@ -21,6 +21,8 @@ import "./photo.css";
 
 /** Copy-move compares blocks at this long side at most (spec §1). */
 const COPY_MOVE_SIDE = 512;
+/** Above this many pixels the analyses run one at a time (Ruling R15). */
+const ONE_AT_A_TIME_PIXELS = 16_000_000;
 const AMBER = [255, 167, 51] as const; // #ffa733, mirrored from the theme for the overlay
 const NOT_JPEG = "Not a JPEG: quantization tests don't apply.";
 
@@ -45,6 +47,25 @@ function useRun<T>(key: unknown, run: (signal: AbortSignal) => Promise<T>): Run<
     return () => ctl.abort();
   }, [key]);
   return result;
+}
+
+/**
+ * Starts each analysis at once, or, with `oneAtATime`, each after the one
+ * before has settled, so a big photo's full-size copies (its gray, the re-save,
+ * the worker's buffers) are never all alive together. A run aborted while it
+ * waits never starts.
+ */
+function analysisQueue(oneAtATime: boolean) {
+  let tail: Promise<unknown> = Promise.resolve();
+  return <T,>(signal: AbortSignal, run: () => Promise<T>): Promise<T> => {
+    if (!oneAtATime) return run();
+    const next = tail.then(() => {
+      if (signal.aborted) throw new Error("Cancelled");
+      return run();
+    });
+    tail = next.catch(() => undefined);
+    return next;
+  };
 }
 
 const isConsistent = (title: string) => title.includes(": consistent with ");
@@ -129,46 +150,58 @@ function Panels(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; 
   const meta = useMemo(() => readMetadata(bytes), [bytes]);
   const metadata = useMemo(() => metadataFinding(meta), [meta]);
   const jpegInfo = useMemo(() => readJpeg(bytes), [bytes]);
-  const gray = useMemo(() => toGray(pixels), [pixels]);
   const { width, height } = pixels;
+  const inTurn = useMemo(() => analysisQueue(pixels.width * pixels.height > ONE_AT_A_TIME_PIXELS), [pixels]);
 
-  const jpeg = useRun(pixels, async (signal) => {
-    if (!jpegInfo) return null;
-    const luma = jpegInfo.tables.get(0);
-    // the DQ score reads the file's own 8x8 grid, so the display orientation is undone first;
-    // the reader keeps only orientations 1-8, and anything else can't be lined up (inconclusive)
-    const orientation = meta.orientation ?? 1;
-    const lined = luma && orientation >= 1 && orientation <= 8;
-    const stored = lined ? undoOrientation(gray, width, height, orientation) : null;
-    const dq =
-      luma && stored
-        ? await runOp("dq", { gray: stored.gray, width: stored.width, height: stored.height, luma }, { signal, transfer: [stored.gray.buffer] })
-        : null;
-    return jpegFinding(jpegInfo, dq);
-  });
+  // copy-move first: it is the quickest, and its panel leads the column
+  const copyMove = useRun(pixels, (signal) =>
+    inTurn(signal, async () => {
+      const small = downscale(pixels, COPY_MOVE_SIDE);
+      const g = toGray(small);
+      return runOp("copyMove", { gray: g, width: small.width, height: small.height }, { signal, transfer: [g.buffer] });
+    }),
+  );
 
-  const ela = useRun(pixels, async (signal) => {
-    const blob = new Blob([(await encodeImage(pixels, "image/jpeg", ELA_QUALITY)) as BlobPart], { type: "image/jpeg" });
-    const resaved = await decodeImage(blob);
-    const original = pixels.data.slice();
-    return runOp("ela", { original, resaved: resaved.data, width, height }, { signal, transfer: [original.buffer, resaved.data.buffer] });
-  });
+  const jpeg = useRun(pixels, (signal) =>
+    inTurn(signal, async () => {
+      if (!jpegInfo) return null;
+      if (!jpegInfo.tables.get(0)) return jpegFinding(jpegInfo, null);
+      const luma = jpegInfo.tables.get(0)!;
+      // the DQ score reads the file's own 8x8 grid, so the display orientation is undone first;
+      // the reader keeps only orientations 1-8, and anything else can't be lined up (inconclusive)
+      const orientation = meta.orientation ?? 1;
+      if (!(orientation >= 1 && orientation <= 8)) {
+        return jpegFinding(jpegInfo, null, "The photo's orientation tag isn't one of 1 to 8, so its stored 8×8 grid can't be lined up to score.");
+      }
+      // the full-size gray is made here and handed to the worker, so no copy of it outlives the run (Ruling R15)
+      const gray = toGray(pixels);
+      const stored = orientation === 1 ? { gray, width, height } : undoOrientation(gray, width, height, orientation);
+      const dq = await runOp("dq", { gray: stored.gray, width: stored.width, height: stored.height, luma }, { signal, transfer: [stored.gray.buffer] });
+      return jpegFinding(jpegInfo, dq);
+    }),
+  );
 
-  const noise = useRun(pixels, async (signal) => {
-    const g = gray.slice();
-    return runOp("noise", { gray: g, width, height }, { signal, transfer: [g.buffer] });
-  });
+  const ela = useRun(pixels, (signal) =>
+    inTurn(signal, async () => {
+      const blob = new Blob([(await encodeImage(pixels, "image/jpeg", ELA_QUALITY)) as BlobPart], { type: "image/jpeg" });
+      const resaved = await decodeImage(blob);
+      const original = pixels.data.slice();
+      return runOp("ela", { original, resaved: resaved.data, width, height }, { signal, transfer: [original.buffer, resaved.data.buffer] });
+    }),
+  );
 
-  const copyMove = useRun(pixels, async (signal) => {
-    const small = downscale(pixels, COPY_MOVE_SIDE);
-    const g = toGray(small);
-    return runOp("copyMove", { gray: g, width: small.width, height: small.height }, { signal, transfer: [g.buffer] });
-  });
+  const noise = useRun(pixels, (signal) =>
+    inTurn(signal, async () => {
+      const g = toGray(pixels);
+      return runOp("noise", { gray: g, width, height }, { signal, transfer: [g.buffer] });
+    }),
+  );
 
   const cm = copyMove.state === "done" ? copyMove.value : null;
   const cmText = cm ? copyMoveFinding(cm) : null;
-  // amber marks a finding, so a "no sign" result leaves the photo unmarked even with a few stray matches
-  const cmMarked = !!cm?.shift && !!cmText && !cmText.title.includes(": no sign of ");
+  // amber marks a finding: only a consistent verdict marks the photo, matching the lamp (Ruling R16)
+  const cmConsistent = cmText?.verdict === "consistent";
+  const cmMarked = !!cm?.shift && cmConsistent;
   useEffect(() => onOverlay(cm && cmMarked ? maskOverlay(cm) : null), [cm, cmMarked, onOverlay]);
 
   let jpegBody: ReactNode;
@@ -200,12 +233,13 @@ function Panels(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; 
       <ToolPanel
         id="copy-move"
         title="Copy-move"
-        lamp={lampFor(copyMove, !!cmText && isConsistent(cmText.title))}
+        lamp={lampFor(copyMove, cmConsistent)}
         readout={cm && <span className="num">{`${cm.blocks} ${cm.blocks === 1 ? "block" : "blocks"}`}</span>}
         onPin={
           cm && cmText
             ? async () => {
-                // the regions are marked on the photo at map size, so the board shows where they are
+                // the regions are marked on the photo at map size, so the board shows where they are;
+                // with no consistent verdict there is nothing to assert, so only the finding is pinned (Ruling R16)
                 const marked = cmMarked ? markRegions(downscale(pixels, MAP_SIDE), cm.mask, cm.width, cm.height) : null;
                 const image = marked && {
                   bytes: await encodeImage(marked, "image/png"),
@@ -266,7 +300,7 @@ function Panels(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; 
         id="noise"
         title="Noise residual"
         lamp={lampFor(noise)}
-        readout={<span className="num">{noiseText?.detail.kind === "measurement" && noiseText.detail.value !== null ? `σ ${noiseText.detail.value.toFixed(2)}` : "σ --"}</span>}
+        readout={<span className="num">{noiseText?.detail.kind === "measurement" && noiseText.detail.value !== null ? `spread ${noiseText.detail.value.toFixed(2)}` : "spread --"}</span>}
         onPin={
           noise.state === "done" && noiseText
             ? async () => {

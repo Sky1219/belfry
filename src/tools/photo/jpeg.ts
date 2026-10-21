@@ -24,7 +24,11 @@ export function ijgTable(base: readonly number[], quality: number): Uint16Array 
   return Uint16Array.from(base, (b) => Math.min(255, Math.max(1, Math.floor((b * scale + 50) / 100))));
 }
 
-/** The IJG quality whose table is nearest (sum of absolute differences) to `luma`; `ijg` when that is within 64. */
+/**
+ * The IJG quality whose table is nearest (sum of absolute differences) to
+ * `luma`; `ijg` when the whole table is within 64 of it: close to IJG scaling,
+ * not necessarily an exact match.
+ */
 export function estimateQuality(luma: Uint16Array): { quality: number; ijg: boolean } {
   let best = 1;
   let bestDist = Infinity;
@@ -112,10 +116,14 @@ function readDqt(bytes: Uint8Array, start: number, end: number, info: JpegInfo):
 const DQ_THRESHOLDS = { inconclusiveAt: 0.3, consistentAt: 0.5 };
 const DQ_LIMIT = "A photo saved twice as JPEG shows this whether or not it was edited in between.";
 
-/** The quality and double-quantization findings for the JPEG panel. */
+/**
+ * The quality and double-quantization findings for the JPEG panel. With no
+ * score, `noScore` says why; a file with no luminance table says that instead.
+ */
 export function jpegFinding(
   info: JpegInfo,
   dq: number | null,
+  noScore = "Too little image to score: no complete 8×8 block, or too few coefficients.",
 ): {
   quality: { title: string; body: string; detail: FindingDetail };
   dq: { title: string; body: string; detail?: FindingDetail };
@@ -133,7 +141,7 @@ export function jpegFinding(
     quality = est.ijg
       ? {
           title: `JPEG quality: about ${est.quality}`,
-          body: "The luminance quantization table matches the standard IJG scaling for this quality, to within 1. Lower quality means coarser rounding of image detail.",
+          body: "The luminance quantization table is close to the standard IJG scaling for this quality. Lower quality means coarser rounding of image detail.",
           detail: { kind: "measurement", value: est.quality, unit: "quality", uncertainty: 1 },
         }
       : {
@@ -144,16 +152,19 @@ export function jpegFinding(
   }
 
   const thresholds = "Consistent at 0.50 or more, inconclusive from 0.30 to 0.49.";
+  // the verdict bands the score as shown, so 0.2996 shows 0.30 and reads inconclusive, never "no sign" beside "0.30"
+  const shown = dq === null || Number.isNaN(dq) ? null : Math.round(dq * 100) / 100;
+  const why = luma ? noScore : "The file has no luminance quantization table to score against.";
   const dqFinding =
-    dq === null || Number.isNaN(dq)
+    shown === null
       ? {
           title: verdictTitle("Double quantization", "inconclusive", "two JPEG saves"),
-          body: `Too little image to score: no complete 8×8 block, or too few coefficients. ${DQ_LIMIT}`,
+          body: `${why} ${DQ_LIMIT}`,
         }
       : {
-          title: verdictTitle("Double quantization", verdictFor(dq, DQ_THRESHOLDS), "two JPEG saves"),
-          body: `Periodicity score ${dq.toFixed(2)} on the low-frequency DCT histograms. ${thresholds} ${DQ_LIMIT}`,
-          detail: { kind: "measurement", value: Math.round(dq * 100) / 100, unit: "DQ score" } as FindingDetail,
+          title: verdictTitle("Double quantization", verdictFor(shown, DQ_THRESHOLDS), "two JPEG saves"),
+          body: `Periodicity score ${shown.toFixed(2)} on the low-frequency DCT histograms. ${thresholds} ${DQ_LIMIT}`,
+          detail: { kind: "measurement", value: shown, unit: "DQ score" } as FindingDetail,
         };
   return { quality, dq: dqFinding };
 }

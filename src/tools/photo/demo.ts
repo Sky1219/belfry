@@ -6,7 +6,8 @@ const W = 512;
 const H = 384;
 const WALL_TOP = 190;
 const CLONE = { x: 120, y: 200, w: 64, h: 64, dx: 96, dy: 40 };
-const PASTE = { x: 40, y: 60, w: 72, h: 72 };
+/** On the wall, left of the clone; 20 and 284 are both 4 mod 8, so the patch's own grid is off the photo's. */
+const PASTE = { x: 20, y: 284, w: 72, h: 72 };
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -95,7 +96,8 @@ function copyRect(p: Pixels, from: Rect, dx: number, dy: number) {
 /**
  * The demo scene: a bell tower at dusk, 512x384. A textured 64x64 patch of the
  * wall is cloned elsewhere on the wall (copy-move finds it), and `pasted` marks
- * a rectangle that `makeForensicsDemo` recompresses at a different quality.
+ * a 72x72 rectangle of the wall, clear of the clone's source and destination,
+ * that `makeForensicsDemo` recompresses at a different quality on its own grid.
  */
 export function forensicsDemoPixels(seed = 7): {
   pixels: Pixels;
@@ -117,18 +119,20 @@ async function jpegRoundTrip(p: Pixels, quality: number): Promise<Pixels> {
 }
 
 /**
- * The demo photo as JPEG bytes (browser only), saved three times:
- * - The whole scene at 0.7 first, so the final file is a second compression
+ * The demo photo as JPEG bytes (browser only), saved three times (Ruling R14):
+ * - The whole scene at 0.5 first, so the final file is a second compression
  *   on the same 8x8 grid and the double-quantization panel fires.
  * - The pasted rectangle, cut from the original scene and saved on its own at
- *   0.6, then written back at (40, 60). That is off the 8x8 grid (60 mod 8 = 4),
- *   so it shows up in error level analysis.
- * - The whole image at 0.9. The clone is grid-aligned (every offset is a
- *   multiple of 8), so copy-move still finds it after both saves.
+ *   0.6, then written back at (20, 284) on the stone wall. Its 8x8 grid is off
+ *   the photo's (both offsets are 4 mod 8) and its texture keeps that save's
+ *   errors, so it stands out in error level analysis.
+ * - The whole image at 0.75, coarse enough that the 0.9 re-save of error level
+ *   analysis leaves the background quiet. The clone is grid-aligned (every
+ *   offset is a multiple of 8), so copy-move still finds it after both saves.
  */
 export async function makeForensicsDemo(): Promise<{ bytes: Uint8Array; mime: "image/jpeg"; title: "Demo photo — bell tower" }> {
   const { pixels: scene, pasted } = forensicsDemoPixels();
-  const pixels = await jpegRoundTrip(scene, 0.7);
+  const pixels = await jpegRoundTrip(scene, 0.5);
   const crop = makePixels(pasted.w, pasted.h);
   for (let y = 0; y < pasted.h; y++) {
     const s = ((pasted.y + y) * W + pasted.x) * 4;
@@ -138,5 +142,5 @@ export async function makeForensicsDemo(): Promise<{ bytes: Uint8Array; mime: "i
   for (let y = 0; y < pasted.h; y++) {
     pixels.data.set(low.data.subarray(y * pasted.w * 4, (y + 1) * pasted.w * 4), ((pasted.y + y) * W + pasted.x) * 4);
   }
-  return { bytes: await encodeImage(pixels, "image/jpeg", 0.9), mime: "image/jpeg", title: "Demo photo — bell tower" };
+  return { bytes: await encodeImage(pixels, "image/jpeg", 0.75), mime: "image/jpeg", title: "Demo photo — bell tower" };
 }

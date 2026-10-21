@@ -102,6 +102,19 @@ describe("readMetadata: XMP", () => {
     expect(m.xmp).toEqual({ creatorTool: "Paint.NET", modifyDate: "2026-01-02T03:04:05", history: [] });
   });
 
+  it("reads photoshop:History, as an attribute or an element, after the history agents", () => {
+    const attr = readMetadata(jpeg(xmpSegment(`<rdf:Description photoshop:History="Opened &amp; resized"/>`)));
+    expect(attr.xmp!.history).toEqual(["Opened & resized"]);
+    const both = readMetadata(
+      jpeg(
+        xmpSegment(
+          `<rdf:li stEvt:softwareAgent="Adobe Photoshop 25.0"/><photoshop:History>2026-06-22 File IMG_1.jpg opened</photoshop:History>`,
+        ),
+      ),
+    );
+    expect(both.xmp!.history).toEqual(["Adobe Photoshop 25.0", "2026-06-22 File IMG_1.jpg opened"]);
+  });
+
   it("reads EXIF and XMP from the same file", () => {
     const m = readMetadata(jpeg(exifSegment(tiff("II", { ifd0 })), xmpSegment(xml)));
     expect(m.make).toBe("Belfry Cam");
@@ -242,6 +255,7 @@ describe("readMetadata: hostile XMP", () => {
     "repeated <xmp:CreatorTool with no >": repeated("<xmp:CreatorTool "),
     "repeated <xmp:ModifyDate with no >": repeated("<xmp:ModifyDate "),
     "repeated <stEvt:softwareAgent with no >": repeated("<stEvt:softwareAgent "),
+    "repeated <photoshop:History with no >": repeated("<photoshop:History "),
     "repeated empty <xmp:CreatorTool> elements": repeated("<xmp:CreatorTool>"),
     "an attribute whose quote never closes": `xmp:CreatorTool="${"a".repeat(MiB)}`,
     "an attribute value over the length bound": `xmp:CreatorTool="${"a".repeat(MiB)}"`,
@@ -264,6 +278,7 @@ describe("metadataFinding", () => {
     const m = readMetadata(jpeg(exifSegment(tiff("II", { ifd0, exif, gps })), xmpSegment(xml)));
     const f = metadataFinding(m);
     expect(f.body).toContain("Software: GIMP 2.10, Adobe Photoshop 25.0");
+    expect(f.body).toContain("XMP history: Adobe Photoshop 25.0");
     expect(f.body).not.toMatch(/^Edited with/m);
     expect(f.body).toContain("Make: Belfry Cam");
     expect(f.body).toContain("Model: BX-1");
@@ -271,6 +286,15 @@ describe("metadataFinding", () => {
     expect(f.title).toMatch(/^Metadata: \d+ fields$/);
     expect(f.body).not.toMatch(/manipulat|fake|forg|tamper|edited by/i);
     expect(f.body).not.toMatch(/\bedited\b/i);
+  });
+
+  it("lists photoshop:History text on the XMP history line, not as software", () => {
+    const f = metadataFinding(
+      readMetadata(jpeg(xmpSegment(`<xmp:CreatorTool>Krita</xmp:CreatorTool><photoshop:History>File IMG_1.jpg opened</photoshop:History>`))),
+    );
+    expect(f.body).toContain("Software: Krita");
+    expect(f.body).not.toMatch(/^Software:.*opened/m);
+    expect(f.body).toContain("XMP history: File IMG_1.jpg opened");
   });
 
   it("counts the fields it lists", () => {

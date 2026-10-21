@@ -36,4 +36,25 @@ describe("forensicsDemoPixels", () => {
     expect(overlaps(pasted, src)).toBe(false);
     expect(overlaps(pasted, dst)).toBe(false);
   });
+
+  it("pastes the patch off the 8-px grid, inside the frame, on the textured stone wall", () => {
+    const { pixels, pasted } = forensicsDemoPixels();
+    expect(pasted.x % 8 !== 0 && pasted.y % 8 !== 0).toBe(true);
+    expect(pasted.x + pasted.w).toBeLessThanOrEqual(512);
+    expect(pasted.y + pasted.h).toBeLessThanOrEqual(384);
+    // the wall starts at y = 190; the sky above it is near-flat, which would give ELA nothing to show
+    expect(pasted.y).toBeGreaterThanOrEqual(190);
+    const g = toGray(pixels);
+    let sum = 0;
+    let sq = 0;
+    for (let y = pasted.y; y < pasted.y + pasted.h; y++) {
+      for (let x = pasted.x; x < pasted.x + pasted.w; x++) {
+        const v = g[y * 512 + x];
+        sum += v;
+        sq += v * v;
+      }
+    }
+    const n = pasted.w * pasted.h;
+    expect(Math.sqrt(sq / n - (sum / n) ** 2)).toBeGreaterThan(8);
+  });
 });
