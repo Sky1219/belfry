@@ -22,7 +22,10 @@ export interface PhotoMetadata {
 const MAX_ENTRIES = 1000;
 const MAX_TEXT_CHUNKS = 64;
 const MAX_HISTORY = 50;
-const MAX_XMP_CHARS = 1 << 20;
+/** Real packets are a few KB to ~30 KB; a hostile one is cut here before any scanning. */
+const MAX_XMP_CHARS = 256 * 1024;
+/** Longest attribute value, element value or tag attribute run the XMP scan looks across. */
+const XMP_RUN = 1000;
 
 const utf8 = new TextDecoder("utf-8");
 const latin1 = new TextDecoder("latin1");
@@ -322,10 +325,15 @@ function unescapeXml(s: string): string {
   });
 }
 
-/** Every value of `prefix:name` in `xml`, written as an attribute or as an element. */
+/**
+ * Every value of `prefix:name` in `xml`, written as an attribute or as an element.
+ * Every run is bounded, so each match attempt costs at most a constant and the
+ * scan stays linear in the packet even when the text is hostile.
+ */
 function xmpValues(xml: string, qname: string, max: number): string[] {
   const re = new RegExp(
-    `\\b${qname}\\s*=\\s*(?:"([^"]*)"|'([^']*)')|<${qname}(?:\\s[^>]*)?>([^<]*)</${qname}\\s*>`,
+    `\\b${qname}\\s{0,20}=\\s{0,20}(?:"([^"]{0,${XMP_RUN}})"|'([^']{0,${XMP_RUN}})')` +
+      `|<${qname}(?:\\s[^>]{0,${XMP_RUN}})?>([^<]{0,${XMP_RUN}})</${qname}\\s{0,20}>`,
     "g",
   );
   const out: string[] = [];
@@ -381,9 +389,11 @@ export function metadataFinding(m: PhotoMetadata): { title: string; body: string
     if (m.gps.altitudeM !== undefined) add("Altitude", `${Math.round(m.gps.altitudeM)} m`);
   }
   add("XMP modified", m.xmp?.modifyDate);
-  for (const [key, value] of Object.entries(m.text)) add(shorten(key), value);
-  const tools = [...new Set([m.software, m.xmp?.creatorTool, ...(m.xmp?.history ?? [])].filter((s): s is string => !!s))];
-  if (tools.length) add("Edited with", tools.join(", "));
+  // the PNG Software keyword joins the software line below instead of repeating it
+  for (const [key, value] of Object.entries(m.text)) if (key !== "Software") add(shorten(key), value);
+  // EXIF Software may be camera firmware, so the line states what the file says without calling it an edit
+  const tools = [...new Set([m.software, m.text.Software, m.xmp?.creatorTool, ...(m.xmp?.history ?? [])].filter((s): s is string => !!s))];
+  if (tools.length) add("Software", tools.join(", "));
 
   const notes = m.warnings.length ? `\nCould not read part of the metadata: ${m.warnings.join("; ")}.` : "";
   if (!lines.length) {

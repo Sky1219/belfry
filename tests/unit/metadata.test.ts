@@ -234,19 +234,43 @@ describe("readMetadata: corrupt or hostile input", () => {
   });
 });
 
+describe("readMetadata: hostile XMP", () => {
+  // the first three used to be quadratic: every restart scanned to the end of the packet
+  const MiB = 1 << 20;
+  const repeated = (unit: string) => unit.repeat(Math.ceil(MiB / unit.length));
+  const hostile: Record<string, string> = {
+    "repeated <xmp:CreatorTool with no >": repeated("<xmp:CreatorTool "),
+    "repeated <xmp:ModifyDate with no >": repeated("<xmp:ModifyDate "),
+    "repeated <stEvt:softwareAgent with no >": repeated("<stEvt:softwareAgent "),
+    "repeated empty <xmp:CreatorTool> elements": repeated("<xmp:CreatorTool>"),
+    "an attribute whose quote never closes": `xmp:CreatorTool="${"a".repeat(MiB)}`,
+    "an attribute value over the length bound": `xmp:CreatorTool="${"a".repeat(MiB)}"`,
+  };
+  for (const [name, xml] of Object.entries(hostile)) {
+    it(`reads a 1 MiB packet of ${name} in well under a second`, () => {
+      const t0 = performance.now();
+      const m = readMetadata(webp([{ type: "XMP ", data: bytes(xml) }]));
+      expect(performance.now() - t0).toBeLessThan(500);
+      expect(m.format).toBe("webp");
+      expect(m.xmp).toBeUndefined();
+    });
+  }
+});
+
 describe("metadataFinding", () => {
   const xml = `<rdf:Description xmp:CreatorTool="Adobe Photoshop 25.0" xmp:ModifyDate="2026-06-22T09:00:00"><rdf:li stEvt:softwareAgent="Adobe Photoshop 25.0"/><rdf:li stEvt:softwareAgent="Adobe Photoshop 25.0"/></rdf:Description>`;
 
   it("lists the fields as Label: value, and software and XMP tools on one line", () => {
     const m = readMetadata(jpeg(exifSegment(tiff("II", { ifd0, exif, gps })), xmpSegment(xml)));
     const f = metadataFinding(m);
-    expect(f.body).toContain("Edited with: GIMP 2.10, Adobe Photoshop 25.0");
+    expect(f.body).toContain("Software: GIMP 2.10, Adobe Photoshop 25.0");
+    expect(f.body).not.toMatch(/^Edited with/m);
     expect(f.body).toContain("Make: Belfry Cam");
     expect(f.body).toContain("Model: BX-1");
     expect(f.body).toContain("Date taken: 2026:06:21 15:00:00");
     expect(f.title).toMatch(/^Metadata: \d+ fields$/);
     expect(f.body).not.toMatch(/manipulat|fake|forg|tamper|edited by/i);
-    expect(f.body).not.toMatch(/\bedited\b(?! with:)/i);
+    expect(f.body).not.toMatch(/\bedited\b/i);
   });
 
   it("counts the fields it lists", () => {
@@ -271,6 +295,19 @@ describe("metadataFinding", () => {
     const f = metadataFinding(readMetadata(jpeg()));
     expect(f.title).toBe("Metadata: none found");
     expect(f.body).toBe("No EXIF, XMP or text chunks. Many apps strip metadata on export, so its absence says little.");
+  });
+
+  it("joins the PNG Software keyword into one Software line", () => {
+    const f = metadataFinding(
+      readMetadata(
+        png([
+          { type: "tEXt", data: bytes("Software\0Belfry test") },
+          { type: "iTXt", data: bytes("XML:com.adobe.xmp\0\0\0en\0\0<xmp:CreatorTool>Krita</xmp:CreatorTool>") },
+        ]),
+      ),
+    );
+    expect(f.body.match(/^Software:/gm)).toHaveLength(1);
+    expect(f.body).toContain("Software: Belfry test, Krita");
   });
 
   it("lists PNG text chunks and trims long values", () => {
