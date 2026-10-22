@@ -12,9 +12,9 @@ import {
   timeFromFields,
 } from "../../src/tools/shadow/fields";
 import { angularDistanceDeg, locus } from "../../src/tools/shadow/geo";
-import { TABLE_LATITUDES, latitudeTable, splitAtAntimeridian } from "../../src/tools/shadow/graticule";
+import { TABLE_LATITUDES, drawGraticule, latitudeTable, splitAtAntimeridian } from "../../src/tools/shadow/graticule";
 import { shadowFinding, solveShadow } from "../../src/tools/shadow/shadow";
-import { subsolarPoint } from "../../src/tools/shadow/solar";
+import { solarPosition, subsolarPoint, type LatLon } from "../../src/tools/shadow/solar";
 
 /** The largest longitude step between neighbours in a run: a streak across the map shows up as one near 360. */
 const widestStep = (run: Array<{ lon: number }>) => Math.max(0, ...run.slice(1).map((p, i) => Math.abs(p.lon - run[i].lon)));
@@ -222,5 +222,107 @@ describe("the demo shadow", () => {
     expect(readShadowDemo({ shadowDemo: { ...scene, bearingDeg: "50" } })).toBeNull();
     expect(readShadowDemo({ shadowDemo: { ...scene, timeUtc: "soon" } })).toBeNull();
     expect(readShadowDemo({ shadowDemo: { ...scene, marks: { ...scene.marks, tip: { x: Number.NaN, y: 3 } } } })).toBeNull();
+  });
+});
+
+/** What a camera at `obs` would see at `when`: a 200 px upright object, its shadow, and the shadow's bearing. */
+function scene(obs: LatLon, when: Date) {
+  const sun = solarPosition(when, obs.lat, obs.lon);
+  const shadowPx = 200 / Math.tan((sun.elevationDeg * Math.PI) / 180);
+  const marks = { base: { x: 100, y: 400 }, top: { x: 100, y: 200 }, tip: { x: 100 + shadowPx, y: 400 } };
+  return { marks, bearing: sun.azimuthDeg + 180 };
+}
+
+describe("mark uncertainty in screen pixels (Ruling P4-R6)", () => {
+  it("states a wider elevation band and place radius for a larger pxSigma", () => {
+    const when = new Date(DEMO_TRUTH.timeUtc);
+    const { marks, bearing } = scene(DEMO_TRUTH, when);
+    const fine = solveShadow({ marks, timeUtc: when, shadowBearingDeg: bearing });
+    const coarse = solveShadow({ marks, timeUtc: when, shadowBearingDeg: bearing, pxSigma: 16 });
+    const same = solveShadow({ marks, timeUtc: when, shadowBearingDeg: bearing, pxSigma: 3 });
+    if ("error" in fine || "error" in coarse || "error" in same) throw new Error("unexpected error");
+    expect(coarse.uncertaintyDeg).toBeGreaterThan(fine.uncertaintyDeg * 4);
+    expect(coarse.radiusM!).toBeGreaterThan(fine.radiusM!);
+    // the default is 3 photo pixels, and the elevation itself doesn't move
+    expect(same.uncertaintyDeg).toBe(fine.uncertaintyDeg);
+    expect(coarse.elevationDeg).toBe(fine.elevationDeg);
+    expect(coarse.points).toHaveLength(1);
+  });
+
+  it("falls back to 3 px for a pxSigma that isn't a positive number", () => {
+    const when = new Date(DEMO_TRUTH.timeUtc);
+    const { marks } = scene(DEMO_TRUTH, when);
+    const base = solveShadow({ marks, timeUtc: when });
+    if ("error" in base) throw new Error(base.error);
+    for (const pxSigma of [0, -2, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const r = solveShadow({ marks, timeUtc: when, pxSigma });
+      if ("error" in r) throw new Error(r.error);
+      expect(r.uncertaintyDeg).toBe(base.uncertaintyDeg);
+    }
+  });
+});
+
+type Call = { name: string; args: number[]; fillStyle: unknown; globalAlpha: number };
+
+/** A 2D context that records every call with the fill style and alpha in force, save and restore included. */
+function recordingContext() {
+  const calls: Call[] = [];
+  const state: Record<string, unknown> = { fillStyle: "#000000", strokeStyle: "#000000", globalAlpha: 1, lineWidth: 1 };
+  const stack: Array<Record<string, unknown>> = [];
+  const g = new Proxy(state, {
+    get(t, k: string) {
+      if (k in t) return t[k];
+      return (...args: number[]) => {
+        if (k === "save") stack.push({ ...t });
+        if (k === "restore") Object.assign(t, stack.pop());
+        calls.push({ name: k, args, fillStyle: t.fillStyle, globalAlpha: t.globalAlpha as number });
+      };
+    },
+    set(t, k: string, v) {
+      t[k] = v;
+      return true;
+    },
+  });
+  return { g: g as unknown as CanvasRenderingContext2D, calls };
+}
+
+describe("drawGraticule", () => {
+  const W = 760;
+  const H = 380;
+  const squares = (calls: Call[]) => calls.filter((c) => c.name === "fillRect" && c.fillStyle === "#ffa733" && c.globalAlpha === 1);
+  const centre = (c: Call) => ({ x: c.args[0] + c.args[2] / 2, y: c.args[1] + c.args[3] / 2 });
+  const at = (p: LatLon) => ({ x: ((p.lon + 180) / 360) * W, y: ((90 - p.lat) / 180) * H });
+
+  it("draws both places for a two-place fix (Ruling P4-R2), each as an amber square where it lies", () => {
+    const when = new Date("2026-06-21T06:00:00Z");
+    const { marks, bearing } = scene(DEMO_TRUTH, when);
+    const fix = solveShadow({ marks, timeUtc: when, shadowBearingDeg: bearing });
+    if ("error" in fix) throw new Error(fix.error);
+    expect(fix.points).toHaveLength(2);
+    const { g, calls } = recordingContext();
+    drawGraticule(g, W, H, fix);
+    const drawn = squares(calls);
+    expect(drawn).toHaveLength(2);
+    fix.points.forEach((p, i) => {
+      expect(centre(drawn[i]).x).toBeCloseTo(at(p).x, 6);
+      expect(centre(drawn[i]).y).toBeCloseTo(at(p).y, 6);
+    });
+    // the band is amber too, but only at 15%
+    expect(calls.some((c) => c.name === "fillRect" && c.fillStyle === "#ffa733" && c.globalAlpha === 0.15)).toBe(true);
+  });
+
+  it("draws one square for one place and none for the circle alone", () => {
+    const when = new Date(DEMO_TRUTH.timeUtc);
+    const { marks, bearing } = scene(DEMO_TRUTH, when);
+    for (const [shadowBearingDeg, n] of [
+      [bearing, 1],
+      [undefined, 0],
+    ] as const) {
+      const fix = solveShadow({ marks, timeUtc: when, shadowBearingDeg });
+      if ("error" in fix) throw new Error(fix.error);
+      const { g, calls } = recordingContext();
+      drawGraticule(g, W, H, fix);
+      expect(squares(calls)).toHaveLength(n);
+    }
   });
 });

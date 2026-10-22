@@ -30,6 +30,11 @@ test("demo: pre-filled marks give a fix near London that pins as a location", as
   const toolKeys = page.getByRole("group", { name: "Tools" }).locator(".hud-btn");
   await expect(toolKeys.nth(4)).toBeVisible();
   await expect(toolKeys.and(page.locator(".active"))).toHaveCount(1);
+  // at this width the unlit tool keys are icons, but each is still named (Ruling P4-R5)
+  const shadowKey = page.getByTestId("open-tool-shadow-geolocation");
+  await expect(shadowKey.locator(".btn-text")).toHaveCSS("position", "absolute");
+  await expect(shadowKey).toHaveAccessibleName("Shadow geolocation");
+  await expect(toolKeys.and(page.locator(".active")).locator(".btn-text")).toBeVisible();
 
   await runDemo(page);
   const fix = page.getByTestId("panel-fix");
@@ -74,6 +79,24 @@ test("demo: pre-filled marks give a fix near London that pins as a location", as
   await page.keyboard.press("ArrowLeft");
   await expect(tip).toHaveAttribute("aria-label", before!);
   await expect(fix).toContainText(/0\.\d° W/);
+
+  // while a change waits to be solved, the shown fix is dimmed and can't be pinned (Ruling P4-R7)
+  const result = fix.getByTestId("shadow-result");
+  await expect(result).toHaveAttribute("data-stale", "false");
+  const midway = await page.evaluate(async () => {
+    const mark = document.querySelector('[data-testid="mark-tip"]')!;
+    mark.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await new Promise((r) => requestAnimationFrame(r));
+    const pin = document.querySelector<HTMLButtonElement>('[data-testid="pin-fix"]')!;
+    return { pinDisabled: pin.disabled, stale: document.querySelector<HTMLElement>('[data-testid="shadow-result"]')!.dataset.stale };
+  });
+  expect(midway).toEqual({ pinDisabled: true, stale: "true" });
+  await expect(result).toHaveAttribute("data-stale", "false");
+  await expect(page.getByTestId("pin-fix")).toBeEnabled();
+  await tip.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(tip).toHaveAttribute("aria-label", before!);
+  await expect(result).toHaveAttribute("data-stale", "false");
 
   await page.getByTestId("pin-fix").click();
   await expect(fix).toContainText("Pinned");
@@ -184,6 +207,27 @@ test("a photo with a local time but no offset: place the marks, then give the of
   await expect(fix).toContainText("Circle of places");
   await expect(page.getByTestId("panel-inputs")).not.toContainText("Required");
   expect(await page.locator("body").innerText()).not.toMatch(/NaN|Infinity|undefined/);
+
+  expect(errors()).toEqual([]);
+});
+
+test("at phone width five tools don't widen the page", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = collectErrors(page);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openCaseBoard(page, "Pocket Case");
+  const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+
+  // the rail's action row scrolls inside itself (Ruling P4-R5), and its last tool key is still reachable
+  expect(await fits()).toBe(true);
+  const shadowKey = page.getByTestId("open-tool-shadow-geolocation");
+  await expect(shadowKey).toHaveAccessibleName("Shadow geolocation");
+  await shadowKey.scrollIntoViewIfNeeded();
+  expect(await fits()).toBe(true);
+  await shadowKey.click();
+  await page.getByTestId("run-demo").click();
+  await expect(page.getByTestId("panel-fix")).toContainText(/5[01]\.\d° N/, { timeout: 10_000 });
+  expect(await fits()).toBe(true);
 
   expect(errors()).toEqual([]);
 });

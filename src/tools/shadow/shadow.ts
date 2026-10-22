@@ -152,10 +152,16 @@ function propagatedRadiusM(subsolar: LatLon, elevationDeg: number, uncertaintyDe
   return Math.round(worstDeg * METRES_PER_DEG);
 }
 
-/** Marks, photo time and optionally the shadow's compass bearing, resolved to a sun height and the places that fit it. */
-export function solveShadow(input: { marks: Marks; timeUtc: Date; shadowBearingDeg?: number }): ShadowFix | { error: string } {
+/**
+ * Marks, photo time and optionally the shadow's compass bearing, resolved to a sun height and the
+ * places that fit it. `pxSigma` is how far each mark may be off, in photo pixels (3 by default); a
+ * view showing a large photo shrunk on screen passes 3 screen pixels' worth, since nobody can place
+ * a mark finer than the screen (Ruling P4-R6). The place radius follows through the elevation band.
+ */
+export function solveShadow(input: { marks: Marks; timeUtc: Date; shadowBearingDeg?: number; pxSigma?: number }): ShadowFix | { error: string } {
   if (!Number.isFinite(input.timeUtc.getTime())) return { error: MSG_TIME };
-  const el = elevationFromMarks(input.marks);
+  const pxSigma = input.pxSigma !== undefined && Number.isFinite(input.pxSigma) && input.pxSigma > 0 ? input.pxSigma : 3;
+  const el = elevationFromMarks(input.marks, pxSigma);
   if ("error" in el) return { error: el.message };
 
   const subsolar = subsolarPoint(input.timeUtc);

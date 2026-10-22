@@ -168,6 +168,8 @@ export function ToolPanel(props: {
   onPin?: () => Promise<void>;
   /** How many results this panel has pinned so far. */
   pinned?: number;
+  /** Holds the pin key off, say while the result is being recomputed. */
+  pinDisabled?: boolean;
   children: ReactNode;
 }) {
   const [busy, setBusy] = useState(false);
@@ -193,7 +195,7 @@ export function ToolPanel(props: {
           </div>
           {props.onPin && (
             <div className="ik-pin">
-              <HudButton small className="with-icon" disabled={busy} onClick={pin} data-testid={`pin-${props.id}`}>
+              <HudButton small className="with-icon" disabled={busy || props.pinDisabled} onClick={pin} data-testid={`pin-${props.id}`}>
                 <Icon name="finding" size={12} /> Pin to board
               </HudButton>
               {!!props.pinned && <span className="plate steel num">{props.pinned > 1 ? `Pinned ×${props.pinned}` : "Pinned"}</span>}

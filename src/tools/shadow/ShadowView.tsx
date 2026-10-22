@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import type { Evidence } from "../../store/schema";
 import { HudButton } from "../../ui/components";
 import { ImageToolShell, ToolPanel } from "../imagekit/ImageToolShell";
@@ -29,6 +29,8 @@ import "./shadow.css";
 
 /** Re-solve this long after the last drag step or keystroke: a solve with a bearing takes about 25 ms. */
 const SETTLE_MS = 150;
+/** How far a mark may be off, in screen pixels: nobody places a mark finer than the screen (Ruling P4-R6). */
+const MARK_SCREEN_PX = 3;
 /** The pinned map, in pixels. */
 const MAP_W = 1440;
 const MAP_H = 720;
@@ -42,7 +44,7 @@ const SOURCE_LINE: Record<TimeSource, string> = {
 
 type Finding = ReturnType<typeof shadowFinding>;
 type Outcome = { kind: "fix"; fix: ShadowFix; finding: Finding } | { kind: "refusal"; message: string; detail?: string };
-type Inputs = { marks: Marks; placed: Record<MarkKey, boolean>; fields: TimeFields; bearing: string };
+type Inputs = { marks: Marks; placed: Record<MarkKey, boolean>; fields: TimeFields; bearing: string; pxSigma: number };
 
 const ALL_PLACED: Record<MarkKey, boolean> = { base: true, top: true, tip: true };
 const NONE_PLACED: Record<MarkKey, boolean> = { base: false, top: false, tip: false };
@@ -52,7 +54,7 @@ const joinAnd = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, 
 const tableLat = (lat: number) => (lat === 0 ? "0°" : `${Math.abs(lat)}° ${lat > 0 ? "N" : "S"}`);
 
 /** Marks, time and bearing to a fix, or the first thing that stops one, in the order the visitor works. */
-function solve({ marks, placed, fields, bearing }: Inputs): Outcome {
+function solve({ marks, placed, fields, bearing, pxSigma }: Inputs): Outcome {
   const missing = MARK_ORDER.filter((k) => !placed[k]);
   // parked marks are a starting point, not a measurement
   if (missing.length) return { kind: "refusal", message: MSG_DEGENERATE, detail: `Still to place: ${joinAnd(missing.map((k) => MARK_LABEL[k]))}.` };
@@ -60,7 +62,7 @@ function solve({ marks, placed, fields, bearing }: Inputs): Outcome {
   if ("error" in time) return { kind: "refusal", message: time.error };
   const b = bearingFromField(bearing);
   if ("error" in b) return { kind: "refusal", message: b.error };
-  const fix = solveShadow({ marks, timeUtc: time.timeUtc, shadowBearingDeg: b.bearingDeg });
+  const fix = solveShadow({ marks, timeUtc: time.timeUtc, shadowBearingDeg: b.bearingDeg, pxSigma });
   if ("error" in fix) return { kind: "refusal", message: fix.error };
   return { kind: "fix", fix, finding: shadowFinding(fix) };
 }
@@ -221,11 +223,17 @@ function Lab(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; pix
   const [fields, setFields] = useState(start.inputs.fields);
   const [bearing, setBearing] = useState(start.inputs.bearing);
   const [pinned, setPinned] = useState(0);
+  const [shownWidth, setShownWidth] = useState(0);
   const queue = usePinQueue();
 
-  const inputs = useMemo<Inputs>(() => ({ marks, placed, fields, bearing }), [marks, placed, fields, bearing]);
+  // 3 screen pixels in photo pixels: a 4032 px photo shown 760 px wide makes each one about 5.3
+  const onShownWidth = useCallback((w: number) => setShownWidth(Math.round(w)), []);
+  const pxSigma = MARK_SCREEN_PX * Math.max(1, shownWidth > 0 ? pixels.width / shownWidth : 1);
+  const inputs = useMemo<Inputs>(() => ({ marks, placed, fields, bearing, pxSigma }), [marks, placed, fields, bearing, pxSigma]);
   const settled = useSettled(inputs, SETTLE_MS);
   const outcome = useMemo(() => solve(settled), [settled]);
+  // the shown result is for inputs that have since changed: it can't be pinned until it catches up (Ruling P4-R7)
+  const pending = settled !== inputs;
 
   const moveMark = (key: MarkKey, at: Pt) => {
     setMarks((m) => ({ ...m, [key]: at }));
@@ -264,7 +272,7 @@ function Lab(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; pix
       ctx={ctx}
       source={source}
       pixels={pixels}
-      screenLayer={<MarksLayer pixels={pixels} marks={marks} onMove={moveMark} describedBy={`${ids}-how`} />}
+      screenLayer={<MarksLayer pixels={pixels} marks={marks} onMove={moveMark} describedBy={`${ids}-how`} onShownWidth={onShownWidth} />}
     >
       <ToolPanel id="inputs" title="Marks, time and bearing" lamp="off">
         <p className="sh-body" id={`${ids}-how`}>
@@ -325,13 +333,14 @@ function Lab(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; pix
       <ToolPanel
         id="fix"
         title="Fix"
-        lamp={fix ? "amber" : "off"}
-        readout={<span className="num">{fix ? `EL ${formatHeight(fix.fix)}` : "EL --"}</span>}
+        lamp={pending ? "pulse" : fix ? "amber" : "off"}
+        readout={<span className="num">{pending ? "Recomputing" : fix ? `EL ${formatHeight(fix.fix)}` : "EL --"}</span>}
         onPin={fix ? pinFix : undefined}
+        pinDisabled={pending}
         pinned={pinned}
       >
         {fix ? (
-          <>
+          <div className={`col sh-result ${pending ? "stale" : ""}`} data-stale={pending} data-testid="shadow-result">
             <p className="sh-verdict" data-testid="shadow-verdict">
               {fix.finding.title}
             </p>
@@ -342,7 +351,7 @@ function Lab(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; pix
               <LatitudeTable fix={fix.fix} />
               <p className="sh-body">{fix.finding.body}</p>
             </div>
-          </>
+          </div>
         ) : (
           <div className="sh-refusal" data-testid="shadow-refusal">
             <p className="sh-refusal-text">{outcome.kind === "refusal" && outcome.message}</p>

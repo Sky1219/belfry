@@ -1398,8 +1398,9 @@
     min-width: 32px;
   }
 }
+/* the lit next step keeps its name here too (Ruling P4-R7); phones swap names for short words below */
 @media (max-width: 960px) {
-  .board-toolbar .btn-text {
+  .board-toolbar .hud-btn:not(.active) .btn-text {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1407,7 +1408,7 @@
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  .board-toolbar .hud-btn.with-icon {
+  .board-toolbar .hud-btn.with-icon:not(.active) {
     padding: 5px;
     min-width: 32px;
   }

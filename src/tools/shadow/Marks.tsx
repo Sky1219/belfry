@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { Pixels } from "../imagekit/pixels";
 import type { Marks } from "./demo";
 import type { Pt } from "./shadow";
@@ -41,6 +41,8 @@ export function MarksLayer(props: {
   onMove(key: MarkKey, at: Pt): void;
   /** Id of the line that says how to use the marks. */
   describedBy?: string;
+  /** The photo's width as shown, in CSS pixels, whenever it changes. */
+  onShownWidth?(cssWidth: number): void;
 }) {
   const { width: w, height: h } = props.pixels;
   const { base, top, tip } = props.marks;
@@ -48,6 +50,18 @@ export function MarksLayer(props: {
   // where in the mark the pointer took hold, so a grab never jumps the mark to the pointer
   const grip = useRef({ dx: 0, dy: 0 });
   const [dragging, setDragging] = useState<MarkKey | null>(null);
+
+  // the layer covers the photo exactly, so its width is the photo's on screen
+  const { onShownWidth } = props;
+  useEffect(() => {
+    const el = layer.current;
+    if (!el || !onShownWidth) return;
+    const measure = () => onShownWidth(el.getBoundingClientRect().width);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [onShownWidth]);
 
   const toPhoto = (e: PointerEvent) => {
     const r = layer.current!.getBoundingClientRect();

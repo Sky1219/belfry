@@ -132,6 +132,14 @@
   color: var(--ink-dim);
 }
 
+/* a result for inputs that have since changed: dimmed until the recompute lands (Ruling P4-R7) */
+.sh-result {
+  transition: opacity 0.15s;
+}
+.sh-result.stale {
+  opacity: 0.45;
+}
+
 /* the finding's own title, as the board card will carry it: amber, a computed fix is a finding */
 .sh-verdict {
   margin: 0;
