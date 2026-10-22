@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   angularDistanceDeg,
   destination,
-  fixFromAzimuth,
   fixesFromAzimuth,
   initialBearingDeg,
   locus,
@@ -145,7 +144,7 @@ describe("pinned solar reference", () => {
   });
 });
 
-describe("fixFromAzimuth", () => {
+describe("fixesFromAzimuth", () => {
   const observers: [string, LatLon][] = [
     ["London", { lat: 51.5, lon: -0.12 }],
     ["Sydney", { lat: -33.87, lon: 151.21 }],
@@ -172,10 +171,9 @@ describe("fixFromAzimuth", () => {
           fixes.some((f) => angularDistanceDeg(f, obs) < 0.1),
           label,
         ).toBe(true);
-        // Where the photo fits only one place, fixFromAzimuth finds it.
+        // Where the photo fits only one place, that place is the observer.
         if (fixes.length === 1) {
-          const fix = fixFromAzimuth(sub, zenith, sun.azimuthDeg);
-          expect(angularDistanceDeg(fix!, obs), label).toBeLessThan(0.1);
+          expect(angularDistanceDeg(fixes[0], obs), label).toBeLessThan(0.1);
           unique++;
         }
         tested++;
@@ -200,7 +198,6 @@ describe("fixFromAzimuth", () => {
       expect(Math.abs(seen.geometricElevationDeg - sun.geometricElevationDeg)).toBeLessThan(0.01);
       expect(Math.abs(seen.azimuthDeg - sun.azimuthDeg)).toBeLessThan(0.05);
     }
-    expect(fixFromAzimuth(sub, zenith, sun.azimuthDeg)).not.toBeNull();
   });
 
   it("recovers an observer near the pole, where the circle passes over it", () => {
@@ -215,26 +212,30 @@ describe("fixFromAzimuth", () => {
     const when = new Date("2026-06-21T00:00:00Z");
     const obs = { lat: 20, lon: -170 };
     const sun = solarPosition(when, obs.lat, obs.lon);
-    const fix = fixFromAzimuth(subsolarPoint(when), 90 - sun.geometricElevationDeg, sun.azimuthDeg);
-    expect(fix).not.toBeNull();
-    expect(inLonRange(fix!.lon)).toBe(true);
-    expect(angularDistanceDeg(fix!, obs)).toBeLessThan(0.1);
+    const fixes = fixesFromAzimuth(subsolarPoint(when), 90 - sun.geometricElevationDeg, sun.azimuthDeg);
+    expect(fixes).toHaveLength(1);
+    expect(inLonRange(fixes[0].lon)).toBe(true);
+    expect(angularDistanceDeg(fixes[0], obs)).toBeLessThan(0.1);
   });
 
-  it("returns null within 2 degrees of the subsolar point, not a wild point", () => {
+  it("returns no place within 2 degrees of the subsolar point, not a wild point", () => {
     const sub = { lat: 20, lon: 40 };
-    expect(fixFromAzimuth(sub, 1.5, 123)).toBeNull();
-    expect(fixFromAzimuth(sub, 0, 123)).toBeNull();
-    expect(fixFromAzimuth(sub, 3, 123)).not.toBeNull();
+    expect(fixesFromAzimuth(sub, 1.5, 123)).toEqual([]);
+    expect(fixesFromAzimuth(sub, 0, 123)).toEqual([]);
+    expect(fixesFromAzimuth(sub, 3, 123).length).toBeGreaterThan(0);
   });
 
   it("normalises the azimuth it is given", () => {
     const sub = { lat: 20, lon: 40 };
-    const a = fixFromAzimuth(sub, 30, 330);
-    const b = fixFromAzimuth(sub, 30, -30);
-    const c = fixFromAzimuth(sub, 30, 690);
-    expect(a).not.toBeNull();
-    expect(angularDistanceDeg(a!, b!)).toBeLessThan(1e-6);
-    expect(angularDistanceDeg(a!, c!)).toBeLessThan(1e-6);
+    const a = fixesFromAzimuth(sub, 30, 330);
+    const b = fixesFromAzimuth(sub, 30, -30);
+    const c = fixesFromAzimuth(sub, 30, 690);
+    expect(a.length).toBeGreaterThan(0);
+    expect(b).toHaveLength(a.length);
+    expect(c).toHaveLength(a.length);
+    a.forEach((p, i) => {
+      expect(angularDistanceDeg(p, b[i])).toBeLessThan(1e-6);
+      expect(angularDistanceDeg(p, c[i])).toBeLessThan(1e-6);
+    });
   });
 });

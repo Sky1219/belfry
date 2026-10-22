@@ -10,7 +10,7 @@ export interface Pt {
   y: number;
 }
 
-type Marks = { base: Pt; top: Pt; tip: Pt };
+export type Marks = { base: Pt; top: Pt; tip: Pt };
 
 const DEG = 180 / Math.PI;
 /** One degree of arc on the sphere, in metres. */
@@ -33,8 +33,9 @@ const MIN_ZENITH_DEG = 2;
 export const MSG_DEGENERATE = "Mark the object's base, its top and the tip of its shadow.";
 const MSG_TOO_LOW = "The sun is too low for a reliable fix.";
 const MSG_BEARING = "That bearing doesn't fit this sun height at that time.";
-const MSG_OVERHEAD = "The sun was almost overhead, so its direction cannot fix a place.";
 export const MSG_TIME = "Enter the date and time the photo was taken.";
+const NOTE_OVERHEAD = "The sun was almost overhead, so its direction adds nothing; the circle alone places the photo.";
+const ASSUMES = `That radius assumes the bearing is right to within ${BEARING_TOLERANCE_DEG}° and the time and its UTC offset are right.`;
 const LIMIT =
   "Assumes a vertical object on level ground, seen without strong perspective. Any place on this circle saw the sun at this height at that moment.";
 
@@ -114,6 +115,14 @@ export function normalizeBearing(deg: number): number {
 
 export interface ShadowFix {
   timeUtc: Date;
+  /** What it was solved from, recorded on the finding: the marks, in photo pixels. */
+  marks: Marks;
+  /** The shadow's bearing folded into [0, 360); null when none was given. */
+  shadowBearingDeg: number | null;
+  /** How far each mark may be off, in photo pixels. */
+  pxSigma: number;
+  /** The sun stood within 2 degrees of the zenith, so a bearing given was set aside for the circle. */
+  overhead: boolean;
   /** Apparent elevation, as measured from the marks. */
   elevationDeg: number;
   uncertaintyDeg: number;
@@ -157,6 +166,9 @@ function propagatedRadiusM(subsolar: LatLon, elevationDeg: number, uncertaintyDe
  * places that fit it. `pxSigma` is how far each mark may be off, in photo pixels (3 by default); a
  * view showing a large photo shrunk on screen passes 3 screen pixels' worth, since nobody can place
  * a mark finer than the screen (Ruling P4-R6). The place radius follows through the elevation band.
+ * With the sun within 2 degrees of overhead a bearing is set aside and the fix is the circle.
+ * The marks are taken as lying in the picture's plane: a shadow foreshortened by pointing towards
+ * or away from the camera reads as a higher sun, an error the radius doesn't cover (Ruling P4-R8).
  */
 export function solveShadow(input: { marks: Marks; timeUtc: Date; shadowBearingDeg?: number; pxSigma?: number }): ShadowFix | { error: string } {
   if (!Number.isFinite(input.timeUtc.getTime())) return { error: MSG_TIME };
@@ -167,15 +179,32 @@ export function solveShadow(input: { marks: Marks; timeUtc: Date; shadowBearingD
   const subsolar = subsolarPoint(input.timeUtc);
   // The measured elevation is what the eye sees, refraction included; the geometry wants the true one.
   const zenithDeg = 90 - apparentToGeometric(el.elevationDeg);
-  const fix: ShadowFix = { timeUtc: input.timeUtc, ...el, subsolar, zenithDeg, points: [], radiusM: null };
-  const bearing = input.shadowBearingDeg;
-  if (bearing === undefined) return fix;
-  if (zenithDeg < MIN_ZENITH_DEG) return { error: MSG_OVERHEAD };
+  const fix: ShadowFix = {
+    timeUtc: input.timeUtc,
+    marks: input.marks,
+    shadowBearingDeg: null,
+    pxSigma,
+    overhead: false,
+    ...el,
+    subsolar,
+    zenithDeg,
+    points: [],
+    radiusM: null,
+  };
+  if (input.shadowBearingDeg === undefined) return fix;
+  const bearing = normalizeBearing(input.shadowBearingDeg);
+  // Overhead, the sun's direction is ill-defined, but the circle is small: it is the fix (Ruling P4-R13).
+  if (zenithDeg < MIN_ZENITH_DEG) return { ...fix, shadowBearingDeg: bearing, overhead: true };
 
   // The shadow points away from the sun.
   const points = placesFor(subsolar, el.elevationDeg, bearing);
   if (points.length === 0) return { error: MSG_BEARING };
-  return { ...fix, points, radiusM: propagatedRadiusM(subsolar, el.elevationDeg, el.uncertaintyDeg, bearing, points) };
+  return {
+    ...fix,
+    shadowBearingDeg: bearing,
+    points,
+    radiusM: propagatedRadiusM(subsolar, el.elevationDeg, el.uncertaintyDeg, bearing, points),
+  };
 }
 
 const formatUtc = (d: Date) => `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
@@ -188,6 +217,14 @@ export const formatKm = (m: number) => `${Math.round(m / 1000)} km`;
 /** The sun's height as the finding quotes it: "54.0° ± 1.2°". */
 export const formatHeight = (fix: Pick<ShadowFix, "elevationDeg" | "uncertaintyDeg">) =>
   `${fix.elevationDeg.toFixed(1)}° ± ${fix.uncertaintyDeg.toFixed(1)}°`;
+/**
+ * The bearing echoed with the sun's direction it implies, to 0.1 degrees: "shadow 50.0°, so the sun
+ * stood at 230.0°". A sun azimuth typed by mistake for the shadow's shows up here as a sun behind you.
+ */
+export const formatBearing = (shadowBearingDeg: number) => {
+  const b = mod(Math.round(shadowBearingDeg * 10) / 10, 360);
+  return `shadow ${b.toFixed(1)}°, so the sun stood at ${mod(b + 180, 360).toFixed(1)}°`;
+};
 
 /** The finding for a solved shadow: a place, two candidate places, or just the sun's height and its circle. */
 export function shadowFinding(fix: ShadowFix): {
@@ -197,46 +234,61 @@ export function shadowFinding(fix: ShadowFix): {
   meta: {
     sunLocus: { subsolarLat: number; subsolarLon: number; zenithDeg: number; bandDeg: number };
     points?: LatLon[];
+    radiusM?: number;
+    /** What the fix was solved from, so the finding can be checked or re-run. */
+    inputs: { marks: Marks; shadowBearingDeg: number | null; pxSigma: number; timeUtc: string };
   };
 } {
+  const n = fix.points.length;
+  if (n > 2) throw new Error(`shadowFinding: a sun height and direction fit at most two places, got ${n}`);
   const sunLocus = {
     subsolarLat: fix.subsolar.lat,
     subsolarLon: fix.subsolar.lon,
     zenithDeg: fix.zenithDeg,
     bandDeg: fix.uncertaintyDeg,
   };
+  const inputs = { marks: fix.marks, shadowBearingDeg: fix.shadowBearingDeg, pxSigma: fix.pxSigma, timeUtc: fix.timeUtc.toISOString() };
   // Round once; the title and the body quote the same strings.
   const height = formatHeight(fix);
   const when = formatUtc(fix.timeUtc);
+  const withBearing = fix.shadowBearingDeg === null ? "" : ` (${formatBearing(fix.shadowBearingDeg)})`;
   const elevation: FindingDetail = {
     kind: "measurement",
     value: fix.elevationDeg,
     unit: "° sun elevation",
     uncertainty: fix.uncertaintyDeg,
+    // as the panel quotes it, not to the uncertainty's own first figure
+    decimals: 1,
   };
 
-  if (fix.points.length === 1) {
+  if (n === 1) {
     const [p] = fix.points;
     const radiusM = fix.radiusM ?? 0;
     return {
       title: `Shadow fix: ${formatPlace(p)}`,
-      body: `At ${when} the sun stood ${height} above the horizon. With the shadow's bearing that puts the photo at ${formatPlace(p)}, within about ${formatKm(radiusM)}. That radius assumes the bearing is right to within ${BEARING_TOLERANCE_DEG}° and the camera clock is right. ${LIMIT}`,
+      body: `At ${when} the sun stood ${height} above the horizon. With the shadow's bearing${withBearing} that puts the photo at ${formatPlace(p)}, within about ${formatKm(radiusM)}. ${ASSUMES} ${LIMIT}`,
       detail: { kind: "location", lat: p.lat, lon: p.lon, radiusM },
-      meta: { sunLocus },
+      meta: { sunLocus, radiusM, inputs },
     };
   }
-  if (fix.points.length > 1) {
+  if (n === 2) {
+    const radiusM = fix.radiusM ?? 0;
+    // Discs that overlap are one answer, not two: say how wide the region they cover is (Ruling P4-R9).
+    const apartM = angularDistanceDeg(fix.points[0], fix.points[1]) * METRES_PER_DEG;
+    const merged =
+      apartM < 2 * radiusM ? ` The two places are too close to tell apart; treat them as one region about ${formatKm(apartM + 2 * radiusM)} across.` : "";
     return {
       title: "Shadow fix: two possible places",
-      body: `At ${when} the sun stood ${height} above the horizon. With the shadow's bearing the photo fits two places: ${fix.points.map(formatPlace).join(" and ")}. The sun stood at the same height and direction over both. ${LIMIT}`,
+      body: `At ${when} the sun stood ${height} above the horizon. With the shadow's bearing${withBearing} the photo fits two places: ${fix.points.map(formatPlace).join(" and ")}, each within about ${formatKm(radiusM)}. The sun stood at the same height and direction over both.${merged} ${ASSUMES} ${LIMIT}`,
       detail: elevation,
-      meta: { sunLocus, points: fix.points },
+      meta: { sunLocus, points: fix.points, radiusM, inputs },
     };
   }
+  const overhead = fix.overhead ? ` ${NOTE_OVERHEAD}` : "";
   return {
     title: `Sun elevation: ${height}`,
-    body: `At ${when} the sun stood ${height} above the horizon. It was directly overhead at ${formatPlace(fix.subsolar)}, so the photo lies on a circle of radius ${formatKm(fix.zenithDeg * METRES_PER_DEG)} around that point, give or take ${formatKm(fix.uncertaintyDeg * METRES_PER_DEG)}. ${LIMIT}`,
+    body: `At ${when} the sun stood ${height} above the horizon. It was directly overhead at ${formatPlace(fix.subsolar)}, so the photo lies on a circle of radius ${formatKm(fix.zenithDeg * METRES_PER_DEG)} around that point, give or take ${formatKm(fix.uncertaintyDeg * METRES_PER_DEG)}.${overhead} ${LIMIT}`,
     detail: elevation,
-    meta: { sunLocus },
+    meta: { sunLocus, inputs },
   };
 }

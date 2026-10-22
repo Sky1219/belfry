@@ -67,10 +67,14 @@ export function bearingFromField(s: string): { bearingDeg?: number } | { error: 
   return Number.isFinite(n) ? { bearingDeg: n } : { error: MSG_BEARING_FORMAT };
 }
 
-/** The fields for an instant, shown in UTC (the demo's staged truth). */
-export function fieldsFromUtc(t: Date): TimeFields {
-  const iso = t.toISOString();
-  return { date: iso.slice(0, 10), time: iso.slice(11, 19), offset: "+00:00" };
+/**
+ * The fields for an instant, as a clock at `offset` read it (UTC when none is given): the demo's
+ * staged truth, 14:00Z, reads 15:00 at +01:00, a London summer clock. An unreadable offset reads as UTC.
+ */
+export function fieldsFromUtc(t: Date, offset = "+00:00"): TimeFields {
+  const minutes = readOffset(offset) ?? 0;
+  const iso = new Date(t.getTime() + minutes * 60000).toISOString();
+  return { date: iso.slice(0, 10), time: iso.slice(11, 19), offset: formatOffset(minutes) };
 }
 
 /**

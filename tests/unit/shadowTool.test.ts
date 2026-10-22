@@ -13,6 +13,7 @@ import {
 } from "../../src/tools/shadow/fields";
 import { angularDistanceDeg, locus } from "../../src/tools/shadow/geo";
 import { TABLE_LATITUDES, drawGraticule, latitudeTable, splitAtAntimeridian } from "../../src/tools/shadow/graticule";
+import { nudgeStep } from "../../src/tools/shadow/Marks";
 import { shadowFinding, solveShadow } from "../../src/tools/shadow/shadow";
 import { solarPosition, subsolarPoint, type LatLon } from "../../src/tools/shadow/solar";
 
@@ -174,15 +175,25 @@ describe("fields from the photo or the demo", () => {
     expect(fieldsFromMetadata({ dateTimeOriginal: "yesterday" }).source).toBe("none");
   });
 
-  it("shows the demo's instant in UTC", () => {
-    expect(fieldsFromUtc(new Date("2026-06-21T14:00:00Z"))).toEqual({ date: "2026-06-21", time: "14:00:00", offset: "+00:00" });
+  it("shows an instant in UTC, or as the clock read it at an offset", () => {
+    const t = new Date("2026-06-21T14:00:00Z");
+    expect(fieldsFromUtc(t)).toEqual({ date: "2026-06-21", time: "14:00:00", offset: "+00:00" });
+    // London in summer: the same instant, an hour later on the clock (Ruling P4-R12)
+    const bst = fieldsFromUtc(t, "+01:00");
+    expect(bst).toEqual({ date: "2026-06-21", time: "15:00:00", offset: "+01:00" });
+    expect(timeFromFields(bst)).toEqual({ timeUtc: t });
+    // across midnight, and west of UTC
+    expect(fieldsFromUtc(new Date("2026-06-22T03:00:00Z"), "-05:00")).toEqual({ date: "2026-06-21", time: "22:00:00", offset: "-05:00" });
   });
 });
 
 describe("the demo shadow", () => {
   it("solves to one place near the demo truth, and the finding quotes it as the e2e expects", () => {
     const scene = shadowDemoScene();
-    const fields = fieldsFromUtc(new Date(scene.timeUtc));
+    // staged as a London summer clock: 15:00 at +01:00, the demo truth's 14:00Z (Ruling P4-R12)
+    expect(scene.utcOffset).toBe("+01:00");
+    const fields = fieldsFromUtc(new Date(scene.timeUtc), scene.utcOffset);
+    expect(fields).toEqual({ date: "2026-06-21", time: "15:00:00", offset: "+01:00" });
     const time = timeFromFields(fields);
     if ("error" in time) throw new Error(time.error);
     const fix = solveShadow({ marks: scene.marks, timeUtc: time.timeUtc, shadowBearingDeg: scene.bearingDeg });
@@ -212,6 +223,9 @@ describe("the demo shadow", () => {
     // and the paving past the tip is no longer in shadow
     expect(luma(tip.x + 25, tip.y)).toBeGreaterThan(luma(s.x, s.y) + 40);
     expect(Math.hypot(top.x - base.x, top.y - base.y)).toBe(200);
+    // the shadow runs straight across the picture, square to the camera, as the how-to asks (Ruling P4-R8)
+    expect(tip.y).toBe(base.y);
+    expect(tip.x).toBeGreaterThan(base.x + 100);
   });
 
   it("reads the staged demo back from an exhibit's meta, and refuses a malformed one", () => {
@@ -221,6 +235,10 @@ describe("the demo shadow", () => {
     expect(readShadowDemo(undefined)).toBeNull();
     expect(readShadowDemo({ shadowDemo: { ...scene, bearingDeg: "50" } })).toBeNull();
     expect(readShadowDemo({ shadowDemo: { ...scene, timeUtc: "soon" } })).toBeNull();
+    expect(readShadowDemo({ shadowDemo: { ...scene, utcOffset: "teatime" } })).toBeNull();
+    // a demo staged before the offset was (an older exhibit) reads in UTC, as it was shown then
+    const { utcOffset: _dropped, ...older } = scene;
+    expect(readShadowDemo({ shadowDemo: older })).toEqual({ ...scene, utcOffset: "+00:00" });
     expect(readShadowDemo({ shadowDemo: { ...scene, marks: { ...scene.marks, tip: { x: Number.NaN, y: 3 } } } })).toBeNull();
   });
 });
@@ -259,6 +277,23 @@ describe("mark uncertainty in screen pixels (Ruling P4-R6)", () => {
       if ("error" in r) throw new Error(r.error);
       expect(r.uncertaintyDeg).toBe(base.uncertaintyDeg);
     }
+  });
+});
+
+describe("arrow-key nudges in screen pixels (Ruling P4-R13)", () => {
+  it("moves a mark 1 screen pixel, or 10 with Shift, in photo pixels", () => {
+    // a 4032 px photo shown 760 px wide: one screen pixel is about 5.3 photo pixels
+    expect(nudgeStep(4032, 760, false)).toBeCloseTo(4032 / 760, 9);
+    expect(nudgeStep(4032, 760, true)).toBeCloseTo((10 * 4032) / 760, 9);
+    // shown at its own size, a pixel is a pixel
+    expect(nudgeStep(640, 640, false)).toBe(1);
+  });
+
+  it("never moves less than a photo pixel, and falls back to 1 before the photo is measured", () => {
+    // a small photo shown enlarged: half a photo pixel would leave the mark's announced position unchanged
+    expect(nudgeStep(320, 640, false)).toBe(1);
+    expect(nudgeStep(320, 640, true)).toBe(10);
+    for (const shown of [0, Number.NaN, -5]) expect(nudgeStep(4032, shown, false)).toBe(1);
   });
 });
 

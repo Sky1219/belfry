@@ -16,6 +16,7 @@ import { shadowManifest } from "./manifest";
 import {
   METRES_PER_DEG,
   MSG_DEGENERATE,
+  formatBearing,
   formatHeight,
   formatKm,
   formatLon,
@@ -38,7 +39,7 @@ const MAP_H = 720;
 const SOURCE_LINE: Record<TimeSource, string> = {
   exif: "Date, time and UTC offset from the photo's EXIF.",
   "exif-no-offset": "Date and time from the photo's EXIF. The camera recorded no UTC offset, so enter it.",
-  demo: "The demo's marks, time (in UTC) and bearing are filled in.",
+  demo: "The demo's marks, local time, UTC offset and bearing are filled in.",
   none: "The photo carries no time. Enter when it was taken.",
 };
 
@@ -162,8 +163,10 @@ function LatitudeTable(props: { fix: ShadowFix }) {
 /** The sun's height and what it fixes, from the finding's own strings. */
 function Readout(props: { fix: ShadowFix; id: string }) {
   const { fix } = props;
-  let place = "Circle of places";
-  if (fix.points.length === 1) place = `${formatPlace(fix.points[0])} ± ${formatKm(fix.radiusM ?? 0)}`;
+  // each place with the radius the finding quotes for it (Ruling P4-R9)
+  const radius = formatKm(fix.radiusM ?? 0);
+  // a bearing the fix used, echoed with the sun's direction it implies (Ruling P4-R13)
+  const bearing = fix.points.length > 0 && fix.shadowBearingDeg !== null ? formatBearing(fix.shadowBearingDeg) : null;
   return (
     <dl className="sh-readout" id={props.id}>
       <div>
@@ -171,23 +174,29 @@ function Readout(props: { fix: ShadowFix; id: string }) {
         <dd className="num">{formatHeight(fix)}</dd>
       </div>
       <div>
-        <dt className="label">{fix.points.length > 1 ? "Two places" : "Place"}</dt>
-        {fix.points.length > 1 ? (
+        <dt className="label">{fix.points.length === 2 ? "Two places" : "Place"}</dt>
+        {fix.points.length === 0 ? (
+          <dd className="num">Circle of places</dd>
+        ) : (
           fix.points.map((p) => (
             <dd key={`${p.lat},${p.lon}`} className="num">
-              {formatPlace(p)}
+              {formatPlace(p)} ± {radius}
             </dd>
           ))
-        ) : (
-          <dd className="num">{place}</dd>
         )}
       </div>
+      {bearing && (
+        <div>
+          <dt className="label">Bearing</dt>
+          <dd className="num">{bearing}</dd>
+        </div>
+      )}
     </dl>
   );
 }
 
-/** One labelled well; an empty required one warns in amber under it. */
-function Field(props: { id: string; label: string; warn?: string; children: ReactNode }) {
+/** One labelled well; an empty required one warns in amber under it, above any standing hint. */
+function Field(props: { id: string; label: string; warn?: string; hint?: string; children: ReactNode }) {
   return (
     <div className={`col field sh-field ${props.warn ? "warn" : ""}`}>
       <label className="label" htmlFor={props.id}>
@@ -197,6 +206,11 @@ function Field(props: { id: string; label: string; warn?: string; children: Reac
       {props.warn && (
         <span className="label sh-warn" id={`${props.id}-warn`}>
           {props.warn}
+        </span>
+      )}
+      {props.hint && (
+        <span className="sh-hint" id={`${props.id}-hint`}>
+          {props.hint}
         </span>
       )}
     </div>
@@ -211,7 +225,7 @@ function Lab(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; pix
     const demo = readShadowDemo(source.meta);
     if (demo) {
       return {
-        inputs: { marks: demo.marks, placed: ALL_PLACED, fields: fieldsFromUtc(new Date(demo.timeUtc)), bearing: String(demo.bearingDeg) },
+        inputs: { marks: demo.marks, placed: ALL_PLACED, fields: fieldsFromUtc(new Date(demo.timeUtc), demo.utcOffset), bearing: String(demo.bearingDeg) },
         source: "demo" as TimeSource,
       };
     }
@@ -272,12 +286,17 @@ function Lab(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; pix
       ctx={ctx}
       source={source}
       pixels={pixels}
-      screenLayer={<MarksLayer pixels={pixels} marks={marks} onMove={moveMark} describedBy={`${ids}-how`} onShownWidth={onShownWidth} />}
+      screenLayer={<MarksLayer pixels={pixels} marks={marks} onMove={moveMark} describedBy={`${ids}-how ${ids}-side-on`} onShownWidth={onShownWidth} />}
     >
       <ToolPanel id="inputs" title="Marks, time and bearing" lamp="off">
         <p className="sh-body" id={`${ids}-how`}>
           Drag <b>BASE</b> to where the object meets the ground, <b>TOP</b> to its top and <b>TIP</b> to the end of its shadow. Arrow keys
-          nudge a mark 1 px, with Shift 10.
+          nudge a mark 1 screen pixel, with Shift 10.
+        </p>
+        {/* the dominant real error: a foreshortened shadow reads as a higher sun (Ruling P4-R8) */}
+        <p className="sh-body" id={`${ids}-side-on`} data-testid="shadow-side-on">
+          Pick a shadow that runs across the picture, square to the camera. One pointing towards or away from you looks too short and moves
+          the fix by hundreds of km.
         </p>
         <p className="sh-source">{SOURCE_LINE[start.source]}</p>
         <div className="sh-time">
@@ -295,7 +314,8 @@ function Lab(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; pix
               data-testid="shadow-time"
             />
           </Field>
-          <Field id={`${ids}-offset`} label="UTC offset" warn={offsetWarn}>
+          {/* a missed summer hour moves the fix about 1,000 km (Ruling P4-R12) */}
+          <Field id={`${ids}-offset`} label="UTC offset" warn={offsetWarn} hint="Include summer time: London in July is +01:00.">
             <input
               id={`${ids}-offset`}
               type="text"
@@ -305,7 +325,7 @@ function Lab(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; pix
               autoComplete="off"
               spellCheck={false}
               aria-invalid={!!offsetWarn}
-              aria-describedby={offsetWarn ? `${ids}-offset-warn` : undefined}
+              aria-describedby={offsetWarn ? `${ids}-offset-warn ${ids}-offset-hint` : `${ids}-offset-hint`}
               onChange={setField("offset")}
               data-testid="shadow-offset"
             />

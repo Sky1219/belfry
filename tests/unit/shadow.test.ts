@@ -192,14 +192,37 @@ describe("solveShadow", () => {
     for (const r of refused) expect(r).toEqual({ error: "That bearing doesn't fit this sun height at that time." });
   });
 
-  it("says the sun was overhead, not that the bearing is wrong, when it stood within 2 degrees of the zenith", () => {
+  it("falls back to the circle, not a refusal, when the sun stood within 2 degrees of the zenith (Ruling P4-R13)", () => {
     // a 200 px object with a 6 px shadow: the sun was at 88.3 degrees
     const marks = { base: { x: 100, y: 400 }, top: { x: 100, y: 200 }, tip: { x: 106, y: 400 } };
-    expect(solveShadow({ marks, timeUtc: DEMO_TIME, shadowBearingDeg: 120 })).toEqual({
-      error: "The sun was almost overhead, so its direction cannot fix a place.",
-    });
-    // without a bearing the elevation and circle are still reported
-    expect(solveShadow({ marks, timeUtc: DEMO_TIME })).not.toHaveProperty("error");
+    const fix = solveShadow({ marks, timeUtc: DEMO_TIME, shadowBearingDeg: 120 });
+    if ("error" in fix) throw new Error(fix.error);
+    // the circle around the subsolar point is itself the fix: the bearing is set aside, and the body says so
+    expect(fix.points).toEqual([]);
+    expect(fix.radiusM).toBeNull();
+    expect(fix.overhead).toBe(true);
+    expect(fix.shadowBearingDeg).toBe(120);
+    const bare = solveShadow({ marks, timeUtc: DEMO_TIME });
+    if ("error" in bare) throw new Error(bare.error);
+    expect(bare.overhead).toBe(false);
+    expect(fix.zenithDeg).toBe(bare.zenithDeg);
+    const f = shadowFinding(fix);
+    expect(f.title).toMatch(/^Sun elevation: /);
+    expect(f.body).toContain("The sun was almost overhead, so its direction adds nothing; the circle alone places the photo. " + LIMIT);
+    expect(shadowFinding(bare).body).not.toContain("almost overhead");
+  });
+
+  it("records what it solved from: the marks, the folded bearing, the pixel sigma and the time", () => {
+    const { marks } = scene(DEMO, DEMO_TIME);
+    const fix = solveShadow({ marks, timeUtc: DEMO_TIME, shadowBearingDeg: -310, pxSigma: 16 });
+    if ("error" in fix) throw new Error(fix.error);
+    expect(fix.marks).toEqual(marks);
+    expect(fix.shadowBearingDeg).toBe(50);
+    expect(fix.pxSigma).toBe(16);
+    const bare = solveShadow({ marks, timeUtc: DEMO_TIME });
+    if ("error" in bare) throw new Error(bare.error);
+    expect(bare.shadowBearingDeg).toBeNull();
+    expect(bare.pxSigma).toBe(3);
   });
 
   it("states a place radius that grows when the sun is low and the bearing stretches the error", () => {
@@ -248,15 +271,30 @@ describe("shadowFinding", () => {
     zenithDeg: 37.9,
     points: [],
     radiusM: null,
+    marks: { base: { x: 100, y: 400 }, top: { x: 100, y: 200 }, tip: { x: 254, y: 400 } },
+    shadowBearingDeg: null,
+    pxSigma: 3,
+    overhead: false,
     ...over,
   });
+  const ASSUMES = "That radius assumes the bearing is right to within 2° and the time and its UTC offset are right.";
 
   it("without a bearing reports the sun elevation and its circle", () => {
     const f = shadowFinding(base({}));
     expect(f.title).toBe("Sun elevation: 52.3° ± 2.1°");
-    expect(f.detail).toEqual({ kind: "measurement", value: 52.31, unit: "° sun elevation", uncertainty: 2.06 });
+    // to 1 dp, as the panel quotes it (Ruling P4-R10)
+    expect(f.detail).toEqual({ kind: "measurement", value: 52.31, unit: "° sun elevation", uncertainty: 2.06, decimals: 1 });
     expect(f.meta.sunLocus).toEqual({ subsolarLat: 23.4, subsolarLon: -30, zenithDeg: 37.9, bandDeg: 2.06 });
     expect(f.meta.points).toBeUndefined();
+    expect(f.meta.radiusM).toBeUndefined();
+    // the solver's inputs travel with the finding (Ruling P4-R13)
+    expect(f.meta.inputs).toEqual({
+      marks: { base: { x: 100, y: 400 }, top: { x: 100, y: 200 }, tip: { x: 254, y: 400 } },
+      shadowBearingDeg: null,
+      pxSigma: 3,
+      timeUtc: "2026-06-21T14:00:00.000Z",
+    });
+    expect(f.body).not.toContain("so the sun stood at");
     expect(f.body).toContain("2026-06-21 14:00 UTC");
     expect(f.body).toContain("52.3° ± 2.1°");
     // the band, in km: 2.06 degrees of arc is 229 km
@@ -265,15 +303,20 @@ describe("shadowFinding", () => {
   });
 
   it("with one place gives a location with a radius from the uncertainty", () => {
-    const f = shadowFinding(base({ points: [{ lat: 51.5, lon: -0.12 }], uncertaintyDeg: 1.1, radiusM: 234567 }));
+    const f = shadowFinding(base({ points: [{ lat: 51.5, lon: -0.12 }], uncertaintyDeg: 1.1, radiusM: 234567, shadowBearingDeg: 50.04 }));
     expect(f.title).toBe("Shadow fix: 51.5° N, 0.1° W");
     // the radius is the solver's propagated one, not the elevation band alone
     expect(f.detail).toEqual({ kind: "location", lat: 51.5, lon: -0.12, radiusM: 234567 });
     expect(f.meta.sunLocus.bandDeg).toBe(1.1);
+    expect(f.meta.radiusM).toBe(234567);
+    expect(f.meta.inputs.shadowBearingDeg).toBe(50.04);
     expect(f.body).toContain("2026-06-21 14:00 UTC");
     expect(f.body).toContain("within about 235 km");
-    // the radius's assumptions come before the limit sentence, which stays last and verbatim
-    expect(f.body).toContain("assumes the bearing is right to within 2° and the camera clock is right. " + LIMIT);
+    // the bearing is echoed with the sun direction it implies, so a sun azimuth typed by mistake shows (Ruling P4-R13)
+    expect(f.body).toContain("With the shadow's bearing (shadow 50.0°, so the sun stood at 230.0°) that puts the photo at 51.5° N, 0.1° W");
+    // the radius's assumptions come before the limit sentence, which stays last and verbatim (Ruling P4-R12)
+    expect(f.body).toContain(ASSUMES + " " + LIMIT);
+    expect(f.body).not.toContain("camera clock");
     expect(f.body.endsWith(LIMIT)).toBe(true);
   });
 
@@ -287,16 +330,48 @@ describe("shadowFinding", () => {
       { lat: 51.5, lon: -0.12 },
       { lat: -12.34, lon: 120.06 },
     ];
-    const f = shadowFinding(base({ points: pts }));
+    const f = shadowFinding(base({ points: pts, radiusM: 248139, shadowBearingDeg: 359.97 }));
     expect(f.title).toBe("Shadow fix: two possible places");
     expect(f.body).toContain("51.5° N, 0.1° W");
     expect(f.body).toContain("12.3° S, 120.1° E");
     expect(f.body).toMatch(/same height and direction/);
     expect(f.body).toContain("2026-06-21 14:00 UTC");
+    // each place carries the radius, and the same assumptions as one place (Ruling P4-R9)
+    expect(f.body).toContain("51.5° N, 0.1° W and 12.3° S, 120.1° E, each within about 248 km.");
+    expect(f.body).toContain(ASSUMES + " " + LIMIT);
+    expect(f.body).not.toContain("too close to tell apart");
+    // a bearing that rounds to 360.0 reads as 0.0, and the sun opposite it
+    expect(f.body).toContain("(shadow 0.0°, so the sun stood at 180.0°)");
     expect(f.body.endsWith(LIMIT)).toBe(true);
-    expect(f.detail).toEqual({ kind: "measurement", value: 52.31, unit: "° sun elevation", uncertainty: 2.06 });
+    expect(f.detail).toEqual({ kind: "measurement", value: 52.31, unit: "° sun elevation", uncertainty: 2.06, decimals: 1 });
     expect(f.meta.points).toEqual(pts);
+    expect(f.meta.radiusM).toBe(248139);
     expect(f.meta.sunLocus.bandDeg).toBe(2.06);
+  });
+
+  it("says two places closer than twice the radius can't be told apart, and how wide the region is", () => {
+    // one degree of latitude apart (111 km) with a 150 km radius: the discs overlap
+    const pts = [
+      { lat: 10, lon: 20 },
+      { lat: 11, lon: 20 },
+    ];
+    const f = shadowFinding(base({ points: pts, radiusM: 150000, shadowBearingDeg: 200 }));
+    expect(f.title).toBe("Shadow fix: two possible places");
+    // 111 km apart plus 150 km either side
+    expect(f.body).toContain("The two places are too close to tell apart; treat them as one region about 411 km across.");
+    expect(f.body.endsWith(LIMIT)).toBe(true);
+    // just over twice the radius apart, they can
+    const apart = shadowFinding(base({ points: pts, radiusM: 55000, shadowBearingDeg: 200 }));
+    expect(apart.body).not.toContain("too close to tell apart");
+  });
+
+  it("refuses more than two places as a solver error, not a finding", () => {
+    const pts = [
+      { lat: 10, lon: 20 },
+      { lat: 11, lon: 20 },
+      { lat: 12, lon: 20 },
+    ];
+    expect(() => shadowFinding(base({ points: pts, radiusM: 1000 }))).toThrow(/at most two places, got 3/);
   });
 
   it("builds a coherent finding from a real solve, in both the one and two place cases", () => {
@@ -308,7 +383,22 @@ describe("shadowFinding", () => {
       const f = shadowFinding(fix);
       expect(f.title).toBe(fix.points.length === 1 ? "Shadow fix: 51.5° N, 0.1° W" : "Shadow fix: two possible places");
       expect(f.body).not.toMatch(/NaN|Infinity|undefined/);
+      expect(f.meta.radiusM).toBe(fix.radiusM);
+      expect(f.meta.inputs).toEqual({ marks, shadowBearingDeg: normalizeBearing(bearing), pxSigma: 3, timeUtc: when.toISOString() });
+      expect(f.body).toContain(ASSUMES);
     }
+  });
+
+  it("states a radius for each of London's two places at 06:00Z", () => {
+    const when = new Date("2026-06-21T06:00:00Z");
+    const { marks, bearing } = scene(DEMO, when);
+    const fix = solveShadow({ marks, timeUtc: when, shadowBearingDeg: bearing });
+    if ("error" in fix) throw new Error(fix.error);
+    expect(fix.points).toHaveLength(2);
+    expect(fix.radiusM!).toBeGreaterThan(0);
+    const f = shadowFinding(fix);
+    expect(f.body).toContain(`each within about ${Math.round(fix.radiusM! / 1000)} km.`);
+    expect(f.body).toContain(ASSUMES + " " + LIMIT);
   });
 });
 
@@ -354,4 +444,52 @@ describe("uncertainty coverage", () => {
       expect(placeHits / trials).toBeGreaterThanOrEqual(0.9);
     }, 60000);
   }
+});
+
+// Ruling P4-R8: the marks assume the shadow lies in the picture's plane. A shadow pointing towards or
+// away from the camera is foreshortened, reads as a higher sun, and moves the fix far outside the
+// stated radius, which knows only about the marks and the bearing. This pins why the view says so.
+describe("a foreshortened shadow (pinhole camera)", () => {
+  const RAD = Math.PI / 180;
+  // A 12 MP photo (4032 x 3024, focal length 3000 px) from a camera 1.6 m up, 10 m from a 5 m
+  // lamp post, looking level. World: x to the right, y away from the camera, z up.
+  const project = ([x, y, z]: [number, number, number]): Pt => {
+    const forward = y + 10;
+    return { x: 2016 + (3000 * x) / forward, y: 1512 - (3000 * (z - 1.6)) / forward };
+  };
+  const sun = solarPosition(DEMO_TIME, DEMO.lat, DEMO.lon);
+  const shadowM = 5 / Math.tan(sun.elevationDeg * RAD);
+  // shown 760 px wide, as the view passes it: 3 screen pixels
+  const pxSigma = (3 * 4032) / 760;
+
+  /** The fix for a shadow turned offPlaneDeg out of the picture's plane: how far off it is, and the radius it states. */
+  const solveAt = (offPlaneDeg: number) => {
+    const a = offPlaneDeg * RAD;
+    const marks = {
+      base: project([0, 0, 0]),
+      top: project([0, 0, 5]),
+      tip: project([shadowM * Math.cos(a), shadowM * Math.sin(a), 0]),
+    };
+    const fix = solveShadow({ marks, timeUtc: DEMO_TIME, shadowBearingDeg: sun.azimuthDeg + 180, pxSigma });
+    if ("error" in fix) throw new Error(fix.error);
+    expect(fix.points).toHaveLength(1);
+    return { offM: angularDistanceDeg(fix.points[0], DEMO) * 111195, radiusM: fix.radiusM! };
+  };
+
+  it("fixes the place within the stated radius when the shadow runs square to the camera", () => {
+    const { offM, radiusM } = solveAt(0);
+    expect(offM).toBeLessThan(radiusM);
+    expect(offM).toBeLessThan(5000);
+  });
+
+  it("errs by more than the stated radius when the shadow points 45 degrees away from the camera, or 70 towards it", () => {
+    // Towards the camera the tip also drops lower in the frame, which partly offsets the foreshortening
+    // at moderate angles (measured: 244 km off at -20 degrees, 121 km at -45, 1584 km at -70).
+    for (const deg of [45, -70]) {
+      const { offM, radiusM } = solveAt(deg);
+      expect(offM, `${deg} degrees`).toBeGreaterThan(radiusM);
+      // hundreds of km, as the view's how-to line says
+      expect(offM, `${deg} degrees`).toBeGreaterThan(500000);
+    }
+  });
 });

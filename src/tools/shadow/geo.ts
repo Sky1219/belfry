@@ -111,17 +111,3 @@ export function fixesFromAzimuth(subsolar: LatLon, zenithDeg: number, sunAzimuth
   if (found.length === 0 && Math.abs(f[best]) <= 1) found.push(pointAt(best * step));
   return found;
 }
-
-/**
- * One of the places from `fixesFromAzimuth`, chosen arbitrarily when the circle is crossed twice
- * (the one whose bearing from the subsolar point is nearest the opposite of the sun's azimuth, a
- * flat-map heuristic that picks the wrong place in most ambiguous cases). Null when there is no
- * fix. Callers that need the right answer must use `fixesFromAzimuth` and handle both places.
- */
-export function fixFromAzimuth(subsolar: LatLon, zenithDeg: number, sunAzimuthDeg: number): LatLon | null {
-  const fixes = fixesFromAzimuth(subsolar, zenithDeg, sunAzimuthDeg);
-  if (fixes.length === 0) return null;
-  const away = mod(sunAzimuthDeg + 180, 360);
-  const offBy = (p: LatLon) => Math.abs(mod(initialBearingDeg(subsolar, p) - away + 180, 360) - 180);
-  return fixes.reduce((a, b) => (offBy(b) < offBy(a) ? b : a));
-}

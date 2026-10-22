@@ -32,8 +32,19 @@ export function parkedMarks(p: Pick<Pixels, "width" | "height">): Marks {
 const clamp = (v: number, hi: number) => Math.min(hi, Math.max(0, v));
 
 /**
+ * One arrow-key nudge, in photo pixels: 1 screen pixel (10 with Shift), the finest a mark can be
+ * placed by eye (Ruling P4-R13), so a 4032 px photo shown 760 px wide moves about 5.3 photo pixels.
+ * Never under a photo pixel, which would leave the mark's announced position unchanged, and 1
+ * before the photo has been measured on screen.
+ */
+export function nudgeStep(photoWidth: number, shownWidth: number, shift: boolean): number {
+  const perScreenPx = shownWidth > 0 ? photoWidth / shownWidth : 1;
+  return (shift ? 10 : 1) * Math.max(1, perScreenPx);
+}
+
+/**
  * The three marks over the photo, in its own pixel coordinates: keys to drag, or to nudge with
- * the arrow keys (1 px, Shift for 10), and the object and shadow lines between them.
+ * the arrow keys (1 screen px, Shift for 10), and the object and shadow lines between them.
  */
 export function MarksLayer(props: {
   pixels: Pick<Pixels, "width" | "height">;
@@ -88,7 +99,7 @@ export function MarksLayer(props: {
     const step = NUDGE[e.key];
     if (!step) return;
     e.preventDefault();
-    const by = e.shiftKey ? 10 : 1;
+    const by = nudgeStep(w, layer.current?.getBoundingClientRect().width ?? 0, e.shiftKey);
     const at = props.marks[key];
     move(key, at.x + step[0] * by, at.y + step[1] * by);
   };

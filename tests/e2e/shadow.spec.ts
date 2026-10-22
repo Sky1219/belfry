@@ -41,15 +41,29 @@ test("demo: pre-filled marks give a fix near London that pins as a location", as
   await expect(fix).toContainText(/5[01]\.\d° N/);
   await expect(fix).toContainText(/0\.\d° W/);
   await expect(fix).toContainText(LIMIT);
-  // the one-place radius states what it assumes (Ruling P4-R3)
-  await expect(fix).toContainText("That radius assumes the bearing is right to within 2° and the camera clock is right.");
+  // the one-place radius states what it assumes (Rulings P4-R3, P4-R12)
+  await expect(fix).toContainText("That radius assumes the bearing is right to within 2° and the time and its UTC offset are right.");
+  // the bearing is echoed with the sun's direction it implies, in the body and the readout (Ruling P4-R13)
+  await expect(fix.locator(".sh-body").last()).toContainText("(shadow 50.0°, so the sun stood at 230.0°)");
+  const readout = fix.locator(".sh-readout");
+  await expect(readout).toContainText(/Bearing\s*shadow 50\.0°, so the sun stood at 230\.0°/);
+  await expect(readout).toContainText(/Place\s*5[01]\.\d° N, 0\.\d° W ± \d+ km/);
   await expect(page.getByTestId("result-fix")).toHaveAttribute("aria-live", "polite");
   expect(await page.locator("body").innerText()).not.toMatch(/NaN|Infinity|undefined/);
 
-  // the demo's fields come pre-filled from its staged truth
+  // the inputs say how to pick a shadow, and to count summer time (Rulings P4-R8, P4-R12)
+  const inputs = page.getByTestId("panel-inputs");
+  await expect(inputs).toContainText(
+    "Pick a shadow that runs across the picture, square to the camera. One pointing towards or away from you looks too short and moves the fix by hundreds of km.",
+  );
+  await expect(inputs).toContainText("Include summer time: London in July is +01:00.");
+  await expect(page.getByTestId("shadow-offset")).toHaveAccessibleDescription("Include summer time: London in July is +01:00.");
+  await expect(page.getByTestId("mark-tip")).toHaveAccessibleDescription(/Pick a shadow that runs across the picture/);
+
+  // the demo's fields come pre-filled from its staged truth, on a London summer clock: 15:00 at +01:00 is 14:00Z (Ruling P4-R12)
   await expect(page.getByTestId("shadow-date")).toHaveValue("2026-06-21");
-  await expect(page.getByTestId("shadow-time")).toHaveValue(/^14:00/);
-  await expect(page.getByTestId("shadow-offset")).toHaveValue("+00:00");
+  await expect(page.getByTestId("shadow-time")).toHaveValue(/^15:00/);
+  await expect(page.getByTestId("shadow-offset")).toHaveValue("+01:00");
   await expect(page.getByTestId("shadow-bearing")).not.toHaveValue("");
 
   // the graticule draws the fix in amber, and the latitude table carries it as text
@@ -86,7 +100,8 @@ test("demo: pre-filled marks give a fix near London that pins as a location", as
   const midway = await page.evaluate(async () => {
     const mark = document.querySelector('[data-testid="mark-tip"]')!;
     mark.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
-    await new Promise((r) => requestAnimationFrame(r));
+    // React commits a key's update in a microtask; waiting a frame could outlast the 150 ms settle on a loaded machine
+    await Promise.resolve();
     const pin = document.querySelector<HTMLButtonElement>('[data-testid="pin-fix"]')!;
     return { pinDisabled: pin.disabled, stale: document.querySelector<HTMLElement>('[data-testid="shadow-result"]')!.dataset.stale };
   });
@@ -108,7 +123,8 @@ test("demo: pre-filled marks give a fix near London that pins as a location", as
   await expect(cards).toHaveCount(3);
   await expect(page.locator(".react-flow__edge.link-derived-from")).toHaveCount(2);
   const finding = cards.filter({ hasText: "Shadow fix:" });
-  await expect(finding.getByTestId("finding-readout")).toContainText("° N");
+  // to the tenth of a degree a 200 km answer is good for, not to the metre (Ruling P4-R10)
+  await expect(finding.getByTestId("finding-readout")).toHaveText(/^5[01]\.\d° N, 0\.\d° W ± \d+ km$/);
 
   expect(errors()).toEqual([]);
 });
@@ -127,12 +143,15 @@ test("without an offset the tool asks for one", async ({ page }) => {
   await expect(fix.getByTestId("shadow-graticule")).toHaveCount(0);
   await expect(page.getByTestId("pin-fix")).toHaveCount(0);
 
-  // a loosely typed offset is read as meant, and the fix returns
+  // summer time missed: the same 15:00 read as UTC is an hour later, and the fix moves about 1,000 km west (Ruling P4-R12)
+  const verdict = page.getByTestId("shadow-verdict");
   await page.getByTestId("shadow-offset").fill("+0");
-  await expect(fix).toContainText(/0\.\d° W/);
+  await expect(verdict).toContainText(/1[45]\.\d° W/);
+  // a loosely typed offset is read as meant, and the fix returns
+  await page.getByTestId("shadow-offset").fill("+1");
+  await expect(verdict).toContainText(/0\.\d° W/);
 
   // a bearing typed as -30 reads as 330 (Review Focus 4), and a cleared bearing gives the circle of places
-  const verdict = page.getByTestId("shadow-verdict");
   await page.getByTestId("shadow-bearing").fill("330");
   await expect(verdict).not.toContainText("0.1° W");
   const at330 = await verdict.innerText();
@@ -220,8 +239,21 @@ test("at phone width five tools don't widen the page", async ({ page }) => {
 
   // the rail's action row scrolls inside itself (Ruling P4-R5), and its last tool key is still reachable
   expect(await fits()).toBe(true);
+  // each tool key reads its own short word, never "Lab" twice, and that word is in its name (Ruling P4-R11)
+  const toolKeys = page.getByRole("group", { name: "Tools" }).locator(".hud-btn");
+  await expect(toolKeys).toHaveCount(5);
+  const keys = await toolKeys.evaluateAll((els) =>
+    els.map((el) => ({ text: (el as HTMLElement).innerText.trim(), name: el.getAttribute("aria-label") ?? "" })),
+  );
+  expect(new Set(keys.map((k) => k.text.toLowerCase())).size).toBe(5);
+  for (const k of keys) {
+    expect(k.text).not.toBe("");
+    expect(k.name.toLowerCase()).toContain(k.text.toLowerCase());
+  }
   const shadowKey = page.getByTestId("open-tool-shadow-geolocation");
   await expect(shadowKey).toHaveAccessibleName("Shadow geolocation");
+  // (the rail sets its keys in capitals)
+  await expect(shadowKey).toHaveText(/^shadow$/i, { useInnerText: true });
   await shadowKey.scrollIntoViewIfNeeded();
   expect(await fits()).toBe(true);
   await shadowKey.click();

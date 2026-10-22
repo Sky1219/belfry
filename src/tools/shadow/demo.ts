@@ -1,41 +1,46 @@
 import { encodeImage } from "../imagekit/decode";
 import type { Pixels } from "../imagekit/pixels";
 import { mulberry32 } from "../imagekit/rng";
+import { readOffset } from "./fields";
 import { normalizeBearing, type Pt } from "./shadow";
 import { solarPosition } from "./solar";
 
-/** Where and when the demo photo was "taken" (the plan's demo truth). */
-export const DEMO_TRUTH = { lat: 51.5, lon: -0.12, timeUtc: "2026-06-21T14:00:00Z" };
+/** Where and when the demo photo was "taken" (the plan's demo truth), and the summer clock it was taken by. */
+export const DEMO_TRUTH = { lat: 51.5, lon: -0.12, timeUtc: "2026-06-21T14:00:00Z", utcOffset: "+01:00" };
 
 const W = 640;
 const H = 480;
 const HORIZON = 250;
 const POLE_PX = 200;
 const BASE: Pt = { x: 230, y: 410 };
-/** The shadow's direction across the picture, below horizontal: a pavement seen a little from above. */
-const SHADOW_SLANT_DEG = 9;
 const SEED = 47;
 
 export type Marks = { base: Pt; top: Pt; tip: Pt };
 export interface ShadowDemo {
   marks: Marks;
   timeUtc: string;
+  /** The UTC offset of the clock the time is shown by, as EXIF writes it: "+01:00". */
+  utcOffset: string;
   bearingDeg: number;
 }
 
-/** The demo's marks, time and bearing: a 200 px pole and the shadow the sun casts at the demo truth. */
+/**
+ * The demo's marks, time and bearing: a 200 px pole and the shadow the sun casts at the demo truth.
+ * The shadow runs straight across the picture, square to the camera: the side-on view the fix
+ * needs, since a shadow pointing towards or away from the camera is foreshortened (Ruling P4-R8).
+ */
 export function shadowDemoScene(): ShadowDemo {
   const sun = solarPosition(new Date(DEMO_TRUTH.timeUtc), DEMO_TRUTH.lat, DEMO_TRUTH.lon);
   // the photo shows the apparent sun, refraction and all
   const shadowPx = POLE_PX / Math.tan((sun.elevationDeg * Math.PI) / 180);
-  const slant = (SHADOW_SLANT_DEG * Math.PI) / 180;
   return {
     marks: {
       base: BASE,
       top: { x: BASE.x, y: BASE.y - POLE_PX },
-      tip: { x: BASE.x + shadowPx * Math.cos(slant), y: BASE.y + shadowPx * Math.sin(slant) },
+      tip: { x: BASE.x + shadowPx, y: BASE.y },
     },
     timeUtc: DEMO_TRUTH.timeUtc,
+    utcOffset: DEMO_TRUTH.utcOffset,
     // the shadow points away from the sun; to 0.1 degrees, as someone would read it off a compass
     bearingDeg: Math.round(normalizeBearing(sun.azimuthDeg + 180) * 10) / 10,
   };
@@ -114,7 +119,10 @@ export async function makeShadowDemo(): Promise<{
 const isPt = (p: unknown): p is Pt =>
   !!p && typeof p === "object" && Number.isFinite((p as Pt).x) && Number.isFinite((p as Pt).y);
 
-/** The staged demo on an exhibit's meta, validated: anything malformed (an imported file) reads as none. */
+/**
+ * The staged demo on an exhibit's meta, validated: anything malformed (an imported file) reads as
+ * none. A demo staged before it carried an offset was shown in UTC, and still is.
+ */
 export function readShadowDemo(meta: Record<string, unknown> | undefined): ShadowDemo | null {
   const d = meta?.shadowDemo as Partial<ShadowDemo> | undefined;
   if (!d || typeof d !== "object" || !d.marks) return null;
@@ -122,5 +130,7 @@ export function readShadowDemo(meta: Record<string, unknown> | undefined): Shado
   if (!isPt(base) || !isPt(top) || !isPt(tip)) return null;
   if (typeof d.timeUtc !== "string" || !Number.isFinite(new Date(d.timeUtc).getTime())) return null;
   if (!Number.isFinite(d.bearingDeg)) return null;
-  return { marks: { base, top, tip }, timeUtc: d.timeUtc, bearingDeg: d.bearingDeg! };
+  const utcOffset = d.utcOffset ?? "+00:00";
+  if (typeof utcOffset !== "string" || readOffset(utcOffset) === null) return null;
+  return { marks: { base, top, tip }, timeUtc: d.timeUtc, utcOffset, bearingDeg: d.bearingDeg! };
 }
