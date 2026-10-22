@@ -7,9 +7,10 @@ type Rect = { x: number; y: number; w: number; h: number };
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 describe("forensicsDemoPixels", () => {
+  // two full demo renders and a deep compare of 786k bytes: quick alone, past 5 s when the whole suite shares the CPU
   it("is deterministic for a seed", () => {
     expect(forensicsDemoPixels().pixels.data).toEqual(forensicsDemoPixels().pixels.data);
-  });
+  }, 20_000);
 
   it("is 512x384 and the clone destination equals its source, byte for byte", () => {
     const { pixels, cloned } = forensicsDemoPixels();

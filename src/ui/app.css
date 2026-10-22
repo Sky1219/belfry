@@ -1381,6 +1381,23 @@
     transition: transform 0.3s var(--ease-out);
   }
 }
+/* five tools no longer fit the rail beside the case name with their names: below 1680px the tool keys
+   go icon-only (named for screen readers and on hover), and the Tools screen lists them by name; the lit
+   next step keeps its name. Phones have their own short words (below). */
+@media (min-width: 721px) and (max-width: 1680px) {
+  .board-toolbar [aria-label="Tools"] .hud-btn:not(.active) .btn-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .board-toolbar [aria-label="Tools"] .hud-btn.with-icon:not(.active) {
+    padding: 5px;
+    min-width: 32px;
+  }
+}
 @media (max-width: 960px) {
   .board-toolbar .btn-text {
     position: absolute;
@@ -1446,8 +1463,15 @@
       "actions actions case";
     row-gap: 8px;
   }
+  /* the keys' short words outgrow a phone's width: the row scrolls sideways instead of widening the page */
   .toolbar-actions {
     gap: 6px;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* room inside the scroller for the focus haze */
+    padding: 5px 4px;
+    margin: -5px -4px;
   }
   .toolbar-actions .tool-group,
   .board-toolbar > .case-tools {

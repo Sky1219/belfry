@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { downloadBytes } from "../../app/storeContext";
 import { runOp } from "../../platform/workers/compute";
 import type { Evidence } from "../../store/schema";
@@ -6,8 +6,9 @@ import { Bezel, HudButton, type LampState } from "../../ui/components";
 import { Icon } from "../../ui/icons";
 import { decodeImage, encodeImage } from "../imagekit/decode";
 import { ImageToolShell, ToolPanel } from "../imagekit/ImageToolShell";
-import { pinResult, type PinDeps, type PinRequest } from "../imagekit/pin";
+import { pinResult, type PinRequest } from "../imagekit/pin";
 import type { Pixels } from "../imagekit/pixels";
+import { usePinQueue } from "../imagekit/usePinQueue";
 import { useRun, type Run } from "../imagekit/useRun";
 import { useToolImage } from "../imagekit/useToolImage";
 import type { ToolContext } from "../types";
@@ -51,16 +52,6 @@ function lossyKind(mime: string, b: Uint8Array): keyof typeof LOSSY_NOTE | null 
   const riff = b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46;
   if (mime === "image/webp" || (riff && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50)) return "webp";
   return null;
-}
-
-/** Every pin from either panel waits for the one before, so each is placed clear of it. */
-function usePinQueue(deps: PinDeps) {
-  const queue = useRef<Promise<unknown>>(Promise.resolve());
-  return async (req: () => Promise<PinRequest>) => {
-    const run = queue.current.catch(() => undefined).then(async () => pinResult(deps, await req()));
-    queue.current = run;
-    await run;
-  };
 }
 
 function Working() {
@@ -272,7 +263,11 @@ function Lab(props: { ctx: ToolContext; source: Evidence; bytes: Uint8Array; mim
   const [message, setMessage] = useState("");
   const [pinned, setPinned] = useState({ analyse: 0, embed: 0 });
   const [saved, setSaved] = useState<Saved | null>(null);
-  const pin = usePinQueue({ store: ctx.store, caseId: ctx.caseId, toolId: ctx.toolId });
+  // every pin from either panel waits for the one before, so each is placed clear of it
+  const queue = usePinQueue();
+  const pin = async (req: () => Promise<PinRequest>) => {
+    await queue(async () => pinResult({ store: ctx.store, caseId: ctx.caseId, toolId: ctx.toolId }, await req()));
+  };
   // one linear pass each over the alpha channel, once per photo rather than per mode switch
   const channels = useMemo(() => opaqueChannels(pixels), [pixels]);
   const capacity = useMemo(() => capacityBytes(pixels), [pixels]);

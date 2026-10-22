@@ -525,6 +525,8 @@ function BoardInner({
       data-testid={extra?.testId ?? `open-tool-${t.id}`}
       onClick={t.open}
       aria-description={t.blurb}
+      // the rail shows tool keys as icons when space is short; the name shows on hover
+      title={t.name}
     >
       <Icon name={t.icon ?? "vision"} size={14} /> <span className="btn-text">{t.name}</span> <span className="btn-short">{t.name.split(" ").pop()}</span>
     </HudButton>

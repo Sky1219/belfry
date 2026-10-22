@@ -15,12 +15,14 @@ import { registerTool } from "./tools/registry";
 import { detectiveManifest } from "./tools/detective/manifest";
 import { fingerprintManifest } from "./tools/fingerprint/manifest";
 import { photoManifest } from "./tools/photo/manifest";
+import { shadowManifest } from "./tools/shadow/manifest";
 import { stegoManifest } from "./tools/stego/manifest";
 
 registerTool(detectiveManifest);
 registerTool(photoManifest);
 registerTool(fingerprintManifest);
 registerTool(stegoManifest);
+registerTool(shadowManifest);
 
 const isMock = new URLSearchParams(window.location.search).has("mock");
 const ShaderHarness = lazy(() => import("./tools/detective/dev/ShaderHarness").then((m) => ({ default: m.ShaderHarness })));

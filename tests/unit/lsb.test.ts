@@ -64,7 +64,8 @@ describe("lsb format", () => {
       else expect(Math.abs(out.data[i] - cover.data[i])).toBeLessThanOrEqual(1);
     }
     expect(out.data.some((v, i) => v !== cover.data[i])).toBe(true);
-  });
+    // one expect per channel of a 512 x 384 cover: well under a second alone, past 5 s when the whole suite shares the CPU
+  }, 20_000);
 
   it("skips transparent pixels and survives a canvas round trip (transparent left half)", () => {
     const cover = syntheticCover(6, 64, 64);

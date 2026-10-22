@@ -14,7 +14,7 @@ type Marks = { base: Pt; top: Pt; tip: Pt };
 
 const DEG = 180 / Math.PI;
 /** One degree of arc on the sphere, in metres. */
-const METRES_PER_DEG = 111195;
+export const METRES_PER_DEG = 111195;
 /** Marks this close (5 px or less) are one click, not an object. */
 const MIN_PX = 5;
 const MIN_ELEVATION_DEG = 5;
@@ -30,11 +30,11 @@ export const BEARING_TOLERANCE_DEG = 2;
 /** Below this zenith angle the sun's azimuth is too ill-defined to fix a place (geo's own limit). */
 const MIN_ZENITH_DEG = 2;
 
-const MSG_DEGENERATE = "Mark the object's base, its top and the tip of its shadow.";
+export const MSG_DEGENERATE = "Mark the object's base, its top and the tip of its shadow.";
 const MSG_TOO_LOW = "The sun is too low for a reliable fix.";
 const MSG_BEARING = "That bearing doesn't fit this sun height at that time.";
 const MSG_OVERHEAD = "The sun was almost overhead, so its direction cannot fix a place.";
-const MSG_TIME = "Enter the date and time the photo was taken.";
+export const MSG_TIME = "Enter the date and time the photo was taken.";
 const LIMIT =
   "Assumes a vertical object on level ground, seen without strong perspective. Any place on this circle saw the sun at this height at that moment.";
 
@@ -173,8 +173,15 @@ export function solveShadow(input: { marks: Marks; timeUtc: Date; shadowBearingD
 }
 
 const formatUtc = (d: Date) => `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
-const formatPlace = (p: LatLon) =>
-  `${Math.abs(p.lat).toFixed(1)}° ${p.lat >= 0 ? "N" : "S"}, ${Math.abs(p.lon).toFixed(1)}° ${p.lon >= 0 ? "E" : "W"}`;
+/** A latitude or longitude as the finding quotes it, to 1 dp: "51.5° N", "0.1° W". */
+export const formatLat = (lat: number) => `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? "N" : "S"}`;
+export const formatLon = (lon: number) => `${Math.abs(lon).toFixed(1)}° ${lon >= 0 ? "E" : "W"}`;
+export const formatPlace = (p: LatLon) => `${formatLat(p.lat)}, ${formatLon(p.lon)}`;
+/** A distance as the finding quotes it, to the kilometre: "248 km". */
+export const formatKm = (m: number) => `${Math.round(m / 1000)} km`;
+/** The sun's height as the finding quotes it: "54.0° ± 1.2°". */
+export const formatHeight = (fix: Pick<ShadowFix, "elevationDeg" | "uncertaintyDeg">) =>
+  `${fix.elevationDeg.toFixed(1)}° ± ${fix.uncertaintyDeg.toFixed(1)}°`;
 
 /** The finding for a solved shadow: a place, two candidate places, or just the sun's height and its circle. */
 export function shadowFinding(fix: ShadowFix): {
@@ -193,7 +200,7 @@ export function shadowFinding(fix: ShadowFix): {
     bandDeg: fix.uncertaintyDeg,
   };
   // Round once; the title and the body quote the same strings.
-  const height = `${fix.elevationDeg.toFixed(1)}° ± ${fix.uncertaintyDeg.toFixed(1)}°`;
+  const height = formatHeight(fix);
   const when = formatUtc(fix.timeUtc);
   const elevation: FindingDetail = {
     kind: "measurement",
@@ -207,7 +214,7 @@ export function shadowFinding(fix: ShadowFix): {
     const radiusM = fix.radiusM ?? 0;
     return {
       title: `Shadow fix: ${formatPlace(p)}`,
-      body: `At ${when} the sun stood ${height} above the horizon. With the shadow's bearing that puts the photo at ${formatPlace(p)}, within about ${Math.round(radiusM / 1000)} km. That radius assumes the bearing is right to within ${BEARING_TOLERANCE_DEG}° and the camera clock is right. ${LIMIT}`,
+      body: `At ${when} the sun stood ${height} above the horizon. With the shadow's bearing that puts the photo at ${formatPlace(p)}, within about ${formatKm(radiusM)}. That radius assumes the bearing is right to within ${BEARING_TOLERANCE_DEG}° and the camera clock is right. ${LIMIT}`,
       detail: { kind: "location", lat: p.lat, lon: p.lon, radiusM },
       meta: { sunLocus },
     };
@@ -222,7 +229,7 @@ export function shadowFinding(fix: ShadowFix): {
   }
   return {
     title: `Sun elevation: ${height}`,
-    body: `At ${when} the sun stood ${height} above the horizon. It was directly overhead at ${formatPlace(fix.subsolar)}, so the photo lies on a circle of radius ${Math.round((fix.zenithDeg * METRES_PER_DEG) / 1000)} km around that point, give or take ${Math.round((fix.uncertaintyDeg * METRES_PER_DEG) / 1000)} km. ${LIMIT}`,
+    body: `At ${when} the sun stood ${height} above the horizon. It was directly overhead at ${formatPlace(fix.subsolar)}, so the photo lies on a circle of radius ${formatKm(fix.zenithDeg * METRES_PER_DEG)} around that point, give or take ${formatKm(fix.uncertaintyDeg * METRES_PER_DEG)}. ${LIMIT}`,
     detail: elevation,
     meta: { sunLocus },
   };

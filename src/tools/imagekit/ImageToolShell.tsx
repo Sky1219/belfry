@@ -8,7 +8,7 @@ import type { Pixels } from "./pixels";
 import "./imagekit.css";
 
 /** The photo on a bezelled screen, scaled to fit, with the tool's overlay drawn over it. */
-function SourceScreen(props: { pixels?: Pixels; drawOverlay?: (g: CanvasRenderingContext2D) => void }) {
+function SourceScreen(props: { pixels?: Pixels; drawOverlay?: (g: CanvasRenderingContext2D) => void; layer?: ReactNode }) {
   const { pixels, drawOverlay } = props;
   const boxRef = useRef<HTMLDivElement>(null);
   const photoRef = useRef<HTMLCanvasElement>(null);
@@ -87,6 +87,7 @@ function SourceScreen(props: { pixels?: Pixels; drawOverlay?: (g: CanvasRenderin
         <div className="ik-photo" style={{ width: cssW, height: cssH }}>
           <canvas ref={photoRef} className="ik-canvas" data-testid="source-canvas" role="img" aria-label="The photo under analysis" />
           <canvas ref={overlayRef} className="ik-canvas ik-overlay" aria-hidden />
+          {props.layer}
         </div>
       ) : (
         <p className="ik-blank">No photo</p>
@@ -107,6 +108,8 @@ export function ImageToolShell(props: {
   pixels?: Pixels;
   /** Draws over the photo, in the photo's own pixel coordinates. */
   drawOverlay?: (g: CanvasRenderingContext2D) => void;
+  /** Interactive pieces set exactly over the photo (marks to drag), sized to it. */
+  screenLayer?: ReactNode;
   children: ReactNode;
 }) {
   const { tool, ctx, source } = props;
@@ -144,7 +147,7 @@ export function ImageToolShell(props: {
           className="ik-source"
           meta={props.pixels && <span className="num">{`${props.pixels.width} × ${props.pixels.height}`}</span>}
         >
-          <SourceScreen pixels={props.pixels} drawOverlay={props.drawOverlay} />
+          <SourceScreen pixels={props.pixels} drawOverlay={props.drawOverlay} layer={props.screenLayer} />
         </Bezel>
         <div className="ik-panels">{props.children}</div>
       </div>

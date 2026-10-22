@@ -11,6 +11,7 @@ import { ExhibitPicker } from "../imagekit/ExhibitPicker";
 import { ImageToolShell, ToolPanel } from "../imagekit/ImageToolShell";
 import { pinDemoInput, pinResult, type PinDeps, type PinImage } from "../imagekit/pin";
 import { downscale, toGray, type Pixels } from "../imagekit/pixels";
+import { usePinQueue } from "../imagekit/usePinQueue";
 import { useRun, type Run } from "../imagekit/useRun";
 import { useToolImage } from "../imagekit/useToolImage";
 import type { ToolContext } from "../types";
@@ -235,13 +236,13 @@ function Match(props: { ctx: ToolContext; source: Evidence; printB: Evidence; a:
   useEffect(() => () => onMarks(null), [onMarks]);
 
   // pins wait for the one before, so each is placed clear of it
-  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const queue = usePinQueue();
   const [pinned, setPinned] = useState(0);
   const pin = async () => {
     if (!result) return;
     const { finding, image, m, style } = result;
     const prints = [source.id, printB.id];
-    const run = queue.current.catch(() => undefined).then(async () => {
+    await queue(async () => {
       const blob = await image.convertToBlob({ type: "image/png" });
       const pinnedResult = await pinResult(
         { store: ctx.store, caseId: ctx.caseId, toolId: ctx.toolId },
@@ -259,8 +260,6 @@ function Match(props: { ctx: ToolContext; source: Evidence; printB: Evidence; a:
       // the finding rests on both prints: print A through the comparison, print B directly
       await ctx.store.addLink({ caseId: ctx.caseId, fromId: pinnedResult.finding.id, toId: printB.id, kind: "derived-from" });
     });
-    queue.current = run;
-    await run;
     setPinned((n) => n + 1);
   };
 

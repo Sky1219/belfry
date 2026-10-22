@@ -107,3 +107,15 @@ Pin a photo from your phone (a JPEG) and a PNG screenshot to a case, then pick *
 - [ ] **A transparent PNG (a logo or sticker):** embed and read back work; only the opaque pixels count towards the capacity.
 - [ ] **A 320 px thumbnail and a screenshot of text:** shrink a phone photo to 320 px wide (saved as PNG), and take a PNG screenshot of a page of black text on white. Neither reads "consistent", and no bar or title turns amber. If one reads "inconclusive", its body says "Text, screenshots, flat graphics and small images can read this high with no hidden message." just before the limit line. (Before the fix, RS alone read 5 of 46 clean 320 px photos and a text page as "consistent".)
 - [ ] **A large photo (20 MP or more):** the page stays responsive while Analyse works (the lamp pulses), and switching to Embed and back doesn't start it over.
+
+## Shadow geolocation
+
+On a sunny day, photograph a lamp post (or any upright pole on level ground) and its whole shadow with your phone, from a few metres away and roughly side-on. Note where you stood (from a map app) and read the direction the shadow points with a compass app. Pin the photo to a case, then pick **Send to Shadow geolocation** from its card menu.
+
+- [ ] **Time from the photo:** a phone JPEG usually carries its time and UTC offset, so the date, time and offset wells fill in and the line under the marks says they came from the photo's EXIF. If the camera recorded no offset, the offset well is empty with an amber "Required", and the Fix panel reads "Enter the UTC offset the photo was taken in: the same clock time is a different sun in every zone." in steel, with no map and nothing to pin.
+- [ ] **Marks:** the Fix panel asks you to place BASE, TOP and TIP until each has been moved once. Drag each onto the pole's foot, its top and the tip of its shadow; Tab to a mark and nudge it with the arrow keys (1 px, Shift for 10). The fix settles a moment after you stop, and dragging stays smooth.
+- [ ] **No bearing:** with the bearing empty, the panel reads "Sun elevation: N° ± M°", the amber circle on the graticule passes (within its shaded band) through where you stood, and the latitude table lists the circle's longitudes (`--` where it doesn't reach).
+- [ ] **With the compass bearing:** type the shadow's bearing. The place (or one of two places) is within the stated radius of where you stood, and the body says the radius assumes the bearing is right to within 2° and the camera clock is right. A bearing typed as -30 reads the same as 330.
+- [ ] **A long evening shadow:** with the sun under 5°, the panel reads "The sun is too low for a reliable fix."
+- [ ] **Pin:** the board gains "Shadow fix map" linked to the photo, and the finding linked to the map. Its card reads a location (`51.5…° N, 0.1…° W ± N m`) for one place, the sun elevation otherwise.
+- [ ] **Phone:** the marks are big enough to drag with a finger, and the time wells wrap without overflowing.

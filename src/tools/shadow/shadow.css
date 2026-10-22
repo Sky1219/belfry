@@ -1,0 +1,236 @@
+/* Shadow geolocation: the marks over the photo, the time and bearing wells, and the fix with its graticule */
+
+/* the marks layer sits exactly over the photo; only the marks themselves take the pointer */
+.sh-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.sh-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+/* input, not a finding: bone line work with a black halo so it reads on any photo */
+.sh-lines line {
+  stroke: var(--ink);
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
+}
+.sh-shadow {
+  stroke-dasharray: 6 4;
+}
+
+.sh-mark {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--ink);
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+}
+.sh-mark.dragging {
+  cursor: grabbing;
+  color: var(--signal);
+}
+/* the point itself: a hollow square with a centre pip, haloed in black */
+.sh-cross {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid currentColor;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.85),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.85);
+}
+.sh-cross::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 2px;
+  margin: -1px 0 0 -1px;
+  background: currentColor;
+}
+/* the mark's name on an 80% black plate, as the Detective Vision overlay sets its tags */
+.sh-tag {
+  position: absolute;
+  left: calc(50% + 10px);
+  bottom: calc(50% + 6px);
+  padding: 1px 5px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 14px;
+  color: currentColor;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid var(--line-strong);
+  border-radius: 1px;
+  white-space: nowrap;
+}
+.sh-mark:hover .sh-tag,
+.sh-mark:focus-visible .sh-tag {
+  border-color: currentColor;
+}
+.sh-mark:focus-visible {
+  color: var(--signal);
+}
+
+.sh-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+  overflow-wrap: anywhere;
+}
+.sh-body b {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+.sh-source {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+/* date and time, then the offset and bearing: two wells a row, wide enough for a 12-hour clock with seconds */
+.sh-time {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px 8px;
+}
+.sh-field .hud-input {
+  min-width: 0;
+  font-size: 13px;
+}
+/* an empty offset is a warning on the input; the panel's refusal text stays steel */
+.sh-field.warn .hud-input {
+  border-color: var(--amber-dim);
+}
+.sh-warn {
+  color: var(--amber);
+}
+.sh-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ink-dim);
+}
+
+/* the finding's own title, as the board card will carry it: amber, a computed fix is a finding */
+.sh-verdict {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--amber);
+  overflow-wrap: anywhere;
+}
+.sh-readout {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 12px;
+}
+.sh-readout > div {
+  display: contents;
+}
+.sh-readout dt {
+  padding-top: 2px;
+}
+.sh-readout dd {
+  grid-column: 2;
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.sh-map {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sh-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  border-radius: var(--radius);
+  background: var(--screen);
+}
+.sh-key {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ink-dim);
+}
+
+.sh-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.sh-table caption {
+  text-align: left;
+  padding-bottom: 4px;
+}
+.sh-table th,
+.sh-table td {
+  padding: 3px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.sh-table thead th {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  border-bottom-color: var(--line-strong);
+}
+.sh-table tbody th {
+  width: 5.5em;
+  font-weight: 400;
+  color: var(--ink-dim);
+}
+.sh-table tbody td {
+  color: var(--ink);
+}
+
+/* a refusal is not a finding: steel, never amber (The Two Lights Rule) */
+.sh-refusal {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sh-refusal-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+@media (pointer: coarse) {
+  .sh-mark {
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+  }
+}

@@ -8,6 +8,7 @@ import { MAP_SIDE } from "../imagekit/heatmap";
 import { ImageToolShell, ToolPanel } from "../imagekit/ImageToolShell";
 import { pinResult, type PinDeps, type PinRequest } from "../imagekit/pin";
 import { downscale, toGray, undoOrientation, type Pixels } from "../imagekit/pixels";
+import { usePinQueue } from "../imagekit/usePinQueue";
 import { useRun, type Run } from "../imagekit/useRun";
 import { useToolImage } from "../imagekit/useToolImage";
 import type { ToolContext } from "../types";
@@ -111,13 +112,11 @@ function maskOverlay(r: CopyMoveResult): OffscreenCanvas | null {
 function usePins(deps: PinDeps) {
   const [pinned, setPinned] = useState<Record<string, number>>({});
   // every pin across the panels waits for the one before, so each is placed clear of it
-  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const queue = usePinQueue();
   const pin = (panel: string, ...requests: PinRequest[]) => async () => {
-    const run = queue.current.catch(() => undefined).then(async () => {
+    await queue(async () => {
       for (const req of requests) await pinResult(deps, req);
     });
-    queue.current = run;
-    await run;
     setPinned((p) => ({ ...p, [panel]: (p[panel] ?? 0) + 1 }));
   };
   return { pinned, pin };
