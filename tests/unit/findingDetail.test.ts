@@ -6,7 +6,7 @@ describe("finding detail", () => {
     const m = readFindingDetail({ finding: { kind: "measurement", value: 12.34, unit: "px", uncertainty: 0.4 } });
     expect(m && formatFindingDetail(m)).toBe("12.3 ± 0.4 px");
     const l = readFindingDetail({ finding: { kind: "location", lat: 51.5012, lon: -0.1246, radiusM: 50 } });
-    expect(l && formatFindingDetail(l)).toBe("51.50120° N, 0.12460° W ± 50 m");
+    expect(l && formatFindingDetail(l)).toBe("51.501° N, 0.125° W ± 50 m");
     const d = readFindingDetail({ finding: { kind: "decode", scheme: "DTMF", text: "5550134" } });
     expect(d && formatFindingDetail(d)).toBe("DTMF · 5550134");
   });
@@ -22,10 +22,28 @@ describe("finding detail", () => {
     expect(formatFindingDetail({ kind: "measurement", value: 0.7, unit: "match score", decimals: 2 })).toBe("0.70 match score");
     expect(formatFindingDetail({ kind: "measurement", value: 1, unit: "match score", decimals: 2 })).toBe("1.00 match score");
     expect(formatFindingDetail({ kind: "measurement", value: 3, unit: "px", decimals: 0 })).toBe("3 px");
-    // the uncertainty still sets the decimals when there is one
-    expect(formatFindingDetail({ kind: "measurement", value: 12.34, unit: "px", uncertainty: 0.4, decimals: 3 })).toBe("12.3 ± 0.4 px");
+    // and they fix the uncertainty's places too, so value and ± read alike (Ruling P4-R10)
+    expect(formatFindingDetail({ kind: "measurement", value: 12.34, unit: "px", uncertainty: 0.4, decimals: 3 })).toBe("12.340 ± 0.400 px");
+    expect(formatFindingDetail({ kind: "measurement", value: 53.987, unit: "° sun elevation", uncertainty: 1.0462, decimals: 1 })).toBe(
+      "54.0 ± 1.0° sun elevation",
+    );
+    // without decimals the uncertainty still sets them
+    expect(formatFindingDetail({ kind: "measurement", value: 53.987, unit: "° sun elevation", uncertainty: 1.0462 })).toBe("54 ± 1° sun elevation");
     const m = readFindingDetail({ finding: { kind: "measurement", value: 0.7, unit: "match score", decimals: 2 } });
     expect(m && formatFindingDetail(m)).toBe("0.70 match score");
+  });
+
+  test("a location's radius sets its decimals, and reads in km from 1 km (Ruling P4-R10)", () => {
+    const at = (radiusM: number) => formatFindingDetail({ kind: "location", lat: 51.508451, lon: -0.131384, radiusM });
+    // a shadow fix good to about 250 km: tenths of a degree, not metres
+    expect(at(248139)).toBe("51.5° N, 0.1° W ± 248 km");
+    expect(at(10000)).toBe("51.5° N, 0.1° W ± 10 km");
+    expect(at(9999)).toBe("51.51° N, 0.13° W ± 10 km");
+    expect(at(1000)).toBe("51.51° N, 0.13° W ± 1 km");
+    expect(at(999)).toBe("51.508° N, 0.131° W ± 999 m");
+    expect(at(12.4)).toBe("51.508° N, 0.131° W ± 12 m");
+    // a position with no radius (a photo's EXIF GPS) keeps 5 dp
+    expect(formatFindingDetail({ kind: "location", lat: 51.508451, lon: -0.131384 })).toBe("51.50845° N, 0.13138° W");
   });
 
   test("malformed decimals are ignored, not fatal", () => {
