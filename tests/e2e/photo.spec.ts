@@ -132,3 +132,30 @@ test("a PNG says the JPEG tests don't apply and shows no NaN", async ({ page }) 
 
   expect(errors()).toEqual([]);
 });
+
+test("a file that isn't a picture: each image tool says so with its lamp off, not amber (Ruling P4-R13)", async ({ page }) => {
+  test.setTimeout(120_000);
+  await openCaseBoard(page, "Broken File Case");
+
+  // amber means a finding to look at; a file that won't decode is not one (Two Lights)
+  for (const [tool, panel] of [
+    ["photo-forensics", "panel-photo"],
+    ["fingerprint-lab", "panel-print"],
+    ["stego-lab", "panel-photo"],
+    ["shadow-geolocation", "panel-photo"],
+  ] as const) {
+    await page.getByTestId(`open-tool-${tool}`).click();
+    await expect(page.getByTestId("no-signal")).toBeVisible();
+    await page.getByTestId("no-signal-file-input").setInputFiles({
+      name: "broken.png",
+      mimeType: "image/png",
+      buffer: Buffer.from("this is not a PNG at all"),
+    });
+    await expect(page.getByTestId(panel).getByRole("alert")).toBeVisible({ timeout: 20_000 });
+    const lamp = page.getByTestId(panel).locator(".bezel-head .lamp");
+    await expect(lamp, tool).toHaveClass(/\blamp\b/);
+    await expect(lamp, tool).not.toHaveClass(/\b(amber|on|ok)\b/);
+    await page.getByTestId("tool-close").click();
+    await expect(page.getByTestId("board")).toBeVisible();
+  }
+});

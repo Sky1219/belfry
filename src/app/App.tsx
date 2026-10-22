@@ -126,6 +126,7 @@ function useBoardExtensions(route: Route, navigate: (r: Route) => void): BoardEx
       tools: listTools().map((t) => ({
         id: t.id,
         name: t.name,
+        shortName: t.shortName,
         blurb: t.blurb,
         icon: t.icon,
         open: () => open(t.id, defaultInput(t)),

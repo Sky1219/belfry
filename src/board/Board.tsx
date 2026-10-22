@@ -45,6 +45,8 @@ const UNDO_DEPTH = 25;
 export interface BoardTool {
   id: string;
   name: string;
+  /** The phone rail key's word, from the name ("Fingerprint"); the name's last word when omitted. */
+  shortName?: string;
   blurb?: string;
   /** The tool's glyph; "vision" when omitted. */
   icon?: IconName;
@@ -527,10 +529,11 @@ function BoardInner({
       aria-description={t.blurb}
       // the rail shows tool keys as icons when space is short; the name shows on hover
       title={t.name}
-      // and phones show only the last word ("Lab" twice), so the full name is the key's name everywhere
+      // and phones show one word of it ("Fingerprint", not "Lab" twice: Ruling P4-R11), so the full name is the key's name everywhere
       aria-label={t.name}
     >
-      <Icon name={t.icon ?? "vision"} size={14} /> <span className="btn-text">{t.name}</span> <span className="btn-short">{t.name.split(" ").pop()}</span>
+      <Icon name={t.icon ?? "vision"} size={14} /> <span className="btn-text">{t.name}</span>{" "}
+      <span className="btn-short">{t.shortName ?? t.name.split(" ").pop()}</span>
     </HudButton>
   );
 

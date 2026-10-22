@@ -326,7 +326,7 @@ export function PhotoForensicsView({ ctx }: { ctx: ToolContext }) {
     <ImageToolShell tool={photoManifest} ctx={ctx} source={ready?.source} pixels={pixels} drawOverlay={overlay ? drawOverlay : undefined}>
       {ready && <Panels ctx={ctx} source={ready.source} bytes={ready.bytes} pixels={ready.pixels} onOverlay={setOverlay} />}
       {image.phase === "error" && (
-        <ToolPanel id="photo" title="No photo" lamp="amber">
+        <ToolPanel id="photo" title="No photo" lamp="off">
           <p className="pf-problem" role="alert">
             {image.message}
           </p>

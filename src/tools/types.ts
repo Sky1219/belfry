@@ -42,6 +42,12 @@ export type ToolComponent = ComponentType<{ ctx: ToolContext }>;
 export interface ToolManifest {
   id: string;
   name: string;
+  /**
+   * One word for the phone rail's key, which has no room for the name: a word of the name itself
+   * ("Fingerprint" for "Fingerprint lab"), so the key's visible text stays in its accessible name.
+   * The name's last word when omitted.
+   */
+  shortName?: string;
   /** One-line description shown in menus. */
   blurb?: string;
   /** The tool's glyph on the board's buttons; "vision" when omitted. */

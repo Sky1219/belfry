@@ -405,7 +405,7 @@ export function FingerprintView({ ctx }: { ctx: ToolContext }) {
         />
       )}
       {image.phase === "error" && (
-        <ToolPanel id="print" title="No print" lamp="amber">
+        <ToolPanel id="print" title="No print" lamp="off">
           <p className="fp-problem" role="alert">
             {image.message}
           </p>

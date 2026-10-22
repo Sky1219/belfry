@@ -357,7 +357,7 @@ export function StegoView({ ctx }: { ctx: ToolContext }) {
     <ImageToolShell tool={stegoManifest} ctx={ctx} source={ready?.source} pixels={ready?.pixels}>
       {ready && <Lab key={ready.source.id} ctx={ctx} source={ready.source} bytes={ready.bytes} mime={ready.mime} pixels={ready.pixels} />}
       {image.phase === "error" && (
-        <ToolPanel id="photo" title="No photo" lamp="amber">
+        <ToolPanel id="photo" title="No photo" lamp="off">
           <p className="sg-problem" role="alert">
             {image.message}
           </p>

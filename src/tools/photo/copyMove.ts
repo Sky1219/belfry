@@ -12,6 +12,11 @@ export interface CopyMoveResult {
   blocks: number;
   /** Blocks textured enough to compare (variance at least MIN_VARIANCE). */
   considered: number;
+  /**
+   * Feature comparisons between sorted neighbours, over both passes: at most 2 x WINDOW per
+   * considered block, so the work after the sort stays linear however many blocks look alike.
+   */
+  comparisons: number;
   /** 1 where a matched block (source or copy) covers the pixel; width x height. */
   mask: Uint8Array;
 }
@@ -47,7 +52,7 @@ export function detectCopyMove(gray: Float32Array, w: number, h: number): CopyMo
   const mask = new Uint8Array(w * h);
   const bw = w - BLOCK + 1;
   const bh = h - BLOCK + 1;
-  if (bw <= 0 || bh <= 0) return { width: w, height: h, shift: null, blocks: 0, considered: 0, mask };
+  if (bw <= 0 || bh <= 0) return { width: w, height: h, shift: null, blocks: 0, considered: 0, comparisons: 0, mask };
 
   const pos: number[] = []; // top-left pixel index of each textured block
   const feat = new Int16Array(bw * bh * COEFFS);
@@ -87,7 +92,9 @@ export function detectCopyMove(gray: Float32Array, w: number, h: number): CopyMo
     return a - b;
   });
 
+  let comparisons = 0;
   const sameFeature = (a: number, b: number) => {
+    comparisons++;
     for (let z = 0; z < COEFFS; z++) if (feat[a * COEFFS + z] !== feat[b * COEFFS + z]) return false;
     return true;
   };
@@ -126,7 +133,7 @@ export function detectCopyMove(gray: Float32Array, w: number, h: number): CopyMo
       blocks = count;
     }
   }
-  if (bestKey < 0) return { width: w, height: h, shift: null, blocks: 0, considered: n, mask };
+  if (bestKey < 0) return { width: w, height: h, shift: null, blocks: 0, considered: n, comparisons, mask };
 
   const shift = { dx: Math.floor(bestKey / KEY), dy: (bestKey % KEY) - KEY / 2 };
   const paint = (p: number) => {
@@ -137,7 +144,7 @@ export function detectCopyMove(gray: Float32Array, w: number, h: number): CopyMo
     paint(pos[from]);
     paint(pos[to]);
   });
-  return { width: w, height: h, shift, blocks, considered: n, mask };
+  return { width: w, height: h, shift, blocks, considered: n, comparisons, mask };
 }
 
 const AMBER = [255, 167, 51] as const; // #ffa733

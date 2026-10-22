@@ -82,16 +82,31 @@ describe("detectCopyMove", () => {
     expect(r.mask).toHaveLength(9);
   });
 
-  it("stays well under two seconds at 512x512", () => {
+  // A work bound, not a stopwatch (Ruling P4-R13): after the sort, each textured block is compared
+  // with at most WINDOW (10) neighbours in each of the two passes, so the work is linear in the blocks.
+  it("compares at most 2 x 10 features per textured block at 512x512", () => {
     const small = texture();
     const g = new Float32Array(512 * 512);
     for (let y = 0; y < 512; y++) {
       for (let x = 0; x < 512; x++) g[y * 512 + x] = small[(y % 256) * 256 + (x % 256)] + ((x >> 8) + (y >> 8)) * 0.3;
     }
-    const t0 = performance.now();
     const r = detectCopyMove(g, 512, 512);
-    expect(performance.now() - t0).toBeLessThan(2000);
     expect(r.considered).toBeGreaterThan(200000);
+    expect(r.comparisons).toBeGreaterThan(0);
+    expect(r.comparisons).toBeLessThanOrEqual(2 * 10 * r.considered);
+  });
+
+  it("keeps the bound where every block has hundreds of twins, which comparing all of them would make quadratic", () => {
+    // a 16 px tile repeated: each block's feature is shared by about 240 others
+    const small = texture();
+    const g = new Float32Array(256 * 256);
+    for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) g[y * 256 + x] = small[(y % 16) * 256 + (x % 16)];
+    const r = detectCopyMove(g, 256, 256);
+    expect(r.considered).toBeGreaterThan(60000);
+    expect(r.comparisons).toBeLessThanOrEqual(2 * 10 * r.considered);
+    // the window is what stops it, not a lack of twins: both passes run it full
+    expect(r.comparisons).toBeGreaterThan(19 * r.considered);
+    expect(r.shift).not.toBeNull();
   });
 });
 
@@ -110,6 +125,7 @@ describe("copyMoveFinding", () => {
     shift,
     blocks,
     considered,
+    comparisons: 0,
     mask: new Uint8Array(0),
   });
   const LIMIT = "Repeating textures (brick, tiles, foliage) can match themselves.";
