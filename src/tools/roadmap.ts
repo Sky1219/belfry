@@ -11,7 +11,6 @@ export interface PlannedTool {
 }
 
 export const PLANNED_TOOLS: PlannedTool[] = [
-  { id: "photo-forensics", name: "Photo forensics", phase: "Image forensics" },
   { id: "signal-decoder", name: "Signal decoder", phase: "Audio" },
   { id: "enhance", name: "Enhance", phase: "Video" },
   { id: "watchtower", name: "Watchtower", phase: "Devices" },

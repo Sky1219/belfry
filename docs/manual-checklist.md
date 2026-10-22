@@ -65,3 +65,63 @@ transformers.js went from 3.8 to 4.3. Automated checks only covered the WASM pat
 - [ ] Pin an audio file, select it: the open row plays it with the browser's controls.
 - [ ] Open Detective Vision with the camera blocked in a case that has footage: No Signal lists the footage, and "Open a video file" pins the file to the board before the tool opens on it.
 - [ ] Keyboard only: Tab to an index row, press Enter. The row reports itself expanded, and Tab reaches its actions next.
+
+## Photo forensics
+
+Open a case → **Photo forensics** in the rail → **Open a photo file**. Each panel finishes on its own, and every pin lands beside the photo, linked derived-from.
+
+- [ ] **A real phone JPEG** (straight off the phone, not sent through a messaging app): Metadata lists the make, model, date taken and, if location was on, a position (the pinned finding's detail is a location). JPEG reads a quality, or "non-standard tables" for phones that use their own. A portrait photo shows upright, and the error level and noise maps line up with it.
+- [ ] **A screenshot (PNG):** the JPEG panel says "Not a JPEG: quantization tests don't apply." with no quality number and no pin; nothing on the screen reads NaN.
+- [ ] **A Photoshop-edited JPEG** (open a photo, clone-stamp an area, save as JPEG): Metadata's Software line names Photoshop; double quantization reads "consistent with two JPEG saves" or "inconclusive"; a large clone-stamped area shows as amber marks on the photo with "Copy-move: consistent with cloned regions".
+- [ ] **A straight-off-camera JPEG** (never re-saved): double quantization reads "no sign of two JPEG saves" or "inconclusive", never "consistent with two JPEG saves".
+- [ ] Pin every panel: JPEG adds two findings; Error levels and Noise residual each add a map and a finding; Copy-move adds a regions image and a finding when it reads "consistent", and only the finding otherwise. No card claims the photo is fake or authentic.
+- [ ] A photo over 40 megapixels is refused with "This photo is over 40 megapixels; Belfry can't analyse it in the browser." and the board stays responsive; a 12 MP photo finishes every panel without freezing the page.
+- [ ] **A ~39 MP photo** (just under the limit): every panel finishes, one after another, without the tab crashing or running out of memory (watch the browser's task manager; Ruling R15).
+
+## Fingerprint lab
+
+Take two phone photos of the pad of your own index finger (close up, good light, the ridges sharp), then one of a different finger. Pin them to a case, then pick **Send to Fingerprint lab** from the first one's card menu.
+
+- [ ] **The notice:** the first time in this browser, "Compare your own prints only. Prints are processed on this device and never leave it. This is not an identification." shows before anything is analysed, and print B can't be chosen until **I'm comparing my own prints** is pressed. Reopen the lab: the notice doesn't come back (it does in a private window).
+- [ ] **Two photos of the same finger:** pick the second photo as print B. The Match screen reads "Fingerprint match: consistent with the same finger" or "inconclusive", with a score, and the comparison shows both skeletons with the paired minutiae joined in amber (in steel when the verdict isn't "consistent"). Nothing on the screen or the pinned card says "identified", "match confirmed" or "proves".
+- [ ] **Different fingers:** **Compare another print**, then the other finger's photo. The Match screen reads "no sign of the same finger" or "inconclusive", never "consistent".
+- [ ] The print B picker never lists print A itself.
+- [ ] **A photo with no print in it** (a wall, a blank sheet): "Fingerprint match: inconclusive", "not enough ridge detail", the readout `score --`, and a comparison with no pair lines and no matched count.
+- [ ] **A photo of a blank wall or paper** (evenly lit, so only sensor noise; and a JPEG straight from the phone): reads "not enough ridge detail" or "too noisy", never a score, and the page stays responsive throughout.
+- [ ] **The same finger photographed at a slightly different distance** (hold the phone a little nearer for print B): does not read "no sign of the same finger".
+- [ ] **Focus after the notice:** acknowledge it with the keyboard (Tab, then Enter); focus lands on print B's panel (its first row, **Open a photo file**, or **Compare another print**), not the top of the page.
+- [ ] Pin the match: a comparison image linked to print A, and a finding linked to the comparison and to print B. The finding card reads `0.nn match score` when it has a score (a score of 0.70 reads `0.70`, as on the panel).
+- [ ] Watch the network panel while comparing: no request carries the prints anywhere.
+
+## Steganography lab
+
+Pin a photo from your phone (a JPEG) and a PNG screenshot to a case, then pick **Send to Steganography lab** from the photo's card menu.
+
+- [ ] **A clean photo:** Analyse reads "Hidden data: no sign of sequential LSB embedding" (or "inconclusive"), the ten chi-square bars are steel, and the body ends with "Only detects sequential LSB embedding. Absence of a signal isn't proof of a clean image."
+- [ ] **Embed:** switch to **Embed**. The panel says "Saved as PNG: a JPEG save would erase the message." and "Anyone who knows to look can read it; it isn't encrypted." Type a message with an accent or an emoji; the line under it counts bytes, not characters. **Hide and pin** adds "<photo title> — with hidden message" linked to the photo, and the finding "Message hidden (LSB, N bytes)" linked to the image.
+- [ ] **Download PNG saves a file that reads back:** after the pin, **Download PNG** is the lit key; press it and a `.png` named after the new image downloads. Drop that file back onto the board as a new file and send it to the lab: Analyse reads "Hidden data: LSB payload found" and shows your message exactly, accents and emoji included.
+- [ ] **A canvas-noise browser (Brave with fingerprinting protection on, or Safari in a Private window):** embed a message. Either it pins and its PNG reads back as above, or nothing is pinned and the panel says exactly "This browser changed the picture while saving it, so the message did not survive. Try another browser, or turn off fingerprinting protection for this page." It must never pin a PNG that has lost its message.
+- [ ] **A WebP source:** Embed says "Saved as PNG: a lossy WebP save would erase the message."
+- [ ] **Re-save it as JPEG:** open the PNG in an image editor, save it as JPEG, add that file and send it to the lab: the message is gone (no "payload found").
+- [ ] **A message too long for the image:** type past the capacity on a small image; the byte line turns red, "That message needs N bytes; this image holds M." shows, and the key stays off.
+- [ ] **A transparent PNG (a logo or sticker):** embed and read back work; only the opaque pixels count towards the capacity.
+- [ ] **A 320 px thumbnail and a screenshot of text:** shrink a phone photo to 320 px wide (saved as PNG), and take a PNG screenshot of a page of black text on white. Neither reads "consistent", and no bar or title turns amber. If one reads "inconclusive", its body says "Text, screenshots, flat graphics and small images can read this high with no hidden message." just before the limit line. (Before the fix, RS alone read 5 of 46 clean 320 px photos and a text page as "consistent".)
+- [ ] **A large photo (20 MP or more):** the page stays responsive while Analyse works (the lamp pulses), and switching to Embed and back doesn't start it over.
+
+## Shadow geolocation
+
+On a sunny day, photograph a lamp post (or any upright pole on level ground) and its whole shadow with your phone, from a few metres away and roughly side-on. Note where you stood (from a map app) and read the direction the shadow points with a compass app. Pin the photo to a case, then pick **Send to Shadow geolocation** from its card menu.
+
+- [ ] **Time from the photo:** a phone JPEG usually carries its time and UTC offset, so the date, time and offset wells fill in and the line under the marks says they came from the photo's EXIF. If the camera recorded no offset, the offset well is empty with an amber "Required", and the Fix panel reads "Enter the UTC offset the photo was taken in: the same clock time is a different sun in every zone." in steel, with no map and nothing to pin.
+- [ ] **Marks:** the Fix panel asks you to place BASE, TOP and TIP until each has been moved once. Drag each onto the pole's foot, its top and the tip of its shadow; Tab to a mark and nudge it with the arrow keys (1 screen pixel, Shift for 10: on a 12 MP photo shown 760 px wide each press moves the mark about 5 photo pixels). The fix settles a moment after you stop, and dragging stays smooth.
+- [ ] **No bearing:** with the bearing empty, the panel reads "Sun elevation: N° ± M°", the amber circle on the graticule passes (within its shaded band) through where you stood, and the latitude table lists the circle's longitudes (`--` where it doesn't reach).
+- [ ] **With the compass bearing:** type the shadow's bearing. The place (or one of two places) is within the stated radius of where you stood, and the body says the radius assumes the bearing is right to within 2° and the time and its UTC offset are right. The body and the readout echo "shadow B°, so the sun stood at S°" with S = B + 180; check S is where the sun was. A bearing typed as -30 reads the same as 330.
+- [ ] **A side-on shadow against a foreshortened one:** the inputs panel reads "Pick a shadow that runs across the picture, square to the camera. One pointing towards or away from you looks too short and moves the fix by hundreds of km." From the same spot, take a second photo with the shadow pointing about 45° away from you. The side-on photo's fix lands within the stated radius; the foreshortened one reads a higher sun and lands hundreds of km off, outside it. (Measured on a pinhole model: 0 km off side-on, 1,574 km off at 45° against a 167 km radius.)
+- [ ] **Summer time in the offset:** under the offset well, "Include summer time: London in July is +01:00." In summer, a photo whose camera recorded no offset: type the winter offset (one hour short, +00:00 for London) and the fix moves about 1,000 km west; type the summer one (+01:00) and it comes back to where you stood. The demo fills 15:00 at +01:00.
+- [ ] **Two places:** with a low sun far from the equator (early morning or evening in summer at 60° N), the panel can read "Shadow fix: two possible places". Each place in the readout and body carries "± N km", and the body ends with the same assumptions as one place. When the two are less than twice the radius apart, it says "The two places are too close to tell apart; treat them as one region about N km across."
+- [ ] **Near noon in the tropics** (the shadow almost under the pole): with a bearing typed, the fix is the small circle of places, not a refusal, and the body says "The sun was almost overhead, so its direction adds nothing; the circle alone places the photo."
+- [ ] **A long evening shadow:** with the sun under 5°, the panel reads "The sun is too low for a reliable fix."
+- [ ] **Pin:** the board gains "Shadow fix map" linked to the photo, and the finding linked to the map. Its card reads a location to the precision the radius allows (`51.5° N, 0.1° W ± 248 km`: 1 dp from 10 km, 2 dp from 1 km, else 3 dp, and the radius in km from 1 km) for one place, the sun elevation to 1 dp (`54.0 ± 1.1° sun elevation`) otherwise. A photo's own EXIF position still reads to 5 dp.
+- [ ] **Phone:** the marks are big enough to drag with a finger, and the time wells wrap without overflowing.
+- [ ] **Phone rail keys:** at a 375 px-wide window, the five tool keys read **Vision / Photo / Fingerprint / Steganography / Shadow** (never "Lab" twice), the row scrolls sideways inside itself to reach them, and a screen reader still names each by its full name ("Fingerprint lab").
+- [ ] **A file that won't open:** give each image tool a file renamed to `.png` that isn't a picture. Each says so under "No photo" (the Fingerprint lab: "No print") with its lamp off, not amber, and offers **Choose another photo**.

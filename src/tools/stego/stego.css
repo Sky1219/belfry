@@ -1,0 +1,173 @@
+/* Steganography lab: the mode keys, the chi-square chart, the finding and the embed form, on the image kit's panel column */
+.sg-modes {
+  display: flex;
+  gap: 6px;
+}
+
+/* ten columns of value, bar and share read, with the two bands as hairlines across the bars */
+.sg-chart {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  container-type: inline-size;
+}
+.sg-key {
+  margin: 0;
+  line-height: 1.35;
+}
+.sg-plot {
+  position: relative;
+  /* the right gutter carries the guides' labels */
+  padding-right: 28px;
+}
+.sg-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 2px;
+}
+.sg-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+}
+.sg-value,
+.sg-k {
+  height: 13px;
+  font-size: 11px;
+  line-height: 13px;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--ink-dim);
+}
+/* at phone width ten values only just fit side by side: closed up to the tracking floor */
+@container (max-width: 340px) {
+  .sg-value,
+  .sg-k {
+    letter-spacing: -0.04em;
+  }
+}
+.sg-track {
+  position: relative;
+  display: block;
+  height: 96px;
+  background: var(--ink-faint);
+  /* the zero line, so a 0.00 bar still reads as a reading */
+  border-bottom: 1px solid var(--line-strong);
+}
+/* steel at rest; amber only when the verdict is a finding (The Two Lights Rule) */
+.sg-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--ink-dim);
+  border-radius: 1px 1px 0 0;
+}
+/* and then only on the bars that read embedded: past the payload's end they stay steel */
+.sg-bars.lit .sg-col.hot .sg-fill {
+  background: var(--amber);
+}
+/* the guides sit over the tracks only: below the value row, above the share row */
+.sg-guides {
+  position: absolute;
+  top: 16px;
+  left: 0;
+  right: 0;
+  height: 96px;
+  pointer-events: none;
+}
+.sg-guide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--line-strong);
+}
+.sg-guide .num {
+  position: absolute;
+  right: 0;
+  top: -7px;
+  font-size: 11px;
+  line-height: 13px;
+  color: var(--ink-dim);
+}
+
+.sg-finding {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* the finding's own title, as the board card will carry it */
+.sg-verdict {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.sg-verdict.lit {
+  color: var(--amber);
+}
+/* the message as it was written: a pane on the glass, in the writer's voice (The Three Voices Rule) */
+.sg-message {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--screen-raised);
+  border: 1px solid var(--amber-dim);
+  border-radius: var(--radius);
+}
+.sg-message-text {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 12em;
+  overflow-y: auto;
+}
+.sg-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+  overflow-wrap: anywhere;
+}
+/* a warning before the act (a lossy source) and a problem after it read alike */
+.sg-note,
+.sg-problem {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--amber);
+  overflow-wrap: anywhere;
+}
+
+.sg-input {
+  resize: vertical;
+  min-height: 84px;
+  line-height: 1.45;
+}
+/* bytes, not characters: UTF-8 is what the image carries */
+.sg-capacity {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.sg-capacity.over {
+  color: var(--signal);
+}
+
+.sg-working {
+  margin: 0;
+  animation: blink 1s steps(2) infinite;
+}

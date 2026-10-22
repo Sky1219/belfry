@@ -1,0 +1,161 @@
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { collectErrors, skipDemo } from "./helpers";
+
+const ONE_PIXEL_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
+
+async function openCaseBoard(page: Page, title: string) {
+  await skipDemo(page);
+  await page.goto("./");
+  await page.getByTestId("new-case-title").fill(title);
+  await page.getByTestId("create-case").click();
+  await expect(page.getByTestId("board")).toBeVisible();
+}
+
+/** The intrinsic size of the panel's map canvas, which is what gets pinned. */
+const canvasSize = (panel: Locator) =>
+  panel.locator("canvas").evaluate((c) => ({ w: (c as HTMLCanvasElement).width, h: (c as HTMLCanvasElement).height }));
+
+type Rect = { x: number; y: number; w: number; h: number };
+
+/** The mean brightness (average of R, G, B) of the panel's map canvas inside each rectangle. */
+const mapMeans = (panel: Locator, rects: Rect[]) =>
+  panel.locator("canvas").evaluate((c, rs: Rect[]) => {
+    const g = (c as HTMLCanvasElement).getContext("2d")!;
+    return rs.map((r) => {
+      const { data } = g.getImageData(r.x, r.y, r.w, r.h);
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 4) sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
+      return sum / (r.w * r.h);
+    });
+  }, rects);
+
+test("demo photo: every panel reads out, and pinned results link back to the photo", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = collectErrors(page);
+  await openCaseBoard(page, "Bell Tower Case");
+
+  // with no tool opened yet, one tool key is the next step, not every one (The Next Step Rule)
+  const toolKeys = page.getByRole("group", { name: "Tools" }).locator(".hud-btn");
+  // later tools add keys; whatever the count, exactly one is lit
+  await expect(toolKeys.nth(1)).toBeVisible();
+  expect(await toolKeys.count()).toBeGreaterThanOrEqual(2);
+  await expect(toolKeys.and(page.locator(".active"))).toHaveCount(1);
+
+  await page.getByTestId("open-tool-photo-forensics").click();
+  await expect(page.getByTestId("no-signal")).toBeVisible();
+  await page.getByTestId("run-demo").click();
+
+  await expect(page.getByTestId("panel-copy-move")).toContainText("consistent with cloned regions", { timeout: 20_000 });
+  await expect(page.getByTestId("panel-copy-move")).toContainText("(96, 40) px");
+  // each panel's result is a polite live region, so a screen reader hears the test finish
+  await expect(page.getByTestId("result-copy-move")).toHaveAttribute("aria-live", "polite");
+  await expect(page.getByTestId("result-copy-move")).toContainText("Copy-move: consistent with cloned regions");
+  const jpeg = page.getByTestId("panel-jpeg");
+  await expect(jpeg).toContainText(/about (74|75|76)/);
+  // the demo is saved at 50 then 75 on the same grid (Rulings R8, R14)
+  await expect(jpeg).toContainText("consistent with two JPEG saves");
+
+  // maps line up with the photo as decoded (Review Focus 2)
+  for (const id of ["ela", "noise"]) {
+    const panel = page.getByTestId(`panel-${id}`);
+    await expect(panel.locator("canvas")).toBeVisible();
+    expect(await canvasSize(panel)).toEqual({ w: 512, h: 384 });
+  }
+
+  // the pasted patch (20, 284, 72×72 in demo.ts) glows on the error level map against the wall beside it (Ruling R14)
+  const heat = await mapMeans(page.getByTestId("panel-ela"), [
+    { x: 20, y: 284, w: 72, h: 72 },
+    { x: 100, y: 284, w: 72, h: 72 },
+    { x: 20, y: 204, w: 72, h: 72 },
+  ]);
+  const [patch, right, above] = heat;
+  expect(patch, `patch ${patch}, right ${right}, above ${above}`).toBeGreaterThan(2 * right);
+  expect(patch, `patch ${patch}, right ${right}, above ${above}`).toBeGreaterThan(2 * above);
+
+  await page.getByTestId("pin-copy-move").click();
+  await expect(page.getByTestId("panel-copy-move")).toContainText("Pinned");
+  await page.getByTestId("pin-ela").click();
+  await expect(page.getByTestId("panel-ela")).toContainText("Pinned");
+  await page.getByTestId("tool-close").click();
+
+  // the demo photo, two maps and two findings, each derived from the one before
+  await expect(page.getByTestId("board")).toBeVisible();
+  await expect(page.locator(".react-flow__node")).toHaveCount(5);
+  await expect(page.locator(".react-flow__edge.link-derived-from")).toHaveCount(4);
+
+  expect(errors()).toEqual([]);
+});
+
+test("Back after the demo does not pin another demo photo", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = collectErrors(page);
+  await openCaseBoard(page, "Back Button Case");
+
+  await page.getByTestId("open-tool-photo-forensics").click();
+  await page.getByTestId("run-demo").click();
+  await expect(page).toHaveURL(/\/tool\/photo-forensics\/ev%3A/);
+  await expect(page.getByTestId("panel-copy-move")).toContainText("Copy-move:", { timeout: 20_000 });
+
+  // the demo hop replaced its history entry, so Back skips ".../demo" and never re-runs it
+  await page.goBack();
+  await expect(page).toHaveURL(/\/tool\/photo-forensics\/pick$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/case\/[^/]+$/);
+  await expect(page.getByTestId("board")).toBeVisible();
+  const cards = page.locator(".react-flow__node");
+  await expect(cards).toHaveCount(1);
+  await expect(cards.filter({ hasText: "Demo photo — bell tower" })).toHaveCount(1);
+
+  expect(errors()).toEqual([]);
+});
+
+test("a PNG says the JPEG tests don't apply and shows no NaN", async ({ page }) => {
+  const errors = collectErrors(page);
+  await openCaseBoard(page, "Screenshot Case");
+
+  await page.getByTestId("open-tool-photo-forensics").click();
+  await expect(page.getByTestId("no-signal")).toBeVisible();
+  await page.getByTestId("no-signal-file-input").setInputFiles({
+    name: "pixel.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(ONE_PIXEL_PNG, "base64"),
+  });
+
+  await expect(page.getByTestId("panel-jpeg")).toContainText("Not a JPEG: quantization tests don't apply.", { timeout: 20_000 });
+  await expect(page.getByTestId("panel-copy-move")).toContainText("inconclusive", { timeout: 20_000 });
+  // every panel has finished before the page is read
+  for (const id of ["metadata", "ela", "noise"]) {
+    await expect(page.getByTestId(`panel-${id}`)).toBeVisible();
+    await expect(page.getByTestId(`panel-${id}`)).not.toContainText("Working", { timeout: 20_000 });
+  }
+  expect(await page.locator("body").innerText()).not.toContain("NaN");
+
+  expect(errors()).toEqual([]);
+});
+
+test("a file that isn't a picture: each image tool says so with its lamp off, not amber (Ruling P4-R13)", async ({ page }) => {
+  test.setTimeout(120_000);
+  await openCaseBoard(page, "Broken File Case");
+
+  // amber means a finding to look at; a file that won't decode is not one (Two Lights)
+  for (const [tool, panel] of [
+    ["photo-forensics", "panel-photo"],
+    ["fingerprint-lab", "panel-print"],
+    ["stego-lab", "panel-photo"],
+    ["shadow-geolocation", "panel-photo"],
+  ] as const) {
+    await page.getByTestId(`open-tool-${tool}`).click();
+    await expect(page.getByTestId("no-signal")).toBeVisible();
+    await page.getByTestId("no-signal-file-input").setInputFiles({
+      name: "broken.png",
+      mimeType: "image/png",
+      buffer: Buffer.from("this is not a PNG at all"),
+    });
+    await expect(page.getByTestId(panel).getByRole("alert")).toBeVisible({ timeout: 20_000 });
+    const lamp = page.getByTestId(panel).locator(".bezel-head .lamp");
+    await expect(lamp, tool).toHaveClass(/\blamp\b/);
+    await expect(lamp, tool).not.toHaveClass(/\b(amber|on|ok)\b/);
+    await page.getByTestId("tool-close").click();
+    await expect(page.getByTestId("board")).toBeVisible();
+  }
+});

@@ -3,6 +3,7 @@ import type { Settings } from "../app/settings";
 import type { LlmClient } from "../platform/llm";
 import type { Evidence } from "../store/schema";
 import type { EvidenceStore } from "../store/store";
+import type { IconName } from "../ui/icons";
 
 /** What a tool can be pointed at. */
 export type EvidenceInput = "live-camera" | "image" | "video" | "audio";
@@ -15,13 +16,19 @@ export type ToolInput = { kind: "live-camera" } | { kind: "demo" } | { kind: "ev
 
 export interface ToolContext {
   caseId: string;
+  /** The running tool's manifest id, for provenance on what it pins. */
+  toolId: string;
   input: ToolInput;
   store: EvidenceStore;
   llm: LlmClient;
   settings: Settings;
   updateSettings(next: Settings): void;
-  /** Reopens this tool on another input (a route input: "live-camera", "demo", "pick" or "ev:<id>"). */
-  openInput(input: string): void;
+  /**
+   * Reopens this tool on another input (a route input: "live-camera", "demo", "pick" or "ev:<id>").
+   * `replace` swaps the current history entry, for a hop the visitor didn't ask for (the demo
+   * reopening on its pinned exhibit), so Back doesn't land on it and run it again.
+   */
+  openInput(input: string, opts?: { replace?: boolean }): void;
   close(): void;
 }
 
@@ -35,8 +42,16 @@ export type ToolComponent = ComponentType<{ ctx: ToolContext }>;
 export interface ToolManifest {
   id: string;
   name: string;
+  /**
+   * One word for the phone rail's key, which has no room for the name: a word of the name itself
+   * ("Fingerprint" for "Fingerprint lab"), so the key's visible text stays in its accessible name.
+   * The name's last word when omitted.
+   */
+  shortName?: string;
   /** One-line description shown in menus. */
   blurb?: string;
+  /** The tool's glyph on the board's buttons; "vision" when omitted. */
+  icon?: IconName;
   accepts: EvidenceInput[];
   /** The tool's synthetic input, run when the input is `{ kind: "demo" }`. Required: every tool works for a visitor with nothing to point it at. */
   demo: { label: string };

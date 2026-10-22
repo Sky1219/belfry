@@ -1,0 +1,172 @@
+/* Image kit: the frame shared by the photo tools (title plate, source screen, test panels) */
+.ik-root {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px 16px;
+  background: var(--void);
+  overflow: hidden;
+}
+
+/* title plate and the key back to the board */
+.ik-top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ik-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 12px;
+  border-top: 1px solid #000;
+  background:
+    radial-gradient(120px 40px at 14px 50%, var(--spill-red), transparent 75%),
+    linear-gradient(180deg, rgba(33, 34, 37, 0.94), rgba(14, 15, 17, 0.94));
+  box-shadow: var(--bezel-edge), var(--shadow-bezel);
+}
+.ik-name {
+  font-family: var(--font-ui);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ik-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  gap: 12px;
+}
+.ik-source {
+  min-height: 0;
+}
+
+/* the photo, scaled to fit its screen; the overlay sits exactly over it */
+.ik-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.ik-photo {
+  position: relative;
+}
+.ik-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.ik-overlay {
+  pointer-events: none;
+}
+.ik-blank {
+  margin: 0;
+  font-family: var(--font-ui);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* the tests, one screen each */
+.ik-panels {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-bottom: 2px;
+}
+.ik-panel {
+  flex: none;
+}
+.ik-pin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ik-problem {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+  color: var(--amber);
+}
+.ik-note {
+  margin: 0;
+}
+
+/* exhibit picker */
+.ik-pick-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.ik-pick-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 4px 4px;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  background: var(--metal-800);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.ik-pick-row:hover,
+.ik-pick-row:focus-visible {
+  border-color: var(--line-strong);
+  background: var(--metal-700);
+}
+.ik-pick-row img,
+.ik-pick-blank {
+  flex: none;
+  width: 44px;
+  height: 36px;
+  object-fit: cover;
+  background: var(--screen);
+}
+.ik-pick-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 860px) {
+  .ik-root {
+    padding: 8px 12px 12px;
+    overflow-y: auto;
+  }
+  .ik-body {
+    flex: none;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ik-source {
+    height: 42vh;
+  }
+  .ik-panels {
+    overflow: visible;
+  }
+}

@@ -812,7 +812,8 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-/* a finding's measured value, place or decode: an amber readout, mono so digits line up */
+/* a finding's measured value, place or decode: an amber readout, mono so digits line up;
+   a long decoded message is clamped so it can't take over the card (the full text stays in the image) */
 .card-readout {
   margin: 0;
   font-family: var(--font-data);
@@ -820,6 +821,10 @@
   font-weight: 600;
   color: var(--amber);
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .evidence-card.compact .card-readout {
   font-size: 20px;
@@ -1376,8 +1381,11 @@
     transition: transform 0.3s var(--ease-out);
   }
 }
-@media (max-width: 960px) {
-  .board-toolbar .btn-text {
+/* five tools no longer fit the rail beside the case name with their names: below 1680px the tool keys
+   go icon-only (named for screen readers and on hover), and the Tools screen lists them by name; the lit
+   next step keeps its name. Phones have their own short words (below). */
+@media (min-width: 721px) and (max-width: 1680px) {
+  .board-toolbar [aria-label="Tools"] .hud-btn:not(.active) .btn-text {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1385,7 +1393,22 @@
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  .board-toolbar .hud-btn.with-icon {
+  .board-toolbar [aria-label="Tools"] .hud-btn.with-icon:not(.active) {
+    padding: 5px;
+    min-width: 32px;
+  }
+}
+/* the lit next step keeps its name here too (Ruling P4-R7); phones swap names for short words below */
+@media (max-width: 960px) {
+  .board-toolbar .hud-btn:not(.active) .btn-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .board-toolbar .hud-btn.with-icon:not(.active) {
     padding: 5px;
     min-width: 32px;
   }
@@ -1441,8 +1464,15 @@
       "actions actions case";
     row-gap: 8px;
   }
+  /* the keys' short words outgrow a phone's width: the row scrolls sideways instead of widening the page */
   .toolbar-actions {
     gap: 6px;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* room inside the scroller for the focus haze */
+    padding: 5px 4px;
+    margin: -5px -4px;
   }
   .toolbar-actions .tool-group,
   .board-toolbar > .case-tools {

@@ -93,6 +93,32 @@ describe(".belfry export/import", () => {
     expect(await s.listEvidence(c.id)).toHaveLength(3);
   });
 
+  test("import as copy remaps the fingerprint pairing and prints in meta, dropping ids not in the file", async () => {
+    const s = await fresh();
+    const c = await s.createCase("Prints Case");
+    const other = await s.createCase("Other Case");
+    const outside = await s.addEvidence({ caseId: other.id, type: "image", title: "Elsewhere", provenance: { createdAt: 1 } });
+    const b = await s.addEvidence({ caseId: c.id, type: "image", title: "Print B", provenance: { createdAt: 1 } });
+    const a = await s.addEvidence({
+      caseId: c.id, type: "image", title: "Print A", provenance: { createdAt: 2 }, meta: { pairWith: b.id },
+    });
+    const f = await s.addEvidence({
+      caseId: c.id, type: "finding", title: "Fingerprint match", provenance: { createdAt: 3 },
+      meta: { prints: [a.id, b.id, outside.id] },
+    });
+    const lonely = await s.addEvidence({
+      caseId: c.id, type: "image", title: "Lonely", provenance: { createdAt: 4 }, meta: { pairWith: outside.id },
+    });
+    void f;
+    void lonely;
+    const copy = await importCase(s, await exportCase(s, c.id), "copy");
+    const ev = await s.listEvidence(copy.id);
+    const byTitle = (t: string) => ev.find((e) => e.title === t)!;
+    expect(byTitle("Print A").meta.pairWith).toBe(byTitle("Print B").id);
+    expect(byTitle("Fingerprint match").meta.prints).toEqual([byTitle("Print A").id, byTitle("Print B").id]);
+    expect("pairWith" in byTitle("Lonely").meta).toBe(false);
+  });
+
   test("rejects wrong formatVersion with reason bad-version and writes nothing", async () => {
     const a = await fresh();
     const { c } = await seed(a);

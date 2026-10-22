@@ -94,23 +94,27 @@ Each sub-project below is a scaffold for its spec:
 
 ### Sub-project 2: Image forensics
 
-- **Photo forensics**
+- [x] **Photo forensics** (shipped: `src/tools/photo`, with a seeded demo photo; real photos are on the manual checklist)
   - **Core:** error level analysis; JPEG quantization-table and double-compression checks; EXIF/XMP read-out; noise-residual maps; copy-move detection (block matching or keypoints).
   - **Board loop:** image evidence in; a heat-map image and a finding back, linked derived-from.
-- **Fingerprint lab**
+- [x] **Fingerprint lab** (shipped: `src/tools/fingerprint`, with a seeded demo pair; real prints are on the manual checklist)
   - **Core:** ridge enhancement (Gabor bank), orientation field, minutiae extraction (crossing number), minutiae matching.
   - **Board loop:** two fingerprint photos in; a match score with an overlay out.
-- **Steganography lab**
+- [x] **Steganography lab** (shipped: `src/tools/stego`, with a seeded demo image carrying a message; real photos and the JPEG re-save are on the manual checklist)
   - **Core:** LSB embed/extract, plus chi-square and RS steganalysis to detect hidden payloads.
-  - **Board loop:** an image in; the extracted payload, or a "likely clean" verdict with its statistic, out.
-- **Shadow geolocation**
-  - **Core:** solar position (NOAA/SPA algorithm), so shadow azimuth and length plus a date and time constrain latitude and longitude.
-  - **Board loop:** a photo plus user-marked shadow lines in; a location curve out (later plotted on the patrol map).
+  - **Board loop:** an image in; the extracted payload as a decode, or the verdict with the RS estimate, out. Embed pins a PNG derived from the source (checked to read back before it's pinned), which reads back in the lab and downloads with **Download PNG**.
+  - **RS false positives (measured, fixed in the verdict rule):** on 46 real wallpaper JPEGs, RS alone read 5 clean 320 px PNG downscales and 2 at 480 px as "consistent" (p̂ 0.095–0.122), and 800 × 600 pages of black text read 0.12–0.13 as PNG and 0.25–0.26 as JPEG. RS now skips groups with a value ≤ 1 or ≥ 254, and on its own can only lift a reading to "inconclusive", with the line "Text, screenshots, flat graphics and small images can read this high with no hidden message." Only the chi-square p at 100% reads "consistent". After the fix no clean photo, re-save or downscale reads "consistent", but 3 of 230 clean readings (p̂ up to 0.064) and the anti-aliased text page (0.11 as PNG, 0.33 as JPEG) still read "inconclusive".
+  - **Still to do:** a partial sequential payload that chi-square misses at 100% (random bits in the first half, say) now reads "inconclusive", not "consistent": in the real set all 46 of the 50% embeds read inconclusive, and 1 of 46 full embeds too (chi-square p 0.23 at 100%). Reading the chi-square p at the first 10% would catch 37 of the 50% embeds, but it read two clean inputs as embedded (a 320 px downscale at p 0.99, a black-to-white gradient at 1.00), so it isn't used. A better partial-payload test (for example, a sliding-window chi-square with a cleaner null) would bring it back. The RS estimate also reads low for sequential embedding (real photos at 50% read 0.29–0.55), so it shows no ± figure.
+  - **Still to do:** embed holds several full copies of the image at once (the source, the stego copy, the canvas for the PNG encode and the read-back check; 160 MB each at 40 MP); tile or stream them before raising the limit.
+- [x] **Shadow geolocation** (shipped: `src/tools/shadow`, with a seeded demo lamp post at 51.50° N, 0.12° W; a real photo of a lamp post is on the manual checklist)
+  - **Core:** solar position (NOAA algorithm with refraction), so shadow azimuth and length plus a date and time constrain latitude and longitude.
+  - **Board loop:** a photo plus three marks (base, top, shadow tip), the time and an optional bearing in; the sun's height, its circle of places on a graticule, and with a bearing one place (± a propagated radius) or two candidate places, out as a map and a finding.
+  - **Still to do:** plot the circle on the patrol map once it exists; the latitude listing and the graticule have no basemap, so a visitor reads the place from the numbers.
 - **Spec questions:**
   - Which formats to support (HEIC?).
   - How to state uncertainty honestly in findings.
   - Privacy wording for fingerprints (own prints only).
-- **Done:** each tool has a demo input, its maths is unit-tested against known fixtures, and every result lands on the board with provenance.
+- [x] **Done:** each tool has a demo input, its maths is unit-tested against known fixtures, and every result lands on the board with provenance. All four tools shipped on `feat/image-forensics`.
 
 ### Sub-project 3: Audio
 

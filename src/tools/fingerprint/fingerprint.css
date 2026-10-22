@@ -1,0 +1,93 @@
+/* Fingerprint lab: the notice, print B and the match, on the image kit's panel column */
+.fp-notice {
+  gap: 12px;
+}
+.fp-notice-text {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+/* the second print, as a row: thumbnail, title, the key to change it */
+.fp-print-b {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.fp-print-b img,
+.fp-print-blank {
+  flex: none;
+  width: 44px;
+  height: 54px;
+  object-fit: cover;
+  background: var(--screen);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  /* imagery rests in grayscale (The Lit Feed Rule) */
+  filter: grayscale(1);
+}
+.fp-print-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* the side-by-side comparison, fitted to the column at its own aspect ratio */
+.fp-compare {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.fp-finding {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* the finding's own title, as the board card will carry it */
+.fp-verdict {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+/* a "consistent with" verdict is a finding: amber (The Two Lights Rule) */
+.fp-verdict.lit {
+  color: var(--amber);
+}
+.fp-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+  overflow-wrap: anywhere;
+}
+
+.fp-working {
+  margin: 0;
+  animation: blink 1s steps(2) infinite;
+}
+.fp-key {
+  margin: 0;
+}
+.fp-problem {
+  margin: 0;
+  font-size: 13px;
+  color: var(--amber);
+}
+
+/* wraps the Print B panel so its controls can be found for focus; adds no box */
+.fp-panel-wrap {
+  display: contents;
+}

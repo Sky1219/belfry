@@ -1,0 +1,57 @@
+/* Photo forensics: what each test panel shows on its glass */
+.pf-finding {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pf-finding + .pf-finding {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+/* the finding's own title, as the board card will carry it */
+.pf-verdict {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+/* a "consistent with" verdict is a finding: amber (The Two Lights Rule) */
+.pf-verdict.lit {
+  color: var(--amber);
+}
+.pf-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* a map on the glass, fitted to the column at its own aspect ratio */
+.pf-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.pf-working {
+  margin: 0;
+  animation: blink 1s steps(2) infinite;
+}
+.pf-key {
+  margin: 0;
+  color: var(--amber);
+}
+.pf-problem {
+  margin: 0;
+  font-size: 13px;
+  color: var(--amber);
+}

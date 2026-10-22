@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Route } from "../app/router";
+import type { Navigate } from "../app/router";
 import { useSettings } from "../app/settings";
 import { useStore } from "../app/storeContext";
 import { LlmClient } from "../platform/llm";
@@ -17,7 +17,7 @@ type State =
   | { phase: "ready"; Component: ToolComponent; input: ToolInput };
 
 /** Full-screen layer over the board that lazily loads and runs one tool. */
-export function ToolHost(props: { caseId: string; toolId: string; input: string; navigate: (r: Route) => void }) {
+export function ToolHost(props: { caseId: string; toolId: string; input: string; navigate: Navigate }) {
   const store = useStore();
   const { settings, update } = useSettings();
   const [state, setState] = useState<State>({ phase: "loading" });
@@ -29,7 +29,8 @@ export function ToolHost(props: { caseId: string; toolId: string; input: string;
   const llm = useMemo(() => new LlmClient(() => settingsRef.current.apiKey), []);
 
   const close = () => props.navigate({ name: "board", caseId: props.caseId });
-  const openInput = (input: string) => props.navigate({ name: "tool", caseId: props.caseId, toolId: props.toolId, input });
+  const openInput = (input: string, opts?: { replace?: boolean }) =>
+    props.navigate({ name: "tool", caseId: props.caseId, toolId: props.toolId, input }, opts);
   useEffect(markToolUsed, []);
 
   useEffect(() => {
@@ -62,7 +63,7 @@ export function ToolHost(props: { caseId: string; toolId: string; input: string;
 
   const ctx: ToolContext | null =
     state.phase === "ready"
-      ? { caseId: props.caseId, input: state.input, store, llm, settings, updateSettings: update, openInput, close }
+      ? { caseId: props.caseId, toolId: props.toolId, input: state.input, store, llm, settings, updateSettings: update, openInput, close }
       : null;
 
   return (
